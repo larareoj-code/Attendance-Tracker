@@ -1894,6 +1894,9 @@ body.no-transitions * { transition: none !important; }
         <div>
           <label for="searchInput">Search</label>
           <input id="searchInput" type="search" placeholder="Name, code, or reason">
+          <label style="display:inline-flex;align-items:center;gap:4px;font-size:12px;color:var(--muted);cursor:pointer;white-space:nowrap;margin-top:4px" title="Also search note text">
+            <input type="checkbox" id="searchNotes" style="cursor:pointer"> Include notes
+          </label>
         </div>
         <div>
           <label for="nameFilter">Name</label>
@@ -4621,8 +4624,12 @@ body.no-transitions * { transition: none !important; }
       function filteredRows() {
         var filters = getFilterState();
 
+        var searchNotesEl = document.getElementById('searchNotes');
+        var includeNotes = searchNotesEl && searchNotesEl.checked;
         var result = rows.filter(function (row) {
-          var matchesSearch = !filters.search || [row.name, row.code, row.reason, statusLabel(row.type), followUpLabel(row.flags, row.followUpMonth)].some(function (value) {
+          var searchFields = [row.name, row.code, row.reason, statusLabel(row.type), followUpLabel(row.flags, row.followUpMonth)];
+          if (includeNotes && row.note) searchFields.push(row.note);
+          var matchesSearch = !filters.search || searchFields.some(function (value) {
             return norm(value).indexOf(filters.search) !== -1;
           });
           var matchesName = !filters.name || row.name === filters.name;
@@ -5088,6 +5095,7 @@ body.no-transitions * { transition: none !important; }
         var visibleRows = sortRows(filteredRows());
         renderSortIndicators();
         var nameSearchVal = els.searchInput ? els.searchInput.value.trim() : '';
+        var searchNotesActive = document.getElementById('searchNotes') && document.getElementById('searchNotes').checked;
 
         els.recordsBody.innerHTML = visibleRows.map(function (row) {
           var pts = Number(row.points) || 0;
@@ -5135,7 +5143,12 @@ body.no-transitions * { transition: none !important; }
                 '<button class="small danger" type="button" data-action="delete" data-id="' + actionMenuId + '">Delete</button>' +
               '</div>' +
             '</div>' +
-            '<button type="button" class="note-toggle-btn secondary small" data-row-id="' + row.id + '" title="' + (row.note ? 'Edit note' : 'Add note') + '" style="margin-top:4px;padding:3px 7px;font-size:11px">' + (row.note ? '📝' : '+ Note') + '</button>' +
+            (function() {
+              var noteMatches = searchNotesActive && nameSearchVal && row.note && norm(row.note).indexOf(norm(nameSearchVal)) !== -1;
+              var noteLabel = row.note ? '📝' : '+ Note';
+              if (noteMatches) noteLabel = '📝 <mark style="background:rgba(245,200,75,0.35);color:inherit;border-radius:2px;padding:0 1px;font-size:10px">match</mark>';
+              return '<button type="button" class="note-toggle-btn secondary small" data-row-id="' + row.id + '" title="' + (row.note ? 'Edit note' : 'Add note') + '" style="margin-top:4px;padding:3px 7px;font-size:11px">' + noteLabel + '</button>';
+            }()) +
             '</td>' +
             '<td>' + escapeHtml(row.sourceFile) + '</td>' +
           '</tr>' +
@@ -8581,6 +8594,8 @@ body.no-transitions * { transition: none !important; }
         setInterval(updateBackupNudge, 5 * 60 * 1000);
       }());
       els.searchInput.addEventListener('input', render);
+      var searchNotesChk = document.getElementById('searchNotes');
+      if (searchNotesChk) searchNotesChk.addEventListener('change', render);
       els.nameFilter.addEventListener('change', render);
       els.codeFilter.addEventListener('change', render);
       els.typeFilter.addEventListener('change', render);
@@ -9418,7 +9433,15 @@ body.no-transitions * { transition: none !important; }
         if (!el) return;
         if (!recordTemplates.length) { el.innerHTML = '<span style="font-size:12px;color:var(--muted)">None saved</span>'; return; }
         el.innerHTML = recordTemplates.map(function(t, i) {
-          return '<span style="display:inline-flex;align-items:center;gap:4px;background:var(--card);border:1px solid var(--border);border-radius:14px;padding:3px 10px;font-size:12px;cursor:pointer" data-tpl-idx="' + i + '">' +
+          var tipParts = [];
+          if (t.code) tipParts.push('Code: ' + t.code);
+          if (t.type) tipParts.push('Type: ' + t.type);
+          if (t.points != null && t.points !== '' && !isNaN(t.points)) tipParts.push('Pts: ' + t.points);
+          if (t.reason) tipParts.push('Reason: ' + t.reason);
+          if (t.startTime) tipParts.push('Start: ' + t.startTime);
+          if (t.endTime) tipParts.push('End: ' + t.endTime);
+          var tip = tipParts.join(' · ');
+          return '<span style="display:inline-flex;align-items:center;gap:4px;background:var(--card);border:1px solid var(--border);border-radius:14px;padding:3px 10px;font-size:12px;cursor:pointer" data-tpl-idx="' + i + '" title="' + escapeHtml(tip) + '">' +
             '<span class="apply-tpl">' + escapeHtml(t.label || t.code) + '</span>' +
             '<span data-del-tpl="' + i + '" style="color:var(--muted);font-size:14px;line-height:1;padding-left:2px">×</span>' +
             '</span>';
@@ -9431,6 +9454,8 @@ body.no-transitions * { transition: none !important; }
             if (els.manualPoints) { els.manualPoints.value = t.points != null ? t.points : ''; els.manualPoints.removeAttribute('data-manually-set'); }
             if (els.manualStatusSelect) els.manualStatusSelect.value = t.type || 'past';
             if (els.manualReason) els.manualReason.value = t.reason || '';
+            if (els.manualStartTime) els.manualStartTime.value = t.startTime || '';
+            if (els.manualEndTime) els.manualEndTime.value = t.endTime || '';
             showToast('Template applied: ' + (t.label || t.code));
           });
           var delBtn = chip.querySelector('[data-del-tpl]');
@@ -9543,7 +9568,9 @@ body.no-transitions * { transition: none !important; }
             code: code,
             points: isNaN(pts) ? 0 : pts,
             type: els.manualStatusSelect ? els.manualStatusSelect.value : 'past',
-            reason: els.manualReason ? els.manualReason.value.trim() : ''
+            reason: els.manualReason ? els.manualReason.value.trim() : '',
+            startTime: els.manualStartTime ? els.manualStartTime.value : '',
+            endTime: els.manualEndTime ? els.manualEndTime.value : ''
           });
           if (recordTemplates.length > 20) recordTemplates.shift();
           saveTemplates();
