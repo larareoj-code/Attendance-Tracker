@@ -2020,6 +2020,13 @@ body.no-transitions * { transition: none !important; }
       </div>
     </div>
 
+    <div class="dash-section dash-full">
+      <div id="atRiskSection" style="margin-bottom:24px">
+        <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--muted);margin-bottom:10px">🚨 At Risk</div>
+        <div id="atRiskList"></div>
+      </div>
+    </div>
+
     <div class="dash-section dash-full" id="dashHeatmapSection">
       <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--muted);margin-bottom:10px">Incident Heatmap — Last 12 Months</div>
       <div id="dashHeatmap"></div>
@@ -5677,6 +5684,41 @@ body.no-transitions * { transition: none !important; }
           }
         }
 
+        var alertBanner = document.getElementById('empProfileAlertBanner');
+        if (alertBanner) {
+          var alert = getEmpThresholdAlert(name);
+          var pts = getEmpCurrentPoints(name);
+          var high = appSettings.severityHigh !== undefined ? appSettings.severityHigh : 6;
+          var mid = appSettings.severityMid !== undefined ? appSettings.severityMid : 2;
+          if (alert === 'at-high') {
+            alertBanner.style.display = 'block';
+            alertBanner.style.background = 'rgba(239,68,68,0.12)';
+            alertBanner.style.color = 'var(--danger)';
+            alertBanner.style.border = '1px solid rgba(239,68,68,0.3)';
+            alertBanner.innerHTML = '🚨 High severity — ' + pts.toFixed(pts % 1 === 0 ? 0 : 1) + ' pts (threshold: ' + high + ')';
+          } else if (alert === 'approaching-high') {
+            alertBanner.style.display = 'block';
+            alertBanner.style.background = 'rgba(245,158,11,0.12)';
+            alertBanner.style.color = '#b45309';
+            alertBanner.style.border = '1px solid rgba(245,158,11,0.3)';
+            alertBanner.innerHTML = '⚠️ Approaching high severity — ' + pts.toFixed(pts % 1 === 0 ? 0 : 1) + ' pts (' + (high - pts).toFixed((high - pts) % 1 === 0 ? 0 : 1) + ' pts from threshold of ' + high + ')';
+          } else if (alert === 'at-mid') {
+            alertBanner.style.display = 'block';
+            alertBanner.style.background = 'rgba(245,158,11,0.08)';
+            alertBanner.style.color = '#92400e';
+            alertBanner.style.border = '1px solid rgba(245,158,11,0.2)';
+            alertBanner.innerHTML = '⚠️ Mid severity — ' + pts.toFixed(pts % 1 === 0 ? 0 : 1) + ' pts (threshold: ' + mid + ')';
+          } else if (alert === 'approaching-mid') {
+            alertBanner.style.display = 'block';
+            alertBanner.style.background = 'rgba(59,130,246,0.08)';
+            alertBanner.style.color = 'var(--blue)';
+            alertBanner.style.border = '1px solid rgba(59,130,246,0.2)';
+            alertBanner.innerHTML = '📋 Nearing mid severity — ' + pts.toFixed(pts % 1 === 0 ? 0 : 1) + ' pts (' + (mid - pts).toFixed((mid - pts) % 1 === 0 ? 0 : 1) + ' pts from threshold of ' + mid + ')';
+          } else {
+            alertBanner.style.display = 'none';
+          }
+        }
+
         var empModal = document.getElementById('empProfileModal');
         empModal.classList.remove('hidden');
         trapFocus(empModal);
@@ -5770,6 +5812,21 @@ body.no-transitions * { transition: none !important; }
         });
       }
 
+      function empRiskBadge(empName) {
+        var alert = getEmpThresholdAlert(empName);
+        if (!alert) return '';
+        if (alert === 'at-high') return '<span style="display:inline-block;background:var(--danger);color:#fff;border-radius:99px;font-size:10px;font-weight:700;padding:1px 7px;margin-left:6px;vertical-align:middle">HIGH</span>';
+        if (alert === 'approaching-high') return '<span style="display:inline-block;background:#f59e0b;color:#fff;border-radius:99px;font-size:10px;font-weight:700;padding:1px 7px;margin-left:6px;vertical-align:middle">⚠ RISK</span>';
+        if (alert === 'at-mid') return '<span style="display:inline-block;background:#f59e0b;color:#fff;border-radius:99px;font-size:10px;font-weight:700;padding:1px 7px;margin-left:6px;vertical-align:middle">MID</span>';
+        return '';  // approaching-mid — no badge, too noisy
+      }
+
+      function empPtsSummary(empName) {
+        var pts = getEmpCurrentPoints(empName);
+        if (pts === 0) return '';
+        return '<span style="font-size:11px;color:var(--muted);margin-left:4px">' + (pts % 1 === 0 ? pts : pts.toFixed(1)) + ' pts</span>';
+      }
+
       function renderEmployees() {
         var empBody = document.getElementById('employeesBody');
         var empEmpty = document.getElementById('employeesEmpty');
@@ -5818,7 +5875,7 @@ body.no-transitions * { transition: none !important; }
           }
           return '<tr>' +
             '<td><code class="editable-cell" data-emp-field="id" data-emp-id="' + escapeHtml(emp.id) + '" title="Click to edit ID">' + escapeHtml(emp.id || '—') + '</code></td>' +
-            '<td style="display:flex;align-items:center;gap:8px">' + avatar + '<span class="emp-name-link editable-cell" data-emp-field="name" data-emp-id="' + escapeHtml(emp.id) + '" title="Click to edit name" style="font-weight:650;cursor:pointer;text-decoration:underline;text-decoration-style:dotted;text-underline-offset:2px">' + escapeHtml(emp.name) + '</span></td>' +
+            '<td style="display:flex;align-items:center;gap:8px">' + avatar + '<span class="emp-name-link editable-cell" data-emp-field="name" data-emp-id="' + escapeHtml(emp.id) + '" title="Click to edit name" style="font-weight:650;cursor:pointer;text-decoration:underline;text-decoration-style:dotted;text-underline-offset:2px">' + escapeHtml(emp.name) + '</span>' + empRiskBadge(emp.name) + empPtsSummary(emp.name) + '</td>' +
             '<td><span class="editable-cell" data-emp-field="department" data-emp-id="' + escapeHtml(emp.id) + '" title="Click to edit">' + escapeHtml(emp.department || '—') + '</span></td>' +
             '<td><span class="editable-cell" data-emp-field="role" data-emp-id="' + escapeHtml(emp.id) + '" title="Click to edit">' + escapeHtml(emp.role || '—') + '</span></td>' +
             '<td><span class="badge ' + tone + '">' + escapeHtml(emp.status) + '</span></td>' +
@@ -6229,6 +6286,39 @@ body.no-transitions * { transition: none !important; }
           '</div>';
       }
 
+      function renderAtRiskSection() {
+        var el = document.getElementById('atRiskList');
+        if (!el) return;
+        var high = appSettings.severityHigh !== undefined ? appSettings.severityHigh : 6;
+
+        var atRisk = employees
+          .filter(function(e) { return e.status !== 'Inactive'; })
+          .map(function(e) {
+            return { name: e.name, pts: getEmpCurrentPoints(e.name), alert: getEmpThresholdAlert(e.name) };
+          })
+          .filter(function(e) { return e.alert === 'at-high' || e.alert === 'approaching-high'; })
+          .sort(function(a, b) { return b.pts - a.pts; });
+
+        if (!atRisk.length) {
+          el.innerHTML = '<div style="font-size:13px;color:var(--muted);padding:6px 0">No employees currently at risk.</div>';
+          return;
+        }
+
+        el.innerHTML = atRisk.map(function(e) {
+          var isHigh = e.alert === 'at-high';
+          return '<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 10px;margin-bottom:6px;border-radius:var(--radius);background:' +
+            (isHigh ? 'rgba(239,68,68,0.08)' : 'rgba(245,158,11,0.08)') + ';border:1px solid ' +
+            (isHigh ? 'rgba(239,68,68,0.25)' : 'rgba(245,158,11,0.25)') + ';cursor:pointer" ' +
+            'onclick="openEmpProfile(' + JSON.stringify(e.name) + ')">' +
+            '<span style="font-weight:700;font-size:13px">' + escapeHtml(e.name) + '</span>' +
+            '<span style="font-size:12px;font-weight:700;color:' + (isHigh ? 'var(--danger)' : '#b45309') + '">' +
+              e.pts.toFixed(e.pts % 1 === 0 ? 0 : 1) + ' pts' +
+              (isHigh ? '' : ' (' + (high - e.pts).toFixed((high - e.pts) % 1 === 0 ? 0 : 1) + ' from HIGH)') +
+            '</span>' +
+            '</div>';
+        }).join('');
+      }
+
       function renderClusterAlerts() {
         var el = document.getElementById('clusterList');
         var badge = document.getElementById('clusterBadge');
@@ -6256,6 +6346,26 @@ body.no-transitions * { transition: none !important; }
         var ncnsCount = empRows.filter(function(r) { return (r.code || '').toUpperCase() === 'NCNS'; }).length;
         var score = Math.max(0, Math.round(100 - totalPoints * 8 - ncnsCount * 10));
         return score;
+      }
+
+      function getEmpCurrentPoints(empName) {
+        // Points from all records (unfiltered — threshold alerts are absolute, not date-filtered)
+        return rows.reduce(function(sum, r) {
+          return norm(r.name) === norm(empName) ? sum + (r.points || 0) : sum;
+        }, 0);
+      }
+
+      function getEmpThresholdAlert(empName) {
+        // Returns null (no alert), 'approaching-high' (within 2 pts of severityHigh),
+        // 'approaching-mid' (within 1 pt of severityMid), 'at-high', 'at-mid'
+        var pts = getEmpCurrentPoints(empName);
+        var high = appSettings.severityHigh !== undefined ? appSettings.severityHigh : 6;
+        var mid = appSettings.severityMid !== undefined ? appSettings.severityMid : 2;
+        if (pts >= high) return 'at-high';
+        if (pts >= mid) return 'at-mid';
+        if (pts >= high - 2 && pts < high) return 'approaching-high';
+        if (pts >= mid - 1 && pts < mid) return 'approaching-mid';
+        return null;
       }
 
       function scoreColor(s) {
@@ -6484,6 +6594,9 @@ body.no-transitions * { transition: none !important; }
         var clusterSection = document.getElementById('clusterSection');
         if (clusterSection) clusterSection.classList.toggle('hidden', appSettings.showDashClusters === false);
         if (appSettings.showDashClusters !== false) renderClusterAlerts();
+
+        // At-risk employees
+        renderAtRiskSection();
 
         _renderCalendar();
 
@@ -10313,6 +10426,7 @@ body.no-transitions * { transition: none !important; }
       </div>
       <button type="button" id="closeEmpProfileBtn" style="background:none;border:none;color:var(--muted);font-size:24px;cursor:pointer;padding:0 4px;line-height:1">×</button>
     </div>
+    <div id="empProfileAlertBanner" style="display:none;padding:10px 14px;border-radius:var(--radius);margin-bottom:14px;font-size:13px;font-weight:600"></div>
     <div id="empProfileStats" style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:20px"></div>
     <div id="empProfileStatusRow" style="display:flex;gap:10px;align-items:center;margin-bottom:20px;flex-wrap:wrap"></div>
     <div style="margin-bottom:16px">
