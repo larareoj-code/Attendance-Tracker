@@ -1281,6 +1281,26 @@
   color: var(--muted);
   margin-bottom: 14px;
 }
+.dash-range-btn {
+  font-size: 12px;
+  padding: 4px 10px;
+  border-radius: 99px;
+  border: 1px solid var(--border);
+  background: var(--card);
+  color: var(--muted);
+  cursor: pointer;
+  font-weight: 600;
+  transition: all 0.15s;
+}
+.dash-range-btn.active {
+  background: var(--blue);
+  color: #fff;
+  border-color: var(--blue);
+}
+.dash-range-btn:hover:not(.active) {
+  border-color: var(--blue);
+  color: var(--blue);
+}
 .dash-stats-row { display: flex; gap: 12px; flex-wrap: wrap; }
 .dash-stat {
   flex: 1;
@@ -1947,6 +1967,16 @@ body.no-transitions * { transition: none !important; }
   <div class="dashboard-grid">
 
     <div class="dash-section dash-full">
+      <div id="dashDateRangeBar" style="display:flex;align-items:center;gap:8px;margin-bottom:16px;flex-wrap:wrap">
+        <span style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--muted)">Show:</span>
+        <div style="display:flex;gap:4px;flex-wrap:wrap" id="dashRangeBtns">
+          <button type="button" class="dash-range-btn active" data-range="30">This Month</button>
+          <button type="button" class="dash-range-btn" data-range="90">Last 3 Mo</button>
+          <button type="button" class="dash-range-btn" data-range="180">Last 6 Mo</button>
+          <button type="button" class="dash-range-btn" data-range="365">YTD</button>
+          <button type="button" class="dash-range-btn" data-range="all">All Time</button>
+        </div>
+      </div>
       <div id="dashDeptFilterBar" style="display:flex;align-items:center;gap:10px;margin-bottom:16px;flex-wrap:wrap">
         <label style="font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.06em">Department:</label>
         <select id="dashDeptFilter" style="min-width:160px;font-size:13px">
@@ -1964,12 +1994,17 @@ body.no-transitions * { transition: none !important; }
         <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--muted);margin-bottom:10px">📅 Who's Off This Week</div>
         <div id="whosOffList"></div>
       </div>
+      <div id="timeOffStatsCard" style="margin-bottom:24px">
+        <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--muted);margin-bottom:12px">🏖 Time Off This Year</div>
+        <div id="timeOffStatsEl"></div>
+      </div>
     </div>
 
     <div class="dash-section">
       <div class="dash-section-title">Monthly Occurrences (Last 12 Months)</div>
       <canvas id="monthlyChart" style="width:100%;display:block"></canvas>
       <div id="monthlyChartEmpty" class="empty" style="display:none">No occurrence data yet.</div>
+      <div id="dashChartTooltip" style="position:fixed;background:var(--card2);border:1px solid var(--border);border-radius:var(--radius);padding:6px 10px;font-size:12px;pointer-events:none;display:none;z-index:300;box-shadow:var(--shadow)"></div>
     </div>
 
     <div class="dash-section" id="dashLeaderboardSection">
@@ -5646,8 +5681,94 @@ body.no-transitions * { transition: none !important; }
         empModal.classList.remove('hidden');
         trapFocus(empModal);
         window._empProfileName = name;
+        setTimeout(function() { renderEmpTrendChart(name); }, 30);
       }
       window.openEmpProfile = openEmpProfile;
+
+      function getEmpMonthlyPoints(empName, numMonths) {
+        numMonths = numMonths || 6;
+        var now = new Date();
+        var months = [];
+        for (var i = numMonths - 1; i >= 0; i--) {
+          var d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+          months.push({ year: d.getFullYear(), month: d.getMonth(), pts: 0, label: d.toLocaleString('default', {month:'short'}) });
+        }
+        rows.forEach(function(r) {
+          if (norm(r.name) !== norm(empName)) return;
+          if (!r.dateIso) return;
+          var d = new Date(r.dateIso);
+          if (isNaN(d)) return;
+          months.forEach(function(m) {
+            if (d.getFullYear() === m.year && d.getMonth() === m.month) m.pts += (r.points || 0);
+          });
+        });
+        return months;
+      }
+
+      function renderEmpTrendChart(empName) {
+        var canvas = document.getElementById('empTrendCanvas');
+        if (!canvas) return;
+        var ctx = canvas.getContext('2d');
+        var months = getEmpMonthlyPoints(empName, 6);
+        var maxPts = Math.max(1, Math.max.apply(null, months.map(function(m) { return m.pts; })));
+
+        var cs = getComputedStyle(document.documentElement);
+        var blueColor = cs.getPropertyValue('--blue').trim() || '#3b82f6';
+        var mutedColor = cs.getPropertyValue('--muted').trim() || '#9ca3af';
+        var textColor = cs.getPropertyValue('--text').trim() || '#111827';
+        var dangerColor = cs.getPropertyValue('--danger').trim() || '#ef4444';
+
+        var W = canvas.offsetWidth || 420;
+        var H = 140;
+        canvas.width = W;
+        canvas.height = H;
+
+        ctx.clearRect(0, 0, W, H);
+
+        var padL = 28, padR = 8, padT = 10, padB = 28;
+        var chartW = W - padL - padR;
+        var chartH = H - padT - padB;
+        var barW = Math.floor(chartW / months.length * 0.6);
+        var barGap = Math.floor(chartW / months.length);
+
+        ctx.strokeStyle = 'rgba(128,128,128,0.15)';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(padL, padT);
+        ctx.lineTo(padL, padT + chartH);
+        ctx.lineTo(padL + chartW, padT + chartH);
+        ctx.stroke();
+
+        months.forEach(function(m, i) {
+          var x = padL + i * barGap + (barGap - barW) / 2;
+          var barH = maxPts > 0 ? Math.round((m.pts / maxPts) * chartH) : 0;
+          var y = padT + chartH - barH;
+
+          var sevHigh = (window.appSettings && appSettings.severityHigh) || 6;
+          var sevMid = (window.appSettings && appSettings.severityMid) || 2;
+          ctx.fillStyle = m.pts >= sevHigh ? dangerColor : m.pts >= sevMid ? '#f59e0b' : m.pts > 0 ? blueColor : 'rgba(128,128,128,0.2)';
+
+          if (barH > 0) {
+            ctx.beginPath();
+            if (ctx.roundRect) { ctx.roundRect(x, y, barW, barH, 3); } else { ctx.rect(x, y, barW, barH); }
+            ctx.fill();
+          } else {
+            ctx.fillStyle = 'rgba(128,128,128,0.12)';
+            ctx.fillRect(x, padT + chartH - 2, barW, 2);
+          }
+
+          ctx.fillStyle = mutedColor;
+          ctx.font = '10px system-ui, sans-serif';
+          ctx.textAlign = 'center';
+          ctx.fillText(m.label, x + barW / 2, H - 8);
+
+          if (m.pts > 0) {
+            ctx.fillStyle = textColor;
+            ctx.font = 'bold 10px system-ui, sans-serif';
+            ctx.fillText(m.pts % 1 === 0 ? m.pts : m.pts.toFixed(1), x + barW / 2, y - 3);
+          }
+        });
+      }
 
       function renderEmployees() {
         var empBody = document.getElementById('employeesBody');
@@ -5970,6 +6091,7 @@ body.no-transitions * { transition: none !important; }
       var _calYear = new Date().getFullYear();
       var _calMonth = new Date().getMonth();
       var _dashDept = '';
+      var _dashRange = '30';
 
       function populateDashDeptFilter() {
         var sel = document.getElementById('dashDeptFilter');
@@ -5989,9 +6111,21 @@ body.no-transitions * { transition: none !important; }
       }
 
       function getDashRows() {
-        if (!_dashDept) return rows;
-        var names = employees.filter(function(e) { return e.department === _dashDept; }).map(function(e) { return norm(e.name); });
-        return rows.filter(function(r) { return names.indexOf(norm(r.name)) !== -1; });
+        var cutoff = null;
+        if (_dashRange !== 'all') {
+          cutoff = new Date();
+          cutoff.setDate(cutoff.getDate() - parseInt(_dashRange, 10));
+        }
+        return rows.filter(function(r) {
+          if (_dashDept && r.name) {
+            var emp = employees.find(function(e) { return norm(e.name) === norm(r.name); });
+            if (emp && emp.department !== _dashDept) return false;
+          }
+          if (cutoff && r.dateIso) {
+            if (new Date(r.dateIso) < cutoff) return false;
+          }
+          return true;
+        });
       }
 
       function renderPeriodComparison() {
@@ -6065,6 +6199,34 @@ body.no-transitions * { transition: none !important; }
           }
         });
         return results.sort(function(a, b) { return b.count - a.count; });
+      }
+
+      function renderTimeOffStats() {
+        var el = document.getElementById('timeOffStatsEl');
+        if (!el) return;
+        var year = new Date().getFullYear();
+        var approved = 0, pending = 0, denied = 0, approvedDays = 0;
+        timeOffRequests.forEach(function(r) {
+          var start = new Date(r.startDate);
+          if (start.getFullYear() !== year) return;
+          if (r.status === 'Approved') {
+            approved++;
+            var end = new Date(r.endDate || r.startDate);
+            var diff = Math.round((end - start) / 86400000) + 1;
+            approvedDays += diff;
+          } else if (r.status === 'Pending') {
+            pending++;
+          } else if (r.status === 'Denied') {
+            denied++;
+          }
+        });
+        el.innerHTML =
+          '<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px">' +
+          '<div style="text-align:center"><div style="font-size:22px;font-weight:800;color:var(--ok)">' + approved + '</div><div style="font-size:11px;color:var(--muted)">Approved</div></div>' +
+          '<div style="text-align:center"><div style="font-size:22px;font-weight:800;color:var(--blue)">' + approvedDays + '</div><div style="font-size:11px;color:var(--muted)">Days Off</div></div>' +
+          '<div style="text-align:center"><div style="font-size:22px;font-weight:800;color:var(--yellow)">' + pending + '</div><div style="font-size:11px;color:var(--muted)">Pending</div></div>' +
+          '<div style="text-align:center"><div style="font-size:22px;font-weight:800;color:var(--danger)">' + denied + '</div><div style="font-size:11px;color:var(--muted)">Denied</div></div>' +
+          '</div>';
       }
 
       function renderClusterAlerts() {
@@ -6276,8 +6438,29 @@ body.no-transitions * { transition: none !important; }
         }).join('');
       }
 
+      (function() {
+        function wireDashRangeBtns() {
+          var btns = document.getElementById('dashRangeBtns');
+          if (!btns || btns._rangeWired) return;
+          btns._rangeWired = true;
+          btns.addEventListener('click', function(e) {
+            var btn = e.target.closest('.dash-range-btn');
+            if (!btn) return;
+            _dashRange = btn.getAttribute('data-range');
+            btns.querySelectorAll('.dash-range-btn').forEach(function(b) {
+              b.classList.toggle('active', b === btn);
+            });
+            renderDashboard();
+          });
+        }
+        // Wire on DOMContentLoaded and also expose for re-wiring after view switches
+        document.addEventListener('DOMContentLoaded', wireDashRangeBtns);
+        window._wireDashRangeBtns = wireDashRangeBtns;
+      })();
+
       function renderDashboard() {
         if (!document.getElementById('dashboardView') || document.getElementById('dashboardView').classList.contains('hidden')) return;
+        if (window._wireDashRangeBtns) window._wireDashRangeBtns();
         populateDashDeptFilter();
         _renderDashStats();
         setTimeout(function() { animateCounters(document.getElementById('dashStats')); }, 50);
@@ -6288,6 +6471,7 @@ body.no-transitions * { transition: none !important; }
         if (appSettings.showDashPeriodCompare !== false) renderPeriodComparison();
 
         renderWhosOff();
+        renderTimeOffStats();
 
         _renderMonthlyChart();
 
@@ -6335,6 +6519,8 @@ body.no-transitions * { transition: none !important; }
         }).join('');
       }
 
+      var _dashChartBars = [];
+
       function _renderMonthlyChart() {
         var canvas = document.getElementById('monthlyChart');
         var emptyEl = document.getElementById('monthlyChartEmpty');
@@ -6364,9 +6550,11 @@ body.no-transitions * { transition: none !important; }
         ctx.fillStyle='rgba(139,153,171,0.7)'; ctx.font='10px system-ui'; ctx.textAlign='right';
         for(var g=0;g<=4;g++){var y=pT+(cH/4)*g; ctx.fillText(Math.round(maxC*(1-g/4)),pL-4,y+4);}
         var bW = cW/months.length;
+        _dashChartBars = [];
         months.forEach(function(mo,i){
           var bH = (mo.count/maxC)*cH;
           var x=pL+i*bW+bW*0.15, w=bW*0.7, y=pT+cH-bH;
+          _dashChartBars.push({ x: x, y: y, w: w, h: bH > 0 ? bH : 2, label: mo.label, count: mo.count });
           if(mo.count>0){
             var gr=ctx.createLinearGradient(x,y,x,y+bH);
             gr.addColorStop(0,'rgba(74,144,217,0.9)'); gr.addColorStop(1,'rgba(74,144,217,0.35)');
@@ -6379,6 +6567,34 @@ body.no-transitions * { transition: none !important; }
           ctx.fillStyle='rgba(139,153,171,0.75)'; ctx.font='10px system-ui'; ctx.textAlign='center';
           ctx.fillText(mo.label,x+w/2,H-pB+14);
         });
+        // Wire tooltip once
+        if (!canvas._tooltipWired) {
+          canvas._tooltipWired = true;
+          var tooltip = document.getElementById('dashChartTooltip');
+          canvas.addEventListener('mousemove', function(e) {
+            if (!tooltip) return;
+            var rect = canvas.getBoundingClientRect();
+            var mx = (e.clientX - rect.left) * (canvas.width / rect.width);
+            var my = (e.clientY - rect.top) * (canvas.height / rect.height);
+            var hit = null;
+            for (var i = 0; i < _dashChartBars.length; i++) {
+              var b = _dashChartBars[i];
+              if (mx >= b.x && mx <= b.x + b.w && my >= b.y - 4 && my <= b.y + b.h + 4) { hit = b; break; }
+            }
+            if (hit) {
+              tooltip.innerHTML = '<strong>' + escapeHtml(hit.label) + '</strong><br>' + hit.count + ' incident' + (hit.count !== 1 ? 's' : '');
+              tooltip.style.display = 'block';
+              tooltip.style.left = (e.clientX + 12) + 'px';
+              tooltip.style.top = (e.clientY - 8) + 'px';
+            } else {
+              tooltip.style.display = 'none';
+            }
+          });
+          canvas.addEventListener('mouseleave', function() {
+            var tooltip = document.getElementById('dashChartTooltip');
+            if (tooltip) tooltip.style.display = 'none';
+          });
+        }
       }
 
       function _renderLeaderboard() {
@@ -10102,6 +10318,10 @@ body.no-transitions * { transition: none !important; }
     <div style="margin-bottom:16px">
       <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--muted);margin-bottom:8px">Recent Attendance</div>
       <div id="empProfileHistory" style="max-height:220px;overflow-y:auto"></div>
+    </div>
+    <div style="margin-top:20px;margin-bottom:20px">
+      <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--muted);margin-bottom:10px">6-Month Points Trend</div>
+      <canvas id="empTrendCanvas" width="420" height="140" style="width:100%;height:140px;display:block"></canvas>
     </div>
     <div>
       <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--muted);margin-bottom:8px">Time Off Requests</div>
