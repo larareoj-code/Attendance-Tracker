@@ -5124,6 +5124,8 @@ body.no-transitions * { transition: none !important; }
         ['ptsMinFilter','ptsMaxFilter'].forEach(function(id) {
           var el = document.getElementById(id); if (el) el.value = '';
         });
+        var searchNotesEl = document.getElementById('searchNotes');
+        if (searchNotesEl) searchNotesEl.checked = false;
         render();
       }
 
@@ -6499,9 +6501,9 @@ body.no-transitions * { transition: none !important; }
         var high = appSettings.severityHigh !== undefined ? appSettings.severityHigh : 6;
         var mid = appSettings.severityMid !== undefined ? appSettings.severityMid : 2;
         if (pts >= high) return 'at-high';
+        if (pts >= high - 2) return 'approaching-high';
         if (pts >= mid) return 'at-mid';
-        if (pts >= high - 2 && pts < high) return 'approaching-high';
-        if (pts >= mid - 1 && pts < mid) return 'approaching-mid';
+        if (pts >= mid - 1) return 'approaching-mid';
         return null;
       }
 
@@ -6752,7 +6754,8 @@ body.no-transitions * { transition: none !important; }
         var pendingTO = timeOffRequests.filter(function(r) { return r.status === 'Pending'; }).length;
         var empPts = {};
         occ.forEach(function(r) { var k = norm(r.name); empPts[k] = (empPts[k]||0) + (parseFloat(r.points)||0); });
-        var highRisk = Object.values(empPts).filter(function(p) { return p >= 6; }).length;
+        var _sevHighStat = appSettings.severityHigh !== undefined ? appSettings.severityHigh : 6;
+        var highRisk = Object.values(empPts).filter(function(p) { return p >= _sevHighStat; }).length;
         var empCount = _dashDept
           ? employees.filter(function(e) { return e.department === _dashDept; }).length
           : employees.length;
@@ -6760,7 +6763,7 @@ body.no-transitions * { transition: none !important; }
           { label: 'Total Records', value: dashRows.length, rawValue: dashRows.length, color: 'var(--yellow)' },
           { label: 'Occurrences', value: occ.length, rawValue: occ.length, color: 'var(--danger)' },
           { label: 'Employees', value: empCount, rawValue: empCount, color: 'var(--blue)' },
-          { label: 'High Risk ≥6 pts', value: highRisk, rawValue: highRisk, color: 'var(--danger)' },
+          { label: 'High Risk ≥' + _sevHighStat + ' pts', value: highRisk, rawValue: highRisk, color: 'var(--danger)' },
           { label: 'Pending Time Off', value: pendingTO, rawValue: pendingTO, color: '#c084fc' },
           { label: 'Total Points', value: totalPts % 1 === 0 ? totalPts : totalPts.toFixed(1), rawValue: totalPts, color: 'var(--yellow)' },
         ];
