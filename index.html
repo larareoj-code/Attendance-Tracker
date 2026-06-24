@@ -1333,6 +1333,142 @@
 .quick-chip:hover { border-color:var(--blue); color:var(--blue); background:rgba(74,144,217,0.06); }
 .quick-chip.active { border-color:var(--blue); color:var(--blue); background:rgba(74,144,217,0.12); }
 
+/* ── Mobile bottom tab bar ─────────────────────────────────────────── */
+.tab-bar-mobile {
+  display: none;
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 500;
+  background: var(--card);
+  border-top: 1px solid var(--border);
+  box-shadow: 0 -2px 12px rgba(0,0,0,0.2);
+  padding: 0;
+  padding-bottom: env(safe-area-inset-bottom, 0);
+}
+.mobile-tab-btn {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 8px 4px 6px;
+  background: none;
+  border: none;
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 10px;
+  font-weight: 600;
+  gap: 3px;
+  min-height: 52px;
+  transition: color 0.12s;
+  font-family: inherit;
+  letter-spacing: 0.03em;
+}
+.mobile-tab-btn.active { color: var(--blue); }
+.mobile-tab-icon { font-size: 20px; line-height: 1; }
+.mobile-tab-label { font-size: 10px; line-height: 1; }
+
+/* ── Mobile record card ────────────────────────────────────────────── */
+.record-card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 14px 16px;
+  margin-bottom: 10px;
+  position: relative;
+}
+.record-card[data-severity="high"] { border-left: 3px solid var(--danger); }
+.record-card[data-severity="mid"] { border-left: 3px solid var(--yellow); }
+.record-card[data-severity="low"] { border-left: 3px solid var(--ok); }
+.record-card-name { font-size: 15px; font-weight: 700; color: var(--text); margin-bottom: 4px; }
+.record-card-meta { font-size: 12px; color: var(--muted); margin-bottom: 8px; }
+.record-card-tags { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+.record-card-tag { font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 10px; background: var(--card2); border: 1px solid var(--border-light); color: var(--muted); }
+.record-card-pts { font-size: 16px; font-weight: 800; position: absolute; top: 14px; right: 16px; }
+.record-card-flag { font-size: 12px; color: var(--yellow); margin-top: 6px; }
+.record-card-actions { margin-top: 10px; display: flex; gap: 8px; flex-wrap: wrap; }
+
+/* ── Mobile summary card ───────────────────────────────────────────── */
+.summary-card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 12px 16px;
+  margin-bottom: 8px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+.summary-card-name { font-size: 14px; font-weight: 700; flex: 1; }
+.summary-card-dept { font-size: 11px; color: var(--muted); }
+.summary-card-pts { font-size: 20px; font-weight: 800; }
+.summary-card-stats { font-size: 11px; color: var(--muted); margin-top: 2px; }
+
+/* ── Mobile responsive overrides ──────────────────────────────────── */
+@media (max-width: 767px) {
+  /* Hide desktop table, show mobile cards */
+  #recordsCardsView { display: block; }
+  #recordsTableView { display: none; }
+
+  /* Hide summary table, show summary cards */
+  #summaryCardsView { display: block; }
+  #summaryTableView { display: none; }
+
+  /* Bottom tab bar */
+  .tabs.tab-bar-desktop { display: none; }
+  .tab-bar-mobile { display: flex !important; }
+
+  /* Compensate for bottom bar height */
+  .app { padding-bottom: 70px; }
+
+  /* Touch-friendly inputs */
+  input, select, textarea, button { min-height: 44px; }
+  .filters { grid-template-columns: 1fr 1fr !important; }
+  .manual-form { grid-template-columns: 1fr !important; }
+  .hero-actions { flex-wrap: wrap; gap: 8px; }
+  .hero-actions button { min-height: 40px; font-size: 13px; }
+  .quick-chips { gap: 6px; }
+  .quick-chip { padding: 6px 12px; min-height: 36px; }
+  .bulk-bar { flex-wrap: wrap; }
+  .dashboard-grid { grid-template-columns: 1fr !important; }
+
+  /* Stack hero */
+  .hero { padding: 20px 16px 16px; }
+  h1 { font-size: 24px; }
+  .hero p { display: none; }
+  .hero-inner { grid-template-columns: 1fr; gap: 12px; }
+  .hero-actions { justify-content: flex-start; gap: 6px; }
+  .hero-actions button { padding: 8px 12px; font-size: 12px; min-height: 38px; }
+
+  /* Compact stats */
+  .stats { grid-template-columns: repeat(2, 1fr) !important; gap: 8px; }
+  .stat-card { padding: 12px 14px; min-height: 72px; }
+  .stat-card strong { font-size: 24px; }
+
+  /* Full-width panels */
+  .app { padding: 0 12px; margin-top: 16px; padding-bottom: 70px; }
+  .panel { padding: 14px; }
+
+  /* Readable table if still shown */
+  .table-wrap { font-size: 13px; }
+  td, th { padding: 8px 6px; }
+
+  /* Filter area */
+  .filter-preset-bar { flex-wrap: wrap; }
+
+  /* Modal full-screen on mobile */
+  #recordEditModal > div,
+  #policyModal > div,
+  #dataHealthModal > div,
+  #colVisModal > div { max-width: 100% !important; max-height: 100vh; border-radius: 0; margin: 0; width: 100%; }
+  #recordEditModal,
+  #policyModal,
+  #dataHealthModal,
+  #colVisModal { padding: 0 !important; align-items: flex-end !important; }
+}
+
   </style>
 <style id="googleidentityservice_button_styles">.qJTHM{-moz-user-select:none;-webkit-user-select:none;-ms-user-select:none;color:#202124;direction:ltr;-webkit-touch-callout:none;font-family:Roboto-Regular,arial,sans-serif;-webkit-font-smoothing:antialiased;font-weight:400;margin:0;overflow:hidden;-webkit-text-size-adjust:100%}.ynRLnc{left:-9999px;position:absolute;top:-9999px}.L6cTce{display:none}.bltWBb{overflow-wrap:break-word;word-break:break-word}.hSRGPd{color:#1a73e8;cursor:pointer;font-weight:500;text-decoration:none}.Bz112c-W3lGp{height:16px;width:16px}.Bz112c-E3DyYd{height:20px;width:20px}.Bz112c-r9oPif{height:24px;width:24px}.Bz112c-u2z5K{height:36px;width:36px}.Bz112c-uaxL4e{border-radius:10px}.LgbsSe-Bz112c{display:block}.S9gUrf-YoZ4jf{border:none;margin:0;padding:0}.S9gUrf-YoZ4jf *{border:none;margin:0;padding:0}.fFW7wc-ibnC6b>.aZ2wEe>div{border-color:#4285f4}.P1ekSe-ZMv3u{-webkit-transition:height .2s linear;transition:height .2s linear}.P1ekSe-ZMv3u>div:first-child{background-color:#1a73e8!important;-webkit-transition:width .3s linear;transition:width .3s linear}.P1ekSe-ZMv3u>div:nth-child(2){background-image:-webkit-gradient(linear,left top,right top,from(rgba(255,255,255,.7)),to(rgba(255,255,255,.7))),-webkit-gradient(linear,left top,right top,from(#1a73e8),to(#1a73e8))!important;background-image:-webkit-linear-gradient(left,rgba(255,255,255,.7),rgba(255,255,255,.7)),-webkit-linear-gradient(left,#1a73e8,#1a73e8)!important;background-image:linear-gradient(90deg,rgba(255,255,255,.7),rgba(255,255,255,.7)),linear-gradient(90deg,#1a73e8,#1a73e8)!important}.P1ekSe-ZMv3u>div:nth-child(3){background-image:-webkit-gradient(linear,left top,right top,from(rgba(255,255,255,.7)),to(rgba(255,255,255,.7))),-webkit-gradient(linear,left top,right top,from(#1a73e8),to(#1a73e8))!important;background-image:-webkit-linear-gradient(left,rgba(255,255,255,.7),rgba(255,255,255,.7)),-webkit-linear-gradient(left,#1a73e8,#1a73e8)!important;background-image:linear-gradient(90deg,rgba(255,255,255,.7),rgba(255,255,255,.7)),linear-gradient(90deg,#1a73e8,#1a73e8)!important}.haAclf{display:inline-block}.nsm7Bb-HzV7m-LgbsSe{border-radius:4px;box-sizing:border-box;-webkit-transition:background-color .218s,border-color .218s;transition:background-color .218s,border-color .218s;-moz-user-select:none;-webkit-user-select:none;-ms-user-select:none;-webkit-appearance:none;background-color:#fff;background-image:none;border:1px solid #dadce0;color:#3c4043;cursor:pointer;font-family:Google Sans,arial,sans-serif;font-size:14px;height:40px;letter-spacing:.25px;outline:none;overflow:hidden;padding:0 12px;position:relative;text-align:center;vertical-align:middle;white-space:nowrap;width:auto}@media screen and (-ms-high-contrast:active){.nsm7Bb-HzV7m-LgbsSe{border:2px solid windowText;color:windowText}}@media screen and (preferes-contrast:more){.nsm7Bb-HzV7m-LgbsSe{color:#000}}.nsm7Bb-HzV7m-LgbsSe.pSzOP-SxQuSe{font-size:14px;height:32px;letter-spacing:.25px;padding:0 10px}.nsm7Bb-HzV7m-LgbsSe.purZT-SxQuSe{font-size:11px;height:20px;letter-spacing:.3px;padding:0 8px}.nsm7Bb-HzV7m-LgbsSe.Bz112c-LgbsSe{padding:0;width:40px}.nsm7Bb-HzV7m-LgbsSe.Bz112c-LgbsSe.pSzOP-SxQuSe{width:32px}.nsm7Bb-HzV7m-LgbsSe.Bz112c-LgbsSe.purZT-SxQuSe{width:20px}.nsm7Bb-HzV7m-LgbsSe.JGcpL-RbRzK{border-radius:20px}.nsm7Bb-HzV7m-LgbsSe.JGcpL-RbRzK.pSzOP-SxQuSe{border-radius:16px}.nsm7Bb-HzV7m-LgbsSe.JGcpL-RbRzK.purZT-SxQuSe{border-radius:10px}.nsm7Bb-HzV7m-LgbsSe.MFS4be-Ia7Qfc{border:none;color:#fff}.nsm7Bb-HzV7m-LgbsSe.MFS4be-v3pZbf-Ia7Qfc{background-color:#1a73e8}.nsm7Bb-HzV7m-LgbsSe.MFS4be-JaPV2b-Ia7Qfc{background-color:#202124;color:#e8eaed}@media screen and (prefers-contrast:more){.nsm7Bb-HzV7m-LgbsSe.MFS4be-JaPV2b-Ia7Qfc{color:#fff}}.nsm7Bb-HzV7m-LgbsSe .nsm7Bb-HzV7m-LgbsSe-Bz112c{height:18px;margin-right:8px;min-width:18px;width:18px}.nsm7Bb-HzV7m-LgbsSe.pSzOP-SxQuSe .nsm7Bb-HzV7m-LgbsSe-Bz112c{height:14px;min-width:14px;width:14px}.nsm7Bb-HzV7m-LgbsSe.purZT-SxQuSe .nsm7Bb-HzV7m-LgbsSe-Bz112c{height:10px;min-width:10px;width:10px}.nsm7Bb-HzV7m-LgbsSe.jVeSEe .nsm7Bb-HzV7m-LgbsSe-Bz112c{margin-left:8px;margin-right:-4px}.nsm7Bb-HzV7m-LgbsSe.Bz112c-LgbsSe .nsm7Bb-HzV7m-LgbsSe-Bz112c{margin:0;padding:10px}.nsm7Bb-HzV7m-LgbsSe.Bz112c-LgbsSe.pSzOP-SxQuSe .nsm7Bb-HzV7m-LgbsSe-Bz112c{padding:8px}.nsm7Bb-HzV7m-LgbsSe.Bz112c-LgbsSe.purZT-SxQuSe .nsm7Bb-HzV7m-LgbsSe-Bz112c{padding:4px}.nsm7Bb-HzV7m-LgbsSe .nsm7Bb-HzV7m-LgbsSe-Bz112c-haAclf{border-top-left-radius:3px;border-bottom-left-radius:3px;display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-pack:center;-webkit-justify-content:center;justify-content:center;-webkit-box-align:center;-webkit-align-items:center;align-items:center;background-color:#fff;height:36px;margin-left:-10px;margin-right:12px;min-width:36px;width:36px}.nsm7Bb-HzV7m-LgbsSe .nsm7Bb-HzV7m-LgbsSe-Bz112c-haAclf .nsm7Bb-HzV7m-LgbsSe-Bz112c,.nsm7Bb-HzV7m-LgbsSe.Bz112c-LgbsSe .nsm7Bb-HzV7m-LgbsSe-Bz112c-haAclf .nsm7Bb-HzV7m-LgbsSe-Bz112c{margin:0;padding:0}.nsm7Bb-HzV7m-LgbsSe.pSzOP-SxQuSe .nsm7Bb-HzV7m-LgbsSe-Bz112c-haAclf{height:28px;margin-left:-8px;margin-right:10px;min-width:28px;width:28px}.nsm7Bb-HzV7m-LgbsSe.purZT-SxQuSe .nsm7Bb-HzV7m-LgbsSe-Bz112c-haAclf{height:16px;margin-left:-6px;margin-right:8px;min-width:16px;width:16px}.nsm7Bb-HzV7m-LgbsSe.Bz112c-LgbsSe .nsm7Bb-HzV7m-LgbsSe-Bz112c-haAclf{border-radius:3px;margin-left:2px;margin-right:0;padding:0}.nsm7Bb-HzV7m-LgbsSe.JGcpL-RbRzK .nsm7Bb-HzV7m-LgbsSe-Bz112c-haAclf{border-radius:18px}.nsm7Bb-HzV7m-LgbsSe.pSzOP-SxQuSe.JGcpL-RbRzK .nsm7Bb-HzV7m-LgbsSe-Bz112c-haAclf{border-radius:14px}.nsm7Bb-HzV7m-LgbsSe.purZT-SxQuSe.JGcpL-RbRzK .nsm7Bb-HzV7m-LgbsSe-Bz112c-haAclf{border-radius:8px}.nsm7Bb-HzV7m-LgbsSe .nsm7Bb-HzV7m-LgbsSe-bN97Pc-sM5MNb{display:-webkit-box;display:-webkit-flex;display:flex;-webkit-align-items:center;-webkit-box-align:center;align-items:center;-webkit-flex-direction:row;-webkit-box-orient:horizontal;-webkit-box-direction:normal;flex-direction:row;-webkit-box-pack:justify;-webkit-justify-content:space-between;justify-content:space-between;-webkit-flex-wrap:nowrap;flex-wrap:nowrap;height:100%;position:relative;width:100%}.nsm7Bb-HzV7m-LgbsSe .oXtfBe-l4eHX{-webkit-box-pack:center;-webkit-justify-content:center;justify-content:center}.nsm7Bb-HzV7m-LgbsSe .nsm7Bb-HzV7m-LgbsSe-BPrWId{-webkit-flex-grow:1;-webkit-box-flex:1;flex-grow:1;font-family:Google Sans,arial,sans-serif;font-weight:500;overflow:hidden;text-overflow:ellipsis;vertical-align:top}.nsm7Bb-HzV7m-LgbsSe.purZT-SxQuSe .nsm7Bb-HzV7m-LgbsSe-BPrWId{font-weight:300}.nsm7Bb-HzV7m-LgbsSe .oXtfBe-l4eHX .nsm7Bb-HzV7m-LgbsSe-BPrWId{-webkit-flex-grow:0;-webkit-box-flex:0;flex-grow:0}.nsm7Bb-HzV7m-LgbsSe .nsm7Bb-HzV7m-LgbsSe-MJoBVe{-webkit-transition:background-color .218s;transition:background-color .218s;bottom:0;left:0;position:absolute;right:0;top:0}.nsm7Bb-HzV7m-LgbsSe:focus,.nsm7Bb-HzV7m-LgbsSe:hover{box-shadow:none;border-color:rgb(210,227,252);outline:none}.nsm7Bb-HzV7m-LgbsSe:focus-within{outline:2px solid #00639b;border-color:transparent}.nsm7Bb-HzV7m-LgbsSe:hover .nsm7Bb-HzV7m-LgbsSe-MJoBVe{background:rgba(66,133,244,.08)}.nsm7Bb-HzV7m-LgbsSe:active .nsm7Bb-HzV7m-LgbsSe-MJoBVe,.nsm7Bb-HzV7m-LgbsSe:focus .nsm7Bb-HzV7m-LgbsSe-MJoBVe{background:rgba(66,133,244,.1)}.nsm7Bb-HzV7m-LgbsSe.MFS4be-Ia7Qfc:hover .nsm7Bb-HzV7m-LgbsSe-MJoBVe{background:rgba(255,255,255,.24)}.nsm7Bb-HzV7m-LgbsSe.MFS4be-Ia7Qfc:active .nsm7Bb-HzV7m-LgbsSe-MJoBVe,.nsm7Bb-HzV7m-LgbsSe.MFS4be-Ia7Qfc:focus .nsm7Bb-HzV7m-LgbsSe-MJoBVe{background:rgba(255,255,255,.32)}.nsm7Bb-HzV7m-LgbsSe .n1UuX-DkfjY{border-radius:50%;display:-webkit-box;display:-webkit-flex;display:flex;height:20px;margin-left:-4px;margin-right:8px;min-width:20px;width:20px}.nsm7Bb-HzV7m-LgbsSe.jVeSEe .nsm7Bb-HzV7m-LgbsSe-BPrWId{font-family:Roboto;font-size:12px;text-align:left}.nsm7Bb-HzV7m-LgbsSe.jVeSEe .nsm7Bb-HzV7m-LgbsSe-BPrWId .K4efff .fmcmS,.nsm7Bb-HzV7m-LgbsSe.jVeSEe .nsm7Bb-HzV7m-LgbsSe-BPrWId .ssJRIf{overflow:hidden;text-overflow:ellipsis}.nsm7Bb-HzV7m-LgbsSe.jVeSEe .nsm7Bb-HzV7m-LgbsSe-BPrWId .K4efff{display:-webkit-box;display:-webkit-flex;display:flex;-webkit-align-items:center;-webkit-box-align:center;align-items:center;color:#5f6368;fill:#5f6368;font-size:11px;font-weight:400}.nsm7Bb-HzV7m-LgbsSe.jVeSEe.MFS4be-Ia7Qfc .nsm7Bb-HzV7m-LgbsSe-BPrWId .K4efff{color:#e8eaed;fill:#e8eaed}@media screen and (prefers-contrast:more){.nsm7Bb-HzV7m-LgbsSe.jVeSEe .nsm7Bb-HzV7m-LgbsSe-BPrWId .K4efff,.nsm7Bb-HzV7m-LgbsSe.jVeSEe.MFS4be-Ia7Qfc .nsm7Bb-HzV7m-LgbsSe-BPrWId .K4efff{color:#000;fill:#000}}.nsm7Bb-HzV7m-LgbsSe.jVeSEe .nsm7Bb-HzV7m-LgbsSe-BPrWId .K4efff .Bz112c{height:18px;margin:-3px -3px -3px 2px;min-width:18px;width:18px}.nsm7Bb-HzV7m-LgbsSe.jVeSEe .nsm7Bb-HzV7m-LgbsSe-Bz112c-haAclf{border-top-left-radius:0;border-bottom-left-radius:0;border-top-right-radius:3px;border-bottom-right-radius:3px;margin-left:12px;margin-right:-10px}.nsm7Bb-HzV7m-LgbsSe.jVeSEe.JGcpL-RbRzK .nsm7Bb-HzV7m-LgbsSe-Bz112c-haAclf{border-radius:18px}.L5Fo6c-sM5MNb{border:0;display:block;left:0;position:relative;top:0}.L5Fo6c-bF1uUb{border-radius:4px;bottom:0;cursor:pointer;left:0;position:absolute;right:0;top:0}.L5Fo6c-bF1uUb:focus{border:none;outline:none}sentinel{}</style></head>
 <body>
@@ -1616,7 +1752,7 @@
     </section>
 
     <section class="panel">
-      <div class="tabs" role="tablist" aria-label="Attendance views">
+      <div class="tabs tab-bar-desktop" role="tablist" aria-label="Attendance views">
         <button class="tab-button" id="dashboardTab" type="button" role="tab" aria-selected="false" data-view="dashboard" title="Dashboard (Ctrl+`)">Dashboard</button>
         <button class="tab-button" id="recordsTab" type="button" role="tab" aria-selected="false" data-view="records" title="Records (Ctrl+1)">Records</button>
         <button class="tab-button active" id="summaryTab" type="button" role="tab" aria-selected="true" data-view="summary" title="Point Summary by Agent (Ctrl+2)">Point Summary by Agent</button>
@@ -1666,6 +1802,7 @@
           <button class="secondary small" type="button" id="bulkExportBtn">⬆ Export Selected</button>
           <button class="secondary small" type="button" id="bulkDeselectBtn" style="margin-left:auto">✕ Deselect All</button>
         </div>
+        <div id="recordsTableView">
         <div class="table-wrap">
           <table aria-label="Attendance records">
             <thead>
@@ -1689,6 +1826,8 @@
             <tbody id="recordsBody"></tbody>
           </table>
         </div>
+        </div>
+        <div id="recordsCardsView" style="display:none"></div>
         <div id="recordsEmpty" class="empty">
           <div id="recordsEmptyMsg">No records loaded yet. Import an Excel or CSV file to get started.</div>
           <button id="recordsEmptyClearBtn" class="secondary" type="button" style="display:none;margin-top:10px">Clear Filters</button>
@@ -1707,6 +1846,7 @@
           <button class="secondary small" type="button" id="exportSummaryBtn" title="Export the current summary view to Excel" style="margin-left:auto">Export Summary</button>
           <span id="summaryFilterInfo" style="font-size:13px;color:var(--muted)"></span>
         </div>
+        <div id="summaryTableView">
         <div class="table-wrap">
           <table aria-label="Point summary by agent">
             <thead>
@@ -1726,6 +1866,8 @@
             <tbody id="summaryBody"></tbody>
           </table>
         </div>
+        </div>
+        <div id="summaryCardsView" style="display:none"></div>
         <div id="summaryEmpty" class="empty"><div class="empty-state"><div class="empty-state-icon">📊</div><div class="empty-state-title">No summary data</div><div class="empty-state-body">Import attendance records to see the point summary by agent.</div></div></div>
       </div>
 
@@ -4187,6 +4329,7 @@
           });
         });
         updateBulkBar();
+        if (window.innerWidth < 768) renderRecordCards();
       }
 
       function renderSummary() {
@@ -4357,6 +4500,79 @@
             handleSummaryAction(button);
           });
         });
+        if (window.innerWidth < 768) renderSummaryCards();
+      }
+
+      function renderRecordCards() {
+        var container = document.getElementById('recordsCardsView');
+        if (!container) return;
+        var visRows = filteredRows();
+        if (!visRows.length) {
+          container.innerHTML = '<div class="empty-state"><div class="empty-state-icon">📂</div><div class="empty-state-title">No records</div><div class="empty-state-body">Try adjusting your filters.</div></div>';
+          return;
+        }
+        container.innerHTML = visRows.map(function(row) {
+          var pts = parseFloat(row.points) || 0;
+          var severity = pts >= 6 ? 'high' : pts >= 2 ? 'mid' : pts > 0 ? 'low' : '';
+          var ptsColor = pts >= 6 ? 'var(--danger)' : pts >= 2 ? 'var(--yellow)' : pts > 0 ? 'var(--ok)' : 'var(--muted)';
+          return '<div class="record-card"' + (severity ? ' data-severity="' + severity + '"' : '') + '>' +
+            '<div class="record-card-name">' + escapeHtml(row.name || '—') + '</div>' +
+            '<div class="record-card-meta">' + escapeHtml(row.dateText || row.dateIso || '') + (row.type ? ' · ' + escapeHtml(row.type) : '') + '</div>' +
+            '<div class="record-card-tags">' +
+              (row.code ? '<span class="record-card-tag">' + escapeHtml(row.code) + '</span>' : '') +
+              (row.reason ? '<span class="record-card-tag">' + escapeHtml(row.reason.slice(0, 24)) + (row.reason.length > 24 ? '…' : '') + '</span>' : '') +
+            '</div>' +
+            (row.flags && row.flags.length ? '<div class="record-card-flag">⚠ ' + escapeHtml(row.flags.join(', ')) + '</div>' : '') +
+            '<div class="record-card-pts" style="color:' + ptsColor + '">' + (pts !== 0 ? pts : '—') + '</div>' +
+            '<div class="record-card-actions">' +
+              '<button class="secondary small" type="button" data-action="edit-record" data-id="' + escapeHtml(row.id) + '">Edit</button>' +
+              '<button class="secondary small" type="button" data-action="duplicate" data-id="' + escapeHtml(row.id) + '">Duplicate</button>' +
+              '<button class="secondary small" style="color:var(--danger)" type="button" data-action="delete" data-id="' + escapeHtml(row.id) + '">Delete</button>' +
+            '</div>' +
+            '</div>';
+        }).join('');
+        container.querySelectorAll('button[data-action]').forEach(function(button) {
+          button.addEventListener('click', function(event) {
+            event.stopPropagation();
+            handleRecordAction(button);
+          });
+        });
+      }
+
+      function renderSummaryCards() {
+        var container = document.getElementById('summaryCardsView');
+        if (!container) return;
+        var searchEl = document.getElementById('summaryNameSearch');
+        var searchVal = searchEl ? searchEl.value.trim().toLowerCase() : '';
+        var grouped = {};
+        filteredRows().forEach(function(r) {
+          var k = norm(r.name);
+          if (!grouped[k]) grouped[k] = { name: r.name, dept: '', total: 0, occ: 0, pts: 0 };
+          grouped[k].total++;
+          if (isOccurrence(r.type)) { grouped[k].occ++; grouped[k].pts += parseFloat(r.points) || 0; }
+        });
+        employees.forEach(function(e) { var k = norm(e.name); if (grouped[k]) grouped[k].dept = e.department || ''; });
+        var items = Object.values(grouped).filter(function(item) {
+          return !searchVal || item.name.toLowerCase().indexOf(searchVal) !== -1;
+        }).sort(function(a, b) { return b.pts - a.pts; });
+        if (!items.length) {
+          container.innerHTML = '<div class="empty-state"><div class="empty-state-icon">📊</div><div class="empty-state-title">No data</div></div>';
+          return;
+        }
+        container.innerHTML = items.map(function(item) {
+          var ptsColor = item.pts >= 6 ? 'var(--danger)' : item.pts >= 3 ? 'var(--yellow)' : item.pts > 0 ? 'var(--ok)' : 'var(--muted)';
+          return '<div class="summary-card">' +
+            '<div style="flex:1">' +
+              '<div class="summary-card-name">' + escapeHtml(item.name) + '</div>' +
+              (item.dept ? '<div class="summary-card-dept">' + escapeHtml(item.dept) + '</div>' : '') +
+              '<div class="summary-card-stats">' + item.total + ' records · ' + item.occ + ' occurrences</div>' +
+            '</div>' +
+            '<div style="text-align:right">' +
+              '<div class="summary-card-pts" style="color:' + ptsColor + '">' + item.pts.toFixed(1) + '</div>' +
+              '<div style="font-size:10px;color:var(--muted)">pts</div>' +
+            '</div>' +
+            '</div>';
+        }).join('');
       }
 
       function bucketEmployeeRows() {
@@ -5037,6 +5253,10 @@
           newPanel.classList.add('tab-entering');
         }
         if (showDashboard) renderDashboard();
+        // Sync mobile tab bar active state
+        document.querySelectorAll('.mobile-tab-btn').forEach(function(b) {
+          b.classList.toggle('active', b.getAttribute('data-view') === view);
+        });
       }
 
       function findRow(id) {
@@ -6340,6 +6560,43 @@
         });
       });
 
+      // Wire mobile bottom tab buttons
+      (function() {
+        document.querySelectorAll('.mobile-tab-btn').forEach(function(btn) {
+          btn.addEventListener('click', function() {
+            var view = this.getAttribute('data-view');
+            setView(view);
+          });
+        });
+      }());
+
+      // Resize handler: toggle table vs card views
+      window.addEventListener('resize', function() {
+        var isMobile = window.innerWidth < 768;
+        var tv = document.getElementById('recordsTableView');
+        var cv = document.getElementById('recordsCardsView');
+        if (tv) tv.style.display = isMobile ? 'none' : '';
+        if (cv) cv.style.display = isMobile ? 'block' : 'none';
+        var stv = document.getElementById('summaryTableView');
+        var scv = document.getElementById('summaryCardsView');
+        if (stv) stv.style.display = isMobile ? 'none' : '';
+        if (scv) scv.style.display = isMobile ? 'block' : 'none';
+        if (isMobile) { renderRecordCards(); renderSummaryCards(); }
+      });
+
+      // Run once on load to set correct initial display
+      (function() {
+        var isMobile = window.innerWidth < 768;
+        var tv = document.getElementById('recordsTableView');
+        if (tv) tv.style.display = isMobile ? 'none' : '';
+        var cv = document.getElementById('recordsCardsView');
+        if (cv) cv.style.display = isMobile ? 'block' : 'none';
+        var stv = document.getElementById('summaryTableView');
+        if (stv) stv.style.display = isMobile ? 'none' : '';
+        var scv = document.getElementById('summaryCardsView');
+        if (scv) scv.style.display = isMobile ? 'block' : 'none';
+      }());
+
       document.querySelector('[aria-label="Employee roster"]').addEventListener('click', function (event) {
         var btn = event.target.closest('button[data-emp-sort]');
         if (!btn) return;
@@ -7305,4 +7562,26 @@
     </div>
   </div>
 </div>
+<nav class="tab-bar-mobile" aria-label="Mobile navigation" style="display:none">
+  <button class="mobile-tab-btn" type="button" data-view="dashboard">
+    <span class="mobile-tab-icon">📊</span>
+    <span class="mobile-tab-label">Dashboard</span>
+  </button>
+  <button class="mobile-tab-btn" type="button" data-view="records">
+    <span class="mobile-tab-icon">📋</span>
+    <span class="mobile-tab-label">Records</span>
+  </button>
+  <button class="mobile-tab-btn" type="button" data-view="summary">
+    <span class="mobile-tab-icon">📈</span>
+    <span class="mobile-tab-label">Summary</span>
+  </button>
+  <button class="mobile-tab-btn" type="button" data-view="employees">
+    <span class="mobile-tab-icon">👥</span>
+    <span class="mobile-tab-label">Staff</span>
+  </button>
+  <button class="mobile-tab-btn" type="button" data-view="timeoff">
+    <span class="mobile-tab-icon">📅</span>
+    <span class="mobile-tab-label">Time Off</span>
+  </button>
+</nav>
 </body></html>
