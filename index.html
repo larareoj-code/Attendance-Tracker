@@ -1310,6 +1310,8 @@
         <button id="clearSavedBtn" class="danger" type="button">Clear Saved Data</button>
         <button class="secondary" type="button" id="colVisBtn" title="Show/hide table columns">⊞ Columns</button>
         <button class="secondary" type="button" id="shortcutsBtn" title="Keyboard shortcuts">⌨ Shortcuts</button>
+        <button class="secondary" type="button" id="policyRulesBtn" title="Configure auto-flagging rules">⚖ Rules</button>
+        <button class="secondary" type="button" id="dataHealthBtn" title="Check data quality">🩺 Health</button>
       </div>
     </div>
   </header>
@@ -1702,6 +1704,7 @@
             <div><label for="empDept">Department</label><input id="empDept" type="text" autocomplete="off" list="empDeptList"><datalist id="empDeptList"></datalist></div>
             <div><label for="empRole">Role</label><input id="empRole" type="text" autocomplete="off" list="empRoleList"><datalist id="empRoleList"></datalist></div>
             <div><label for="empStatus">Status</label><select id="empStatus"><option value="Active">Active</option><option value="Inactive">Inactive</option></select></div>
+            <div><label for="empNotes">Notes</label><textarea id="empNotes" placeholder="Optional notes…" rows="2" style="resize:vertical;width:100%"></textarea></div>
             <div class="form-actions"><button class="primary" type="submit">Add Employee</button><button class="secondary" type="reset">Reset</button></div>
           </form>
         </div>
@@ -1728,6 +1731,7 @@
               <th><button class="sort-button" type="button" data-emp-sort="status">Status <span id="empSortStatus"></span></button></th>
               <th><button class="sort-button" type="button" data-emp-sort="records">Records <span id="empSortRecords"></span></button></th>
               <th><button class="sort-button" type="button" data-emp-sort="lastdate">Last Occurrence <span id="empSortLastdate"></span></button></th>
+              <th>Notes</th>
               <th>Actions</th>
             </tr></thead>
             <tbody id="employeesBody"></tbody>
@@ -2758,6 +2762,7 @@
       }
 
       function saveData(options) {
+        evaluatePolicyRules();
         var serializable = rows.map(function (row) {
           return {
             id: row.id,
@@ -4402,6 +4407,7 @@
             '<td><span class="badge ' + tone + '">' + escapeHtml(emp.status) + '</span></td>' +
             '<td>' + recordCount.toLocaleString() + '</td>' +
             '<td>' + lastCell + '</td>' +
+            '<td style="font-size:12px;color:var(--muted);max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="'+escapeHtml(emp.notes||'')+'">'+escapeHtml((emp.notes||'').slice(0,60))+((emp.notes||'').length>60?'…':'')+'</td>' +
             '<td style="display:flex;gap:6px;flex-wrap:wrap">' +
               '<button class="small secondary" type="button" data-emp-action="viewrecords" data-emp-name="' + escapeHtml(emp.name) + '" title="Show attendance records for this employee">Records</button>' +
               '<button class="small secondary" type="button" data-emp-action="viewtimeoff" data-emp-name="' + escapeHtml(emp.name) + '" title="Show this employee\'s time-off requests">Time Off</button>' +
@@ -4462,6 +4468,7 @@
               '<button class="small secondary" type="button" data-to-action="deny" data-to-id="' + escapeHtml(req.id) + '"' + (req.status === 'Denied' ? ' disabled style="opacity:.4;cursor:default"' : '') + '>Deny</button>' +
               (req.status !== 'Pending' ? '<button class="small secondary" type="button" data-to-action="pending" data-to-id="' + escapeHtml(req.id) + '" title="Reset status to Pending">Reset</button>' : '') +
               '<button class="small secondary" type="button" data-to-action="duplicate" data-to-id="' + escapeHtml(req.id) + '" title="Copy this request into the form above">Duplicate</button>' +
+              '<button class="small secondary" type="button" data-to-action="email" data-to-id="' + escapeHtml(req.id) + '" title="Draft email for this request">📧</button>' +
               '<button class="small danger" type="button" data-to-action="delete" data-to-id="' + escapeHtml(req.id) + '">Delete</button>' +
             '</div></td>' +
           '</tr>';
@@ -4493,10 +4500,12 @@
           name: name,
           department: toText(document.getElementById('empDept').value),
           role: toText(document.getElementById('empRole').value),
-          status: document.getElementById('empStatus').value
+          status: document.getElementById('empStatus').value,
+          notes: (document.getElementById('empNotes')||{value:''}).value.trim()
         });
         saveEmployees();
         document.getElementById('addEmployeeForm').reset();
+        if(document.getElementById('empNotes')) document.getElementById('empNotes').value = '';
         renderEmployees();
         var empSummary = document.getElementById('empSummary');
         if (empSummary) { empSummary.textContent = name + ' added.'; setTimeout(function () { renderEmployees(); }, 2500); }
@@ -4618,6 +4627,8 @@
           updateToDaysPreview();
           document.getElementById('toEmployee').scrollIntoView({ behavior: 'smooth', block: 'center' });
           document.getElementById('toEmployee').focus();
+        } else if (action === 'email') {
+          draftTimeOffEmail(id);
         }
       }
 
@@ -6716,10 +6727,212 @@
           e.preventDefault();
         }
       });
+
+      // ── Task 1: Policy Rules Engine ──────────────────────────────────────
+      var POLICY_RULES_KEY = 'attTracker_policyRules';
+      function _loadPolicyRules() { try { return JSON.parse(localStorage.getItem(POLICY_RULES_KEY)||'[]'); } catch(e) { return []; } }
+      function _savePolicyRules(r) { localStorage.setItem(POLICY_RULES_KEY, JSON.stringify(r)); }
+
+      function renderPolicyRules() {
+        var el = document.getElementById('policyRulesList');
+        if (!el) return;
+        var rules = _loadPolicyRules();
+        if (!rules.length) { el.innerHTML='<div style="color:var(--muted);font-size:13px;padding:8px 0">No rules. Add one below.</div>'; return; }
+        el.innerHTML = rules.map(function(r,i) {
+          var condLabel = r.cond==='points_gte' ? 'Total pts ≥ '+r.value :
+            r.cond==='occurrences_gte' ? 'Occurrences ≥ '+r.value : 'Code = "'+r.value+'"';
+          var actLabel = r.action==='flag' ? '→ Auto-flag ⚠' : '→ Warning toast';
+          return '<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border)">' +
+            '<span style="flex:1;font-size:13px"><strong>'+escapeHtml(r.label||condLabel)+'</strong> <span style="color:var(--muted)">'+escapeHtml(condLabel)+'</span></span>'+
+            '<span style="font-size:12px;color:var(--blue);font-weight:600">'+escapeHtml(actLabel)+'</span>'+
+            '<button class="secondary small" type="button" data-del-rule="'+i+'" style="flex-shrink:0">✕</button></div>';
+        }).join('');
+      }
+
+      function evaluatePolicyRules() {
+        var rules = _loadPolicyRules();
+        if (!rules.length) return;
+        var empPts={}, empOcc={};
+        rows.forEach(function(r) {
+          if (!isOccurrence(r.type)) return;
+          var k=norm(r.name);
+          empPts[k]=(empPts[k]||0)+(parseFloat(r.points)||0);
+          empOcc[k]=(empOcc[k]||0)+1;
+        });
+        rules.forEach(function(rule) {
+          rows.forEach(function(r) {
+            if (!isOccurrence(r.type)) return;
+            var k=norm(r.name), triggered=false;
+            if (rule.cond==='points_gte' && empPts[k]>=(parseFloat(rule.value)||0)) triggered=true;
+            if (rule.cond==='occurrences_gte' && empOcc[k]>=(parseFloat(rule.value)||0)) triggered=true;
+            if (rule.cond==='code_is' && (r.code||'').toLowerCase()===(rule.value||'').toLowerCase()) triggered=true;
+            if (triggered) {
+              if (rule.action==='flag' && !r.flag) r.flag='⚠ Policy: '+(rule.label||rule.cond);
+              if (rule.action==='toast') showToast('Policy alert: '+(rule.label||rule.cond)+' — '+r.name);
+            }
+          });
+        });
+      }
+
+      (function() {
+        var pBtn = document.getElementById('policyRulesBtn');
+        if (pBtn) pBtn.addEventListener('click', function() { renderPolicyRules(); document.getElementById('policyModal').classList.remove('hidden'); });
+        var cBtn = document.getElementById('closePolicyBtn');
+        if (cBtn) cBtn.addEventListener('click', function() { document.getElementById('policyModal').classList.add('hidden'); });
+        var pMod = document.getElementById('policyModal');
+        if (pMod) pMod.addEventListener('click', function(e) { if(e.target===this) this.classList.add('hidden'); });
+        var addBtn = document.getElementById('addPolicyRuleBtn');
+        if (addBtn) addBtn.addEventListener('click', function() {
+          var cond=document.getElementById('policyCondType').value;
+          var val=document.getElementById('policyCondValue').value.trim();
+          var action=document.getElementById('policyActionType').value;
+          var label=document.getElementById('policyRuleLabel').value.trim();
+          if (!val) { alert('Enter a condition value.'); return; }
+          var rules=_loadPolicyRules();
+          rules.push({cond:cond,value:val,action:action,label:label});
+          _savePolicyRules(rules);
+          renderPolicyRules();
+          document.getElementById('policyCondValue').value='';
+          document.getElementById('policyRuleLabel').value='';
+          showToast('Rule added');
+        });
+        var rulesList = document.getElementById('policyRulesList');
+        if (rulesList) rulesList.addEventListener('click', function(e) {
+          var btn=e.target.closest('[data-del-rule]');
+          if (!btn) return;
+          var rules=_loadPolicyRules();
+          rules.splice(parseInt(btn.getAttribute('data-del-rule')),1);
+          _savePolicyRules(rules);
+          renderPolicyRules();
+        });
+        var evalBtn = document.getElementById('evalPolicyNowBtn');
+        if (evalBtn) evalBtn.addEventListener('click', function() { evaluatePolicyRules(); saveData(); render(); showToast('Policy rules evaluated'); });
+      })();
+
+      // ── Task 2: Data Health Panel ─────────────────────────────────────────
+      function runDataHealthCheck() {
+        var issues=[], warnings=[], info=[];
+        var noName=rows.filter(function(r){return !r.name||!r.name.trim();});
+        if(noName.length) issues.push(noName.length+' record(s) have no name');
+        var badDate=rows.filter(function(r){return !r.dateIso||isNaN(new Date(r.dateIso).getTime());});
+        if(badDate.length) issues.push(badDate.length+' record(s) have invalid or missing dates');
+        var tomorrow=new Date(); tomorrow.setDate(tomorrow.getDate()+1);
+        var futureOcc=rows.filter(function(r){return isOccurrence(r.type)&&r.dateIso&&new Date(r.dateIso)>tomorrow;});
+        if(futureOcc.length) warnings.push(futureOcc.length+' occurrence(s) are dated in the future');
+        var seen={},dupes=0;
+        rows.forEach(function(r){var k=norm(r.name||'')+'|'+r.dateIso+'|'+r.type;if(seen[k])dupes++;else seen[k]=true;});
+        if(dupes) warnings.push(dupes+' potential duplicate(s) — same name + date + type');
+        var noPts=rows.filter(function(r){return isOccurrence(r.type)&&(r.points==null||r.points==='');});
+        if(noPts.length) warnings.push(noPts.length+' occurrence(s) have no points value');
+        var rosterNames=employees.map(function(e){return norm(e.name);});
+        var unmatched={};
+        rows.forEach(function(r){if(r.name&&rosterNames.indexOf(norm(r.name))===-1)unmatched[r.name]=true;});
+        var uCount=Object.keys(unmatched).length;
+        if(uCount) info.push(uCount+' unique name(s) in records not in Employee roster');
+        info.push('Total: '+rows.length+' records · '+employees.length+' employees · '+timeOffRequests.length+' time-off requests');
+        var score=Math.max(0,Math.min(100,100-issues.length*15-warnings.length*7));
+        var scoreColor=score>=85?'var(--ok)':score>=60?'var(--yellow)':'var(--danger)';
+        var el=document.getElementById('dataHealthResults');
+        if(!el) return;
+        var html='<div style="text-align:center;margin-bottom:20px">'+
+          '<div style="font-size:52px;font-weight:800;color:'+scoreColor+'">'+score+'</div>'+
+          '<div style="font-size:13px;color:var(--muted)">Data Health Score</div></div>';
+        function sect(items,color,icon,label){
+          if(!items.length) return '';
+          return '<div style="margin-bottom:14px"><div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:'+color+';margin-bottom:8px">'+icon+' '+label+' ('+items.length+')</div>'+
+            items.map(function(m){return'<div style="padding:7px 10px;background:rgba(255,255,255,0.04);border-radius:6px;font-size:13px;margin-bottom:5px">'+escapeHtml(m)+'</div>';}).join('')+'</div>';
+        }
+        html+=sect(issues,'var(--danger)','🔴','Issues');
+        html+=sect(warnings,'var(--yellow)','🟡','Warnings');
+        html+=sect(info,'var(--muted)','ℹ','Info');
+        if(!issues.length&&!warnings.length) html+='<div style="color:var(--ok);text-align:center;padding:10px;font-size:14px">✓ No issues found!</div>';
+        el.innerHTML=html;
+      }
+
+      (function() {
+        var hBtn=document.getElementById('dataHealthBtn');
+        if(hBtn) hBtn.addEventListener('click',function(){ runDataHealthCheck(); document.getElementById('dataHealthModal').classList.remove('hidden'); });
+        var cBtn=document.getElementById('closeHealthBtn');
+        if(cBtn) cBtn.addEventListener('click',function(){ document.getElementById('dataHealthModal').classList.add('hidden'); });
+        var mod=document.getElementById('dataHealthModal');
+        if(mod) mod.addEventListener('click',function(e){ if(e.target===this) this.classList.add('hidden'); });
+      })();
+
+      // ── Task 4: Time-Off Email Draft ──────────────────────────────────────
+      function draftTimeOffEmail(reqId) {
+        var req = timeOffRequests.find(function(r) { return r.id === reqId; });
+        if (!req) return;
+        var sub = encodeURIComponent('[Time Off] '+(req.employeeName||'Employee')+' — '+(req.type||'Request')+' '+(req.startDate||''));
+        var body = encodeURIComponent(
+          'Hi '+(req.employeeName||'Team Member')+',\n\n'+
+          'Your time-off request has been '+(req.status||'reviewed')+'.\n\n'+
+          'Type: '+(req.type||'')+'\n'+
+          'From: '+(req.startDate||'')+'\n'+
+          'To: '+(req.endDate||'')+'\n'+
+          (req.notes?'Notes: '+req.notes+'\n':'')+
+          '\nIf you have questions, please reach out.\n\nThank you.'
+        );
+        window.location.href = 'mailto:?subject='+sub+'&body='+body;
+      }
+      window.draftTimeOffEmail = draftTimeOffEmail;
+
     })();
   </script>
 
 
+
+<div id="policyModal" class="hidden" style="position:fixed;inset:0;z-index:200;background:rgba(0,0,0,0.55);display:flex;align-items:center;justify-content:center;padding:24px">
+  <div style="background:var(--card2);border:1px solid var(--border-light);border-radius:var(--radius);box-shadow:var(--shadow);width:100%;max-width:540px;max-height:82vh;overflow-y:auto;padding:24px">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+      <strong style="font-size:15px">⚖ Policy Rules</strong>
+      <button type="button" id="closePolicyBtn" style="background:none;border:none;color:var(--muted);font-size:20px;cursor:pointer;padding:0 4px;line-height:1">×</button>
+    </div>
+    <p style="font-size:13px;color:var(--muted);margin:0 0 14px">Rules auto-flag records when conditions are met. Evaluated on every save.</p>
+    <div id="policyRulesList"></div>
+    <div style="margin-top:14px;padding-top:14px;border-top:1px solid var(--border)">
+      <div style="font-size:13px;font-weight:700;margin-bottom:10px">Add Rule</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">
+        <div>
+          <label style="font-size:12px;color:var(--muted);display:block;margin-bottom:4px">Condition</label>
+          <select id="policyCondType" style="width:100%">
+            <option value="points_gte">Total points ≥</option>
+            <option value="occurrences_gte">Occurrence count ≥</option>
+            <option value="code_is">Record code equals</option>
+          </select>
+        </div>
+        <div>
+          <label style="font-size:12px;color:var(--muted);display:block;margin-bottom:4px">Value</label>
+          <input type="text" id="policyCondValue" placeholder="e.g. 6 or NCNS" style="width:100%">
+        </div>
+      </div>
+      <div style="margin-bottom:10px">
+        <label style="font-size:12px;color:var(--muted);display:block;margin-bottom:4px">Action</label>
+        <select id="policyActionType" style="width:100%">
+          <option value="flag">Auto-flag record (⚠)</option>
+          <option value="toast">Show warning toast</option>
+        </select>
+      </div>
+      <div style="margin-bottom:14px">
+        <label style="font-size:12px;color:var(--muted);display:block;margin-bottom:4px">Rule Label</label>
+        <input type="text" id="policyRuleLabel" placeholder="e.g. High point alert" style="width:100%">
+      </div>
+      <div style="display:flex;gap:8px">
+        <button class="primary" type="button" id="addPolicyRuleBtn">Add Rule</button>
+        <button class="secondary" type="button" id="evalPolicyNowBtn">Evaluate Now</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="dataHealthModal" class="hidden" style="position:fixed;inset:0;z-index:200;background:rgba(0,0,0,0.55);display:flex;align-items:center;justify-content:center;padding:24px">
+  <div style="background:var(--card2);border:1px solid var(--border-light);border-radius:var(--radius);box-shadow:var(--shadow);width:100%;max-width:560px;max-height:82vh;overflow-y:auto;padding:24px">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+      <strong style="font-size:15px">🩺 Data Health</strong>
+      <button type="button" id="closeHealthBtn" style="background:none;border:none;color:var(--muted);font-size:20px;cursor:pointer;padding:0 4px;line-height:1">×</button>
+    </div>
+    <div id="dataHealthResults"></div>
+  </div>
+</div>
 
 <div id="cmdPalette" role="dialog" aria-modal="true" aria-label="Command palette">
   <div id="cmdPaletteBox">
