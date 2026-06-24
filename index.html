@@ -1287,6 +1287,47 @@
   .dash-full { grid-column: 1; }
 }
 
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 56px 24px;
+  text-align: center;
+  color: var(--muted);
+}
+.empty-state-icon {
+  font-size: 48px;
+  margin-bottom: 16px;
+  opacity: 0.6;
+}
+.empty-state-title {
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--text);
+  margin: 0 0 8px;
+}
+.empty-state-body {
+  font-size: 14px;
+  color: var(--muted);
+  max-width: 320px;
+  line-height: 1.6;
+  margin: 0 0 20px;
+}
+
+.sparkline-cell { white-space: nowrap; }
+
+[role="tabpanel"] {
+  animation: none;
+}
+[role="tabpanel"].tab-entering {
+  animation: tabFadeIn 0.15s ease-out forwards;
+}
+@keyframes tabFadeIn {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
   </style>
 <style id="googleidentityservice_button_styles">.qJTHM{-moz-user-select:none;-webkit-user-select:none;-ms-user-select:none;color:#202124;direction:ltr;-webkit-touch-callout:none;font-family:Roboto-Regular,arial,sans-serif;-webkit-font-smoothing:antialiased;font-weight:400;margin:0;overflow:hidden;-webkit-text-size-adjust:100%}.ynRLnc{left:-9999px;position:absolute;top:-9999px}.L6cTce{display:none}.bltWBb{overflow-wrap:break-word;word-break:break-word}.hSRGPd{color:#1a73e8;cursor:pointer;font-weight:500;text-decoration:none}.Bz112c-W3lGp{height:16px;width:16px}.Bz112c-E3DyYd{height:20px;width:20px}.Bz112c-r9oPif{height:24px;width:24px}.Bz112c-u2z5K{height:36px;width:36px}.Bz112c-uaxL4e{border-radius:10px}.LgbsSe-Bz112c{display:block}.S9gUrf-YoZ4jf{border:none;margin:0;padding:0}.S9gUrf-YoZ4jf *{border:none;margin:0;padding:0}.fFW7wc-ibnC6b>.aZ2wEe>div{border-color:#4285f4}.P1ekSe-ZMv3u{-webkit-transition:height .2s linear;transition:height .2s linear}.P1ekSe-ZMv3u>div:first-child{background-color:#1a73e8!important;-webkit-transition:width .3s linear;transition:width .3s linear}.P1ekSe-ZMv3u>div:nth-child(2){background-image:-webkit-gradient(linear,left top,right top,from(rgba(255,255,255,.7)),to(rgba(255,255,255,.7))),-webkit-gradient(linear,left top,right top,from(#1a73e8),to(#1a73e8))!important;background-image:-webkit-linear-gradient(left,rgba(255,255,255,.7),rgba(255,255,255,.7)),-webkit-linear-gradient(left,#1a73e8,#1a73e8)!important;background-image:linear-gradient(90deg,rgba(255,255,255,.7),rgba(255,255,255,.7)),linear-gradient(90deg,#1a73e8,#1a73e8)!important}.P1ekSe-ZMv3u>div:nth-child(3){background-image:-webkit-gradient(linear,left top,right top,from(rgba(255,255,255,.7)),to(rgba(255,255,255,.7))),-webkit-gradient(linear,left top,right top,from(#1a73e8),to(#1a73e8))!important;background-image:-webkit-linear-gradient(left,rgba(255,255,255,.7),rgba(255,255,255,.7)),-webkit-linear-gradient(left,#1a73e8,#1a73e8)!important;background-image:linear-gradient(90deg,rgba(255,255,255,.7),rgba(255,255,255,.7)),linear-gradient(90deg,#1a73e8,#1a73e8)!important}.haAclf{display:inline-block}.nsm7Bb-HzV7m-LgbsSe{border-radius:4px;box-sizing:border-box;-webkit-transition:background-color .218s,border-color .218s;transition:background-color .218s,border-color .218s;-moz-user-select:none;-webkit-user-select:none;-ms-user-select:none;-webkit-appearance:none;background-color:#fff;background-image:none;border:1px solid #dadce0;color:#3c4043;cursor:pointer;font-family:Google Sans,arial,sans-serif;font-size:14px;height:40px;letter-spacing:.25px;outline:none;overflow:hidden;padding:0 12px;position:relative;text-align:center;vertical-align:middle;white-space:nowrap;width:auto}@media screen and (-ms-high-contrast:active){.nsm7Bb-HzV7m-LgbsSe{border:2px solid windowText;color:windowText}}@media screen and (preferes-contrast:more){.nsm7Bb-HzV7m-LgbsSe{color:#000}}.nsm7Bb-HzV7m-LgbsSe.pSzOP-SxQuSe{font-size:14px;height:32px;letter-spacing:.25px;padding:0 10px}.nsm7Bb-HzV7m-LgbsSe.purZT-SxQuSe{font-size:11px;height:20px;letter-spacing:.3px;padding:0 8px}.nsm7Bb-HzV7m-LgbsSe.Bz112c-LgbsSe{padding:0;width:40px}.nsm7Bb-HzV7m-LgbsSe.Bz112c-LgbsSe.pSzOP-SxQuSe{width:32px}.nsm7Bb-HzV7m-LgbsSe.Bz112c-LgbsSe.purZT-SxQuSe{width:20px}.nsm7Bb-HzV7m-LgbsSe.JGcpL-RbRzK{border-radius:20px}.nsm7Bb-HzV7m-LgbsSe.JGcpL-RbRzK.pSzOP-SxQuSe{border-radius:16px}.nsm7Bb-HzV7m-LgbsSe.JGcpL-RbRzK.purZT-SxQuSe{border-radius:10px}.nsm7Bb-HzV7m-LgbsSe.MFS4be-Ia7Qfc{border:none;color:#fff}.nsm7Bb-HzV7m-LgbsSe.MFS4be-v3pZbf-Ia7Qfc{background-color:#1a73e8}.nsm7Bb-HzV7m-LgbsSe.MFS4be-JaPV2b-Ia7Qfc{background-color:#202124;color:#e8eaed}@media screen and (prefers-contrast:more){.nsm7Bb-HzV7m-LgbsSe.MFS4be-JaPV2b-Ia7Qfc{color:#fff}}.nsm7Bb-HzV7m-LgbsSe .nsm7Bb-HzV7m-LgbsSe-Bz112c{height:18px;margin-right:8px;min-width:18px;width:18px}.nsm7Bb-HzV7m-LgbsSe.pSzOP-SxQuSe .nsm7Bb-HzV7m-LgbsSe-Bz112c{height:14px;min-width:14px;width:14px}.nsm7Bb-HzV7m-LgbsSe.purZT-SxQuSe .nsm7Bb-HzV7m-LgbsSe-Bz112c{height:10px;min-width:10px;width:10px}.nsm7Bb-HzV7m-LgbsSe.jVeSEe .nsm7Bb-HzV7m-LgbsSe-Bz112c{margin-left:8px;margin-right:-4px}.nsm7Bb-HzV7m-LgbsSe.Bz112c-LgbsSe .nsm7Bb-HzV7m-LgbsSe-Bz112c{margin:0;padding:10px}.nsm7Bb-HzV7m-LgbsSe.Bz112c-LgbsSe.pSzOP-SxQuSe .nsm7Bb-HzV7m-LgbsSe-Bz112c{padding:8px}.nsm7Bb-HzV7m-LgbsSe.Bz112c-LgbsSe.purZT-SxQuSe .nsm7Bb-HzV7m-LgbsSe-Bz112c{padding:4px}.nsm7Bb-HzV7m-LgbsSe .nsm7Bb-HzV7m-LgbsSe-Bz112c-haAclf{border-top-left-radius:3px;border-bottom-left-radius:3px;display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-pack:center;-webkit-justify-content:center;justify-content:center;-webkit-box-align:center;-webkit-align-items:center;align-items:center;background-color:#fff;height:36px;margin-left:-10px;margin-right:12px;min-width:36px;width:36px}.nsm7Bb-HzV7m-LgbsSe .nsm7Bb-HzV7m-LgbsSe-Bz112c-haAclf .nsm7Bb-HzV7m-LgbsSe-Bz112c,.nsm7Bb-HzV7m-LgbsSe.Bz112c-LgbsSe .nsm7Bb-HzV7m-LgbsSe-Bz112c-haAclf .nsm7Bb-HzV7m-LgbsSe-Bz112c{margin:0;padding:0}.nsm7Bb-HzV7m-LgbsSe.pSzOP-SxQuSe .nsm7Bb-HzV7m-LgbsSe-Bz112c-haAclf{height:28px;margin-left:-8px;margin-right:10px;min-width:28px;width:28px}.nsm7Bb-HzV7m-LgbsSe.purZT-SxQuSe .nsm7Bb-HzV7m-LgbsSe-Bz112c-haAclf{height:16px;margin-left:-6px;margin-right:8px;min-width:16px;width:16px}.nsm7Bb-HzV7m-LgbsSe.Bz112c-LgbsSe .nsm7Bb-HzV7m-LgbsSe-Bz112c-haAclf{border-radius:3px;margin-left:2px;margin-right:0;padding:0}.nsm7Bb-HzV7m-LgbsSe.JGcpL-RbRzK .nsm7Bb-HzV7m-LgbsSe-Bz112c-haAclf{border-radius:18px}.nsm7Bb-HzV7m-LgbsSe.pSzOP-SxQuSe.JGcpL-RbRzK .nsm7Bb-HzV7m-LgbsSe-Bz112c-haAclf{border-radius:14px}.nsm7Bb-HzV7m-LgbsSe.purZT-SxQuSe.JGcpL-RbRzK .nsm7Bb-HzV7m-LgbsSe-Bz112c-haAclf{border-radius:8px}.nsm7Bb-HzV7m-LgbsSe .nsm7Bb-HzV7m-LgbsSe-bN97Pc-sM5MNb{display:-webkit-box;display:-webkit-flex;display:flex;-webkit-align-items:center;-webkit-box-align:center;align-items:center;-webkit-flex-direction:row;-webkit-box-orient:horizontal;-webkit-box-direction:normal;flex-direction:row;-webkit-box-pack:justify;-webkit-justify-content:space-between;justify-content:space-between;-webkit-flex-wrap:nowrap;flex-wrap:nowrap;height:100%;position:relative;width:100%}.nsm7Bb-HzV7m-LgbsSe .oXtfBe-l4eHX{-webkit-box-pack:center;-webkit-justify-content:center;justify-content:center}.nsm7Bb-HzV7m-LgbsSe .nsm7Bb-HzV7m-LgbsSe-BPrWId{-webkit-flex-grow:1;-webkit-box-flex:1;flex-grow:1;font-family:Google Sans,arial,sans-serif;font-weight:500;overflow:hidden;text-overflow:ellipsis;vertical-align:top}.nsm7Bb-HzV7m-LgbsSe.purZT-SxQuSe .nsm7Bb-HzV7m-LgbsSe-BPrWId{font-weight:300}.nsm7Bb-HzV7m-LgbsSe .oXtfBe-l4eHX .nsm7Bb-HzV7m-LgbsSe-BPrWId{-webkit-flex-grow:0;-webkit-box-flex:0;flex-grow:0}.nsm7Bb-HzV7m-LgbsSe .nsm7Bb-HzV7m-LgbsSe-MJoBVe{-webkit-transition:background-color .218s;transition:background-color .218s;bottom:0;left:0;position:absolute;right:0;top:0}.nsm7Bb-HzV7m-LgbsSe:focus,.nsm7Bb-HzV7m-LgbsSe:hover{box-shadow:none;border-color:rgb(210,227,252);outline:none}.nsm7Bb-HzV7m-LgbsSe:focus-within{outline:2px solid #00639b;border-color:transparent}.nsm7Bb-HzV7m-LgbsSe:hover .nsm7Bb-HzV7m-LgbsSe-MJoBVe{background:rgba(66,133,244,.08)}.nsm7Bb-HzV7m-LgbsSe:active .nsm7Bb-HzV7m-LgbsSe-MJoBVe,.nsm7Bb-HzV7m-LgbsSe:focus .nsm7Bb-HzV7m-LgbsSe-MJoBVe{background:rgba(66,133,244,.1)}.nsm7Bb-HzV7m-LgbsSe.MFS4be-Ia7Qfc:hover .nsm7Bb-HzV7m-LgbsSe-MJoBVe{background:rgba(255,255,255,.24)}.nsm7Bb-HzV7m-LgbsSe.MFS4be-Ia7Qfc:active .nsm7Bb-HzV7m-LgbsSe-MJoBVe,.nsm7Bb-HzV7m-LgbsSe.MFS4be-Ia7Qfc:focus .nsm7Bb-HzV7m-LgbsSe-MJoBVe{background:rgba(255,255,255,.32)}.nsm7Bb-HzV7m-LgbsSe .n1UuX-DkfjY{border-radius:50%;display:-webkit-box;display:-webkit-flex;display:flex;height:20px;margin-left:-4px;margin-right:8px;min-width:20px;width:20px}.nsm7Bb-HzV7m-LgbsSe.jVeSEe .nsm7Bb-HzV7m-LgbsSe-BPrWId{font-family:Roboto;font-size:12px;text-align:left}.nsm7Bb-HzV7m-LgbsSe.jVeSEe .nsm7Bb-HzV7m-LgbsSe-BPrWId .K4efff .fmcmS,.nsm7Bb-HzV7m-LgbsSe.jVeSEe .nsm7Bb-HzV7m-LgbsSe-BPrWId .ssJRIf{overflow:hidden;text-overflow:ellipsis}.nsm7Bb-HzV7m-LgbsSe.jVeSEe .nsm7Bb-HzV7m-LgbsSe-BPrWId .K4efff{display:-webkit-box;display:-webkit-flex;display:flex;-webkit-align-items:center;-webkit-box-align:center;align-items:center;color:#5f6368;fill:#5f6368;font-size:11px;font-weight:400}.nsm7Bb-HzV7m-LgbsSe.jVeSEe.MFS4be-Ia7Qfc .nsm7Bb-HzV7m-LgbsSe-BPrWId .K4efff{color:#e8eaed;fill:#e8eaed}@media screen and (prefers-contrast:more){.nsm7Bb-HzV7m-LgbsSe.jVeSEe .nsm7Bb-HzV7m-LgbsSe-BPrWId .K4efff,.nsm7Bb-HzV7m-LgbsSe.jVeSEe.MFS4be-Ia7Qfc .nsm7Bb-HzV7m-LgbsSe-BPrWId .K4efff{color:#000;fill:#000}}.nsm7Bb-HzV7m-LgbsSe.jVeSEe .nsm7Bb-HzV7m-LgbsSe-BPrWId .K4efff .Bz112c{height:18px;margin:-3px -3px -3px 2px;min-width:18px;width:18px}.nsm7Bb-HzV7m-LgbsSe.jVeSEe .nsm7Bb-HzV7m-LgbsSe-Bz112c-haAclf{border-top-left-radius:0;border-bottom-left-radius:0;border-top-right-radius:3px;border-bottom-right-radius:3px;margin-left:12px;margin-right:-10px}.nsm7Bb-HzV7m-LgbsSe.jVeSEe.JGcpL-RbRzK .nsm7Bb-HzV7m-LgbsSe-Bz112c-haAclf{border-radius:18px}.L5Fo6c-sM5MNb{border:0;display:block;left:0;position:relative;top:0}.L5Fo6c-bF1uUb{border-radius:4px;bottom:0;cursor:pointer;left:0;position:absolute;right:0;top:0}.L5Fo6c-bF1uUb:focus{border:none;outline:none}sentinel{}</style></head>
 <body>
@@ -1664,12 +1705,13 @@
                 <th><button class="sort-button" type="button" data-summary-sort="points">Total Points <span id="sumSortPoints"></span></button></th>
                 <th><button class="sort-button" type="button" data-summary-sort="lastdate">Last Occurrence <span id="sumSortLastdate"></span></button></th>
                 <th title="Sum of approved time-off days for this employee">Approved Off Days</th>
+                <th title="Occurrence count per month for the last 6 months">Trend</th>
               </tr>
             </thead>
             <tbody id="summaryBody"></tbody>
           </table>
         </div>
-        <div id="summaryEmpty" class="empty">No summary rows match the current filters.</div>
+        <div id="summaryEmpty" class="empty"><div class="empty-state"><div class="empty-state-icon">📊</div><div class="empty-state-title">No summary data</div><div class="empty-state-body">Import attendance records to see the point summary by agent.</div></div></div>
       </div>
 
       <div id="bucketView" class="hidden" role="tabpanel" aria-labelledby="bucketTab">
@@ -1692,7 +1734,7 @@
             <tbody id="bucketBody"></tbody>
           </table>
         </div>
-        <div id="bucketEmpty" class="empty">No bucket data. Set approved days for employees in the Employees tab, then assign occurrences here.</div>
+        <div id="bucketEmpty" class="empty"><div class="empty-state"><div class="empty-state-icon">🗂️</div><div class="empty-state-title">No bucket data</div><div class="empty-state-body">Set approved days for employees in the Employees tab, then assign occurrences here.</div></div></div>
       </div>
 
       <div id="employeesView" class="hidden" role="tabpanel" aria-labelledby="employeesTab">
@@ -1737,7 +1779,7 @@
             <tbody id="employeesBody"></tbody>
           </table>
         </div>
-        <div id="employeesEmpty" class="empty">No employees yet. Add one above, or use <strong>Sync from Attendance</strong> to import names from existing records.</div>
+        <div id="employeesEmpty" class="empty"><div class="empty-state"><div class="empty-state-icon">👥</div><div class="empty-state-title">No employees yet</div><div class="empty-state-body">Add employees to the roster using the form above.</div></div></div>
       </div>
 
       <div id="timeoffView" class="hidden" role="tabpanel" aria-labelledby="timeoffTab">
@@ -1786,7 +1828,7 @@
             <tbody id="timeoffBody"></tbody>
           </table>
         </div>
-        <div id="timeoffEmpty" class="empty">No time-off requests yet.</div>
+        <div id="timeoffEmpty" class="empty"><div class="empty-state"><div class="empty-state-icon">📅</div><div class="empty-state-title">No time-off requests</div><div class="empty-state-body">Submit a request using the form above, or import from Excel.</div></div></div>
       </div>
 
     </section>
@@ -4028,9 +4070,9 @@
           var emptyMsg = document.getElementById('recordsEmptyMsg');
           var emptyClearBtn = document.getElementById('recordsEmptyClearBtn');
           var anyFilter = els.searchInput.value || els.nameFilter.value || els.codeFilter.value || els.typeFilter.value || els.followUpFilter.value;
-          if (emptyMsg) emptyMsg.textContent = rows.length === 0
-            ? 'No records loaded yet. Import an Excel or CSV file to get started.'
-            : 'No records match the current filters.';
+          if (emptyMsg) emptyMsg.innerHTML = rows.length === 0
+            ? '<div class="empty-state"><div class="empty-state-icon">📂</div><div class="empty-state-title">No records yet</div><div class="empty-state-body">Import an Excel or CSV file to get started, or add records manually below.</div></div>'
+            : '<div class="empty-state"><div class="empty-state-icon">🔍</div><div class="empty-state-title">No matching records</div><div class="empty-state-body">Try adjusting your filters or search term.</div></div>';
           if (emptyClearBtn) emptyClearBtn.style.display = (rows.length > 0 && anyFilter) ? 'inline-block' : 'none';
         }
         els.recordsBody.querySelectorAll('button[data-action-menu-toggle]').forEach(function (button) {
@@ -4102,6 +4144,34 @@
           var k = norm(r.name);
           if (!lastIsoByName[k] || r.dateIso > lastIsoByName[k]) lastIsoByName[k] = r.dateIso;
         });
+
+        var now = new Date();
+        var sparkMonths = [];
+        for (var si = 5; si >= 0; si--) {
+          var sd = new Date(now.getFullYear(), now.getMonth() - si, 1);
+          sparkMonths.push({ y: sd.getFullYear(), m: sd.getMonth(), counts: {} });
+        }
+        rows.forEach(function(r) {
+          if (!isOccurrence(r.type) || !r.dateIso) return;
+          var d = new Date(r.dateIso);
+          sparkMonths.forEach(function(sm) {
+            if (sm.y === d.getFullYear() && sm.m === d.getMonth()) {
+              var k = norm(r.name);
+              sm.counts[k] = (sm.counts[k] || 0) + 1;
+            }
+          });
+        });
+
+        function buildSparkline(nameKey) {
+          var vals = sparkMonths.map(function(sm) { return sm.counts[nameKey] || 0; });
+          var maxV = Math.max(1, Math.max.apply(null, vals));
+          var bars = vals.map(function(v) {
+            var h = Math.round((v / maxV) * 20);
+            var color = v === 0 ? 'var(--border)' : v >= 3 ? 'var(--danger)' : 'var(--blue)';
+            return '<span style="display:inline-block;width:6px;height:' + Math.max(2, h) + 'px;background:' + color + ';border-radius:2px;margin-right:2px;vertical-align:bottom"></span>';
+          }).join('');
+          return '<span style="display:inline-flex;align-items:flex-end;height:22px;padding:0 2px">' + bars + '</span>';
+        }
         var summary = allSummary.sort(function (a, b) {
           var key = summarySort.key;
           var dir = summarySort.dir;
@@ -4154,6 +4224,7 @@
             '<td><span style="' + ptStyle + '">' + escapeHtml(formatPoints(pts)) + '</span>' + ptFlag + '</td>' +
             '<td>' + sumLastCell + '</td>' +
             '<td>' + (approvedDays > 0 ? approvedDays.toLocaleString() : '—') + '</td>' +
+            '<td class="sparkline-cell">' + buildSparkline(norm(item.name)) + '</td>' +
           '</tr>';
         }).join('');
 
@@ -4177,6 +4248,7 @@
             '<td>' + escapeHtml(formatPoints(totals.points)) + '</td>' +
             '<td></td>' +
             '<td>' + (totalApprovedDays > 0 ? totalApprovedDays.toLocaleString() : '—') + '</td>' +
+            '<td></td>' +
           '</tr>';
         }
 
@@ -4638,9 +4710,29 @@
       var _calYear = new Date().getFullYear();
       var _calMonth = new Date().getMonth();
 
+      function animateCounters(container) {
+        if (!container) return;
+        container.querySelectorAll('.dash-stat-value[data-target]').forEach(function(el) {
+          var target = parseFloat(el.getAttribute('data-target'));
+          var isDecimal = String(target).indexOf('.') !== -1;
+          var duration = 600;
+          var start = performance.now();
+          function step(now) {
+            var progress = Math.min((now - start) / duration, 1);
+            var eased = 1 - Math.pow(1 - progress, 3); // ease-out cubic
+            var current = target * eased;
+            el.textContent = isDecimal ? current.toFixed(1) : Math.round(current).toString();
+            if (progress < 1) requestAnimationFrame(step);
+            else el.textContent = isDecimal ? target.toFixed(1) : target.toString();
+          }
+          requestAnimationFrame(step);
+        });
+      }
+
       function renderDashboard() {
         if (!document.getElementById('dashboardView') || document.getElementById('dashboardView').classList.contains('hidden')) return;
         _renderDashStats();
+        setTimeout(function() { animateCounters(document.getElementById('dashStats')); }, 50);
         _renderMonthlyChart();
         _renderLeaderboard();
         _renderCalendar();
@@ -4656,15 +4748,15 @@
         occ.forEach(function(r) { var k = norm(r.name); empPts[k] = (empPts[k]||0) + (parseFloat(r.points)||0); });
         var highRisk = Object.values(empPts).filter(function(p) { return p >= 6; }).length;
         var stats = [
-          { label: 'Total Records', value: rows.length, color: 'var(--yellow)' },
-          { label: 'Occurrences', value: occ.length, color: 'var(--danger)' },
-          { label: 'Employees', value: employees.length, color: 'var(--blue)' },
-          { label: 'High Risk ≥6 pts', value: highRisk, color: 'var(--danger)' },
-          { label: 'Pending Time Off', value: pendingTO, color: '#c084fc' },
-          { label: 'Total Points', value: totalPts % 1 === 0 ? totalPts : totalPts.toFixed(1), color: 'var(--yellow)' },
+          { label: 'Total Records', value: rows.length, rawValue: rows.length, color: 'var(--yellow)' },
+          { label: 'Occurrences', value: occ.length, rawValue: occ.length, color: 'var(--danger)' },
+          { label: 'Employees', value: employees.length, rawValue: employees.length, color: 'var(--blue)' },
+          { label: 'High Risk ≥6 pts', value: highRisk, rawValue: highRisk, color: 'var(--danger)' },
+          { label: 'Pending Time Off', value: pendingTO, rawValue: pendingTO, color: '#c084fc' },
+          { label: 'Total Points', value: totalPts % 1 === 0 ? totalPts : totalPts.toFixed(1), rawValue: totalPts, color: 'var(--yellow)' },
         ];
         el.innerHTML = stats.map(function(s) {
-          return '<div class="dash-stat"><div class="dash-stat-label">'+escapeHtml(s.label)+'</div><div class="dash-stat-value" style="color:'+s.color+'">'+s.value+'</div></div>';
+          return '<div class="dash-stat"><div class="dash-stat-label">'+escapeHtml(s.label)+'</div><div class="dash-stat-value" data-target="'+s.rawValue+'" style="color:'+s.color+'">0</div></div>';
         }).join('');
       }
 
@@ -4834,6 +4926,18 @@
         els.bucketTab.setAttribute('aria-selected', String(showBucket));
         document.getElementById('employeesTab').setAttribute('aria-selected', String(showEmployees));
         document.getElementById('timeoffTab').setAttribute('aria-selected', String(showTimeoff));
+        // Trigger fade-in animation on the newly active panel
+        var newPanel = showDashboard ? document.getElementById('dashboardView')
+          : showRecords ? els.recordsView
+          : showSummary ? els.summaryView
+          : showBucket ? els.bucketView
+          : showEmployees ? document.getElementById('employeesView')
+          : document.getElementById('timeoffView');
+        if (newPanel) {
+          newPanel.classList.remove('tab-entering');
+          void newPanel.offsetWidth;
+          newPanel.classList.add('tab-entering');
+        }
         if (showDashboard) renderDashboard();
       }
 
