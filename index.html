@@ -2054,6 +2054,8 @@
             <div><label for="empDept">Department</label><input id="empDept" type="text" autocomplete="off" list="empDeptList"><datalist id="empDeptList"></datalist></div>
             <div><label for="empRole">Role</label><input id="empRole" type="text" autocomplete="off" list="empRoleList"><datalist id="empRoleList"></datalist></div>
             <div><label for="empStatus">Status</label><select id="empStatus"><option value="Active">Active</option><option value="Inactive">Inactive</option></select></div>
+            <div><label for="empStanding" style="display:block;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--muted);margin-bottom:5px">Standing</label><select id="empStanding" style="width:100%"><option value="good">Good Standing</option><option value="watchlist">Watch List</option><option value="warning">Final Warning</option><option value="onleave">On Leave</option></select></div>
+            <div><label for="empHireDate" style="display:block;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--muted);margin-bottom:5px">Hire Date</label><input type="date" id="empHireDate" style="width:100%"></div>
             <div><label for="empNotes">Notes</label><textarea id="empNotes" placeholder="Optional notes…" rows="2" style="resize:vertical;width:100%"></textarea></div>
             <div class="form-actions"><button class="primary" type="submit">Add Employee</button><button class="secondary" type="reset">Reset</button></div>
           </form>
@@ -2069,6 +2071,8 @@
             <option value="Inactive">Inactive</option>
           </select>
           <button class="secondary" type="button" id="syncEmployeesBtn" style="margin-top:auto" title="Add any attendance record names not already in the roster">Sync from Attendance</button>
+          <button class="secondary" type="button" id="importEmployeesBtn" style="margin-top:auto">⬆ Import Roster</button>
+          <input type="file" id="importEmployeesInput" accept=".csv,.xlsx,.xls" style="display:none">
           <span id="empSummary" style="margin-left:auto;font-size:13px;color:var(--muted)"></span>
         </div>
         <div class="table-wrap">
@@ -2079,6 +2083,9 @@
               <th><button class="sort-button" type="button" data-emp-sort="department">Department <span id="empSortDept"></span></button></th>
               <th><button class="sort-button" type="button" data-emp-sort="role">Role <span id="empSortRole"></span></button></th>
               <th><button class="sort-button" type="button" data-emp-sort="status">Status <span id="empSortStatus"></span></button></th>
+              <th>Standing</th>
+              <th>Hire Date</th>
+              <th>Tenure</th>
               <th><button class="sort-button" type="button" data-emp-sort="records">Records <span id="empSortRecords"></span></button></th>
               <th><button class="sort-button" type="button" data-emp-sort="lastdate">Last Occurrence <span id="empSortLastdate"></span></button></th>
               <th>Notes</th>
@@ -4720,7 +4727,7 @@
           var nameText = highlightMatch(row.name, nameSearchVal) + (row.editedEmployee ? ' <span class="edited">*</span>' : '');
           var followUpText = followUpBadge(row.flags, row.followUpMonth) || '<span class="muted">None</span>';
           if (row.bucketApplied) followUpText += ' <span class="badge bucket">Bucket</span>';
-          var nameButton = '<button class="name-button" type="button" data-action="view-employee" data-id="' + escapeHtml(row.id) + '">' + nameText + '</button>';
+          var nameButton = '<button class="name-button emp-name-link" type="button" data-action="view-employee" data-id="' + escapeHtml(row.id) + '" style="text-decoration:underline;text-decoration-style:dotted;text-underline-offset:2px">' + nameText + '</button>';
           var resetName = row.editedEmployee ? '<button class="small secondary" type="button" data-action="reset-name" data-id="' + escapeHtml(row.id) + '">Reset Name</button>' : '';
           var resetPoints = row.editedPoints ? '<button class="small secondary" type="button" data-action="reset-points" data-id="' + escapeHtml(row.id) + '">Reset Points</button>' : '';
           var resetStatus = row.statusOverride ? '<button class="small secondary" type="button" data-action="reset-status" data-id="' + escapeHtml(row.id) + '">Reset Status</button>' : '';
@@ -5209,6 +5216,117 @@
         if (syncMsg) { syncMsg.textContent = newNames.length + ' employee' + (newNames.length !== 1 ? 's' : '') + ' added from attendance records.'; }
       }
 
+      var EMP_STATUSES = {
+        good:      { label: 'Good Standing', color: 'var(--ok)',     bg: 'rgba(16,185,129,0.15)' },
+        watchlist: { label: 'Watch List',    color: 'var(--yellow)', bg: 'rgba(245,158,11,0.15)' },
+        warning:   { label: 'Final Warning', color: 'var(--danger)', bg: 'rgba(239,68,68,0.15)'  },
+        onleave:   { label: 'On Leave',      color: 'var(--blue)',   bg: 'rgba(59,130,246,0.15)' },
+      };
+
+      function empStatusBadge(standing) {
+        var s = EMP_STATUSES[standing] || EMP_STATUSES.good;
+        return '<span style="display:inline-block;padding:2px 8px;border-radius:99px;font-size:11px;font-weight:700;color:' + s.color + ';background:' + s.bg + '">' + s.label + '</span>';
+      }
+
+      function calcTenure(hireDate) {
+        if (!hireDate) return '—';
+        var ms = Date.now() - new Date(hireDate).getTime();
+        if (ms < 0) return 'Future';
+        var yrs = Math.floor(ms / (1000*60*60*24*365));
+        var mos = Math.floor((ms % (1000*60*60*24*365)) / (1000*60*60*24*30));
+        return (yrs > 0 ? yrs + 'y ' : '') + mos + 'm';
+      }
+
+      function openEmpProfile(name) {
+        var emp = employees.find(function(e) { return norm(e.name) === norm(name); }) || { name: name };
+        var empRows = rows.filter(function(r) { return norm(r.name) === norm(name); })
+                          .sort(function(a,b) { return b.dateIso < a.dateIso ? -1 : 1; });
+        var occRows = empRows.filter(function(r) { return r.type === 'past'; });
+        var totalPts = occRows.reduce(function(s,r) { return s + (r.points||0); }, 0);
+        var ncnsCount = occRows.filter(function(r) { return (r.code||'').toUpperCase()==='NCNS'; }).length;
+        var futureRows = empRows.filter(function(r) { return r.type === 'future'; });
+
+        var avatarEl = document.getElementById('empProfileAvatar');
+        if (avatarEl) avatarEl.textContent = (name || '?').charAt(0).toUpperCase();
+
+        document.getElementById('empProfileName').textContent = name;
+        var meta = [emp.department, emp.role, emp.employeeId ? 'ID: ' + emp.employeeId : (emp.id ? 'ID: ' + emp.id : '')].filter(Boolean).join(' · ');
+        document.getElementById('empProfileMeta').textContent = meta || 'No employee record on file';
+
+        var statsEl = document.getElementById('empProfileStats');
+        if (statsEl) {
+          statsEl.innerHTML = [
+            { label: 'Occurrences', value: occRows.length, color: occRows.length > 5 ? 'var(--danger)' : 'var(--text)' },
+            { label: 'Total Points', value: totalPts.toFixed(1), color: totalPts >= 6 ? 'var(--danger)' : totalPts >= 2 ? 'var(--yellow)' : 'var(--ok)' },
+            { label: 'NCNS', value: ncnsCount, color: ncnsCount > 0 ? 'var(--danger)' : 'var(--ok)' },
+            { label: 'Future Requests', value: futureRows.length, color: 'var(--blue)' },
+          ].map(function(s) {
+            return '<div style="background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:12px;text-align:center">' +
+              '<div style="font-size:22px;font-weight:800;color:' + s.color + '">' + s.value + '</div>' +
+              '<div style="font-size:11px;color:var(--muted);margin-top:2px">' + s.label + '</div>' +
+              '</div>';
+          }).join('');
+        }
+
+        var statusRow = document.getElementById('empProfileStatusRow');
+        if (statusRow) {
+          var tenure = '';
+          if (emp.hireDate) {
+            var ms = Date.now() - new Date(emp.hireDate).getTime();
+            var yrs = Math.floor(ms / (1000*60*60*24*365));
+            var mos = Math.floor((ms % (1000*60*60*24*365)) / (1000*60*60*24*30));
+            tenure = 'Hired: ' + emp.hireDate + ' (' + (yrs > 0 ? yrs + 'y ' : '') + mos + 'm)';
+          }
+          statusRow.innerHTML = empStatusBadge(emp.standing || 'good') + (tenure ? '<span style="font-size:12px;color:var(--muted)">' + escapeHtml(tenure) + '</span>' : '');
+        }
+
+        var histEl = document.getElementById('empProfileHistory');
+        if (histEl) {
+          if (!empRows.length) {
+            histEl.innerHTML = '<div style="font-size:13px;color:var(--muted);padding:8px 0">No records on file.</div>';
+          } else {
+            histEl.innerHTML = '<table style="width:100%;font-size:12px;border-collapse:collapse">' +
+              '<thead><tr style="border-bottom:1px solid var(--border)">' +
+              '<th style="padding:4px 8px;text-align:left;color:var(--muted);font-weight:600">Date</th>' +
+              '<th style="padding:4px 8px;text-align:left;color:var(--muted);font-weight:600">Code</th>' +
+              '<th style="padding:4px 8px;text-align:left;color:var(--muted);font-weight:600">Points</th>' +
+              '<th style="padding:4px 8px;text-align:left;color:var(--muted);font-weight:600">Type</th>' +
+              '<th style="padding:4px 8px;text-align:left;color:var(--muted);font-weight:600">Note</th>' +
+              '</tr></thead><tbody>' +
+              empRows.slice(0, 20).map(function(r) {
+                return '<tr style="border-bottom:1px solid var(--border)">' +
+                  '<td style="padding:5px 8px">' + escapeHtml(r.dateText || r.dateIso || '') + '</td>' +
+                  '<td style="padding:5px 8px;font-weight:700">' + escapeHtml(r.code || '') + '</td>' +
+                  '<td style="padding:5px 8px">' + (r.points || 0) + '</td>' +
+                  '<td style="padding:5px 8px;color:var(--muted)">' + escapeHtml(r.type || '') + '</td>' +
+                  '<td style="padding:5px 8px;color:var(--muted)">' + escapeHtml(r.note || '') + '</td>' +
+                  '</tr>';
+              }).join('') +
+              '</tbody></table>';
+          }
+        }
+
+        var toEl = document.getElementById('empProfileTimeOff');
+        if (toEl) {
+          var empTO = timeOffRequests.filter(function(t) { return norm(t.employeeName) === norm(name); });
+          if (!empTO.length) {
+            toEl.innerHTML = '<div style="font-size:13px;color:var(--muted)">No time off requests.</div>';
+          } else {
+            toEl.innerHTML = empTO.map(function(t) {
+              var statusColor = t.status === 'Approved' ? 'var(--ok)' : t.status === 'Denied' ? 'var(--danger)' : 'var(--yellow)';
+              return '<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid var(--border);font-size:12px">' +
+                '<span>' + escapeHtml(t.type) + ': ' + escapeHtml(t.startDate) + (t.endDate !== t.startDate ? ' → ' + escapeHtml(t.endDate) : '') + '</span>' +
+                '<span style="font-weight:700;color:' + statusColor + '">' + escapeHtml(t.status) + '</span>' +
+                '</div>';
+            }).join('');
+          }
+        }
+
+        document.getElementById('empProfileModal').classList.remove('hidden');
+        window._empProfileName = name;
+      }
+      window.openEmpProfile = openEmpProfile;
+
       function renderEmployees() {
         var empBody = document.getElementById('employeesBody');
         var empEmpty = document.getElementById('employeesEmpty');
@@ -5257,14 +5375,18 @@
           }
           return '<tr>' +
             '<td><code class="editable-cell" data-emp-field="id" data-emp-id="' + escapeHtml(emp.id) + '" title="Click to edit ID">' + escapeHtml(emp.id || '—') + '</code></td>' +
-            '<td style="display:flex;align-items:center;gap:8px">' + avatar + '<span class="editable-cell" data-emp-field="name" data-emp-id="' + escapeHtml(emp.id) + '" title="Click to edit name" style="font-weight:650">' + escapeHtml(emp.name) + '</span></td>' +
+            '<td style="display:flex;align-items:center;gap:8px">' + avatar + '<span class="emp-name-link editable-cell" data-emp-field="name" data-emp-id="' + escapeHtml(emp.id) + '" title="Click to edit name" style="font-weight:650;cursor:pointer;text-decoration:underline;text-decoration-style:dotted;text-underline-offset:2px">' + escapeHtml(emp.name) + '</span></td>' +
             '<td><span class="editable-cell" data-emp-field="department" data-emp-id="' + escapeHtml(emp.id) + '" title="Click to edit">' + escapeHtml(emp.department || '—') + '</span></td>' +
             '<td><span class="editable-cell" data-emp-field="role" data-emp-id="' + escapeHtml(emp.id) + '" title="Click to edit">' + escapeHtml(emp.role || '—') + '</span></td>' +
             '<td><span class="badge ' + tone + '">' + escapeHtml(emp.status) + '</span></td>' +
+            '<td>' + empStatusBadge(emp.standing || 'good') + '</td>' +
+            '<td style="font-size:12px">' + escapeHtml(emp.hireDate || '—') + '</td>' +
+            '<td style="font-size:12px;color:var(--muted)">' + calcTenure(emp.hireDate) + '</td>' +
             '<td>' + recordCount.toLocaleString() + '</td>' +
             '<td>' + lastCell + '</td>' +
             '<td style="font-size:12px;color:var(--muted);max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="'+escapeHtml(emp.notes||'')+'">'+escapeHtml((emp.notes||'').slice(0,60))+((emp.notes||'').length>60?'…':'')+'</td>' +
             '<td style="display:flex;gap:6px;flex-wrap:wrap">' +
+              '<button class="small secondary" type="button" data-emp-action="profile" data-emp-name="' + escapeHtml(emp.name) + '" title="View profile">Profile</button>' +
               '<button class="small secondary" type="button" data-emp-action="viewrecords" data-emp-name="' + escapeHtml(emp.name) + '" title="Show attendance records for this employee">Records</button>' +
               '<button class="small secondary" type="button" data-emp-action="viewtimeoff" data-emp-name="' + escapeHtml(emp.name) + '" title="Show this employee\'s time-off requests">Time Off</button>' +
               '<button class="small secondary" type="button" data-emp-action="togglestatus" data-emp-id="' + escapeHtml(emp.id) + '" data-emp-name="' + escapeHtml(emp.name) + '">' + (emp.status === 'Active' ? 'Set Inactive' : 'Set Active') + '</button>' +
@@ -5357,6 +5479,8 @@
           department: toText(document.getElementById('empDept').value),
           role: toText(document.getElementById('empRole').value),
           status: document.getElementById('empStatus').value,
+          standing: (document.getElementById('empStanding')||{value:'good'}).value || 'good',
+          hireDate: (document.getElementById('empHireDate')||{value:''}).value || '',
           notes: (document.getElementById('empNotes')||{value:''}).value.trim()
         });
         saveEmployees();
@@ -5411,6 +5535,10 @@
           emp = employees.find(function (e) { return e.name === name; });
         }
         if (!emp) return;
+        if (action === 'profile') {
+          openEmpProfile(button.getAttribute('data-emp-name') || emp.name);
+          return;
+        }
         if (action === 'viewrecords') {
           var recName = button.getAttribute('data-emp-name');
           setView('records');
@@ -5934,7 +6062,7 @@
       function handleSummaryAction(button) {
         var action = button.getAttribute('data-summary-action');
         var employeeName = button.getAttribute('data-name');
-        if (action === 'view-employee') openEmployeeModalByName(employeeName);
+        if (action === 'view-employee') openEmpProfile(employeeName);
       }
 
       function openEmployeeModal(id) {
@@ -7672,6 +7800,13 @@
           return;
         }
 
+        // Open employee profile on name link click in records table
+        var empNameLink = target.closest('.emp-name-link');
+        if (empNameLink) {
+          openEmpProfile(empNameLink.textContent.trim());
+          return;
+        }
+
         var button = target.closest('button[data-action]');
         if (!button) return;
         closeAllActionMenus();
@@ -7765,6 +7900,83 @@
       document.getElementById('employeeSearch').addEventListener('input', renderEmployees);
       document.getElementById('empStatusFilter').addEventListener('change', renderEmployees);
       document.getElementById('syncEmployeesBtn').addEventListener('click', syncEmployeesFromAttendance);
+
+      // Employee profile modal close
+      (function() {
+        var closeBtn = document.getElementById('closeEmpProfileBtn');
+        var modal = document.getElementById('empProfileModal');
+        if (closeBtn) closeBtn.addEventListener('click', function() { modal.classList.add('hidden'); });
+        if (modal) modal.addEventListener('click', function(e) { if (e.target === this) this.classList.add('hidden'); });
+      })();
+
+      // Import Employees roster
+      function importEmployeeRoster(file) {
+        var ext = file.name.split('.').pop().toLowerCase();
+        function processRows(matrix) {
+          if (!matrix.length) { showToast('No data found in file'); return; }
+          var header = matrix[0].map(function(h) { return String(h || '').trim().toLowerCase(); });
+          var nameIdx     = header.findIndex(function(h) { return h.includes('name'); });
+          var deptIdx     = header.findIndex(function(h) { return h.includes('dept') || h.includes('department'); });
+          var roleIdx     = header.findIndex(function(h) { return h.includes('role') || h.includes('title') || h.includes('position'); });
+          var idIdx       = header.findIndex(function(h) { return h.includes('id') || h.includes('employee'); });
+          var hireDateIdx = header.findIndex(function(h) { return h.includes('hire') || h.includes('start'); });
+          if (nameIdx === -1) { showToast('Could not find a "Name" column in the file'); return; }
+          var added = 0, skipped = 0;
+          matrix.slice(1).forEach(function(row) {
+            var name = String(row[nameIdx] || '').trim();
+            if (!name) return;
+            var exists = employees.some(function(e) { return norm(e.name) === norm(name); });
+            if (exists) { skipped++; return; }
+            employees.push({
+              id: createId(),
+              name: name,
+              department: deptIdx >= 0 ? String(row[deptIdx] || '').trim() : '',
+              role: roleIdx >= 0 ? String(row[roleIdx] || '').trim() : '',
+              employeeId: idIdx >= 0 ? String(row[idIdx] || '').trim() : '',
+              hireDate: hireDateIdx >= 0 ? String(row[hireDateIdx] || '').trim() : '',
+              status: 'Active',
+              standing: 'good',
+              notes: ''
+            });
+            added++;
+          });
+          saveEmployees();
+          render();
+          showToast('Imported ' + added + ' employees' + (skipped ? ' (' + skipped + ' skipped — already exist)' : ''));
+        }
+        if (ext === 'csv') {
+          var reader = new FileReader();
+          reader.onload = function(e) {
+            var lines = e.target.result.split(/\r?\n/).filter(Boolean);
+            var matrix = lines.map(function(line) {
+              return line.split(',').map(function(cell) { return cell.replace(/^"|"$/g, '').trim(); });
+            });
+            processRows(matrix);
+          };
+          reader.readAsText(file);
+        } else {
+          var reader = new FileReader();
+          reader.onload = function(e) {
+            try {
+              var wb = XLSX.read(e.target.result, { type: 'array' });
+              var ws = wb.Sheets[wb.SheetNames[0]];
+              var matrix = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
+              processRows(matrix);
+            } catch(err) {
+              showToast('Failed to read file: ' + err.message);
+            }
+          };
+          reader.readAsArrayBuffer(file);
+        }
+      }
+
+      var importEmpBtn = document.getElementById('importEmployeesBtn');
+      var importEmpInput = document.getElementById('importEmployeesInput');
+      if (importEmpBtn) importEmpBtn.addEventListener('click', function() { if (importEmpInput) importEmpInput.click(); });
+      if (importEmpInput) importEmpInput.addEventListener('change', function() {
+        if (this.files[0]) { importEmployeeRoster(this.files[0]); this.value = ''; }
+      });
+
       document.getElementById('syncBucketFromTimeoffBtn').addEventListener('click', syncBucketFromTimeoff);
       document.getElementById('bucketSearch').addEventListener('input', renderBucket);
       document.getElementById('exportTimeOffBtn').addEventListener('click', exportTimeOff);
@@ -7817,6 +8029,13 @@
       document.getElementById('employeesBody').addEventListener('click', function (event) {
         var button = event.target.closest('button[data-emp-action]');
         if (button) { handleEmployeeAction(button); return; }
+
+        // Open employee profile when name link is clicked (not when an input is already active)
+        var nameLink = event.target.closest('.emp-name-link');
+        if (nameLink && !nameLink.querySelector('input')) {
+          var empNameVal = nameLink.textContent.trim();
+          if (empNameVal && empNameVal !== '—') { openEmpProfile(empNameVal); return; }
+        }
 
         var cell = event.target.closest('.editable-cell');
         if (!cell || cell.querySelector('input')) return;
@@ -9001,6 +9220,30 @@
     <div style="margin-top:22px;display:flex;justify-content:flex-end;gap:10px">
       <button class="secondary" type="button" id="cancelBulkEditBtn">Cancel</button>
       <button class="primary" type="button" id="applyBulkEditBtn">Apply to Selected</button>
+    </div>
+  </div>
+</div>
+<div id="empProfileModal" class="hidden" style="position:fixed;inset:0;z-index:300;background:rgba(0,0,0,0.7);display:flex;align-items:flex-start;justify-content:center;padding:24px;overflow-y:auto">
+  <div style="background:var(--card2);border:1px solid var(--border-light);border-radius:var(--radius);box-shadow:var(--shadow);width:100%;max-width:680px;padding:28px;margin:auto">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px">
+      <div style="display:flex;align-items:center;gap:14px">
+        <div id="empProfileAvatar" style="width:48px;height:48px;border-radius:50%;background:var(--blue);display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:700;color:#fff;flex-shrink:0"></div>
+        <div>
+          <div id="empProfileName" style="font-size:18px;font-weight:800"></div>
+          <div id="empProfileMeta" style="font-size:13px;color:var(--muted);margin-top:2px"></div>
+        </div>
+      </div>
+      <button type="button" id="closeEmpProfileBtn" style="background:none;border:none;color:var(--muted);font-size:24px;cursor:pointer;padding:0 4px;line-height:1">×</button>
+    </div>
+    <div id="empProfileStats" style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:20px"></div>
+    <div id="empProfileStatusRow" style="display:flex;gap:10px;align-items:center;margin-bottom:20px;flex-wrap:wrap"></div>
+    <div style="margin-bottom:16px">
+      <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--muted);margin-bottom:8px">Recent Attendance</div>
+      <div id="empProfileHistory" style="max-height:220px;overflow-y:auto"></div>
+    </div>
+    <div>
+      <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--muted);margin-bottom:8px">Time Off Requests</div>
+      <div id="empProfileTimeOff"></div>
     </div>
   </div>
 </div>
