@@ -3742,12 +3742,13 @@
       function renderRecords() {
         var visibleRows = sortRows(filteredRows());
         renderSortIndicators();
+        var nameSearchVal = els.searchInput ? els.searchInput.value.trim() : '';
 
         els.recordsBody.innerHTML = visibleRows.map(function (row) {
           var pts = Number(row.points) || 0;
           var ptColor = pts > 0 ? 'color:#fca5a5;font-weight:700' : pts < 0 ? 'color:#6ee7b7;font-weight:700' : '';
           var pointText = '<span style="' + ptColor + '">' + escapeHtml(formatPoints(row.points)) + '</span>' + (row.editedPoints ? '<span class="edited">*</span>' : '');
-          var nameText = escapeHtml(row.name) + (row.editedEmployee ? ' <span class="edited">*</span>' : '');
+          var nameText = highlightMatch(row.name, nameSearchVal) + (row.editedEmployee ? ' <span class="edited">*</span>' : '');
           var followUpText = followUpBadge(row.flags, row.followUpMonth) || '<span class="muted">None</span>';
           if (row.bucketApplied) followUpText += ' <span class="badge bucket">Bucket</span>';
           var nameButton = '<button class="name-button" type="button" data-action="view-employee" data-id="' + escapeHtml(row.id) + '">' + nameText + '</button>';
@@ -3755,8 +3756,10 @@
           var resetPoints = row.editedPoints ? '<button class="small secondary" type="button" data-action="reset-points" data-id="' + escapeHtml(row.id) + '">Reset Points</button>' : '';
           var resetStatus = row.statusOverride ? '<button class="small secondary" type="button" data-action="reset-status" data-id="' + escapeHtml(row.id) + '">Reset Status</button>' : '';
           var actionMenuId = escapeHtml(row.id);
+          var severity = pts >= 6 ? 'high' : pts >= 2 ? 'mid' : pts > 0 ? 'low' : '';
+          var severityAttr = severity ? ' data-severity="' + severity + '"' : '';
 
-          return '<tr' + (row.bucketApplied ? ' class="bucket-row"' : '') + '>' +
+          return '<tr' + (row.bucketApplied ? ' class="bucket-row"' : '') + severityAttr + '>' +
             '<td>' + nameButton + '</td>' +
             '<td>' + escapeHtml(row.dateText || formatDate(row.date)) + '</td>' +
             '<td><span class="badge ' + escapeHtml(statusBadgeClass(row.type)) + '">' + escapeHtml(statusLabel(row.type)) + '</span></td>' +
@@ -6011,7 +6014,18 @@
       // Action menu keyboard accessibility (Item 4)
       els.recordsBody.addEventListener('keydown', function (e) {
         var list = e.target.closest('.action-list');
-        if (!list) return;
+        if (!list) {
+          if (e.key === 'Escape') {
+            var openList = document.querySelector('.action-list.open');
+            if (openList) {
+              openList.classList.remove('open');
+              var t = openList.closest('.action-wrap') && openList.closest('.action-wrap').querySelector('.action-toggle');
+              if (t) t.focus();
+              e.preventDefault();
+            }
+          }
+          return;
+        }
         var btns = Array.from(list.querySelectorAll('button'));
         var idx = btns.indexOf(e.target);
         if (e.key === 'Escape') {
