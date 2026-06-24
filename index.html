@@ -104,6 +104,9 @@
       max-width: 560px;
     }
 
+    #demoBanner { display: none; }
+    #demoBanner.demo-active { display: flex !important; }
+
     .app {
       max-width: 1240px;
       margin: 28px auto 56px;
@@ -3928,12 +3931,13 @@
         saveTimeOff();
         saveBucketData();
         render();
-        showDemoBanner(true);
-        showToast('Demo data loaded — explore all features!');
 
         // Switch to Dashboard to show the data
         var dashBtn = document.querySelector('[data-view="dashboard"]');
         if (dashBtn) dashBtn.click();
+
+        showDemoBanner(true);
+        showToast('Demo data loaded — explore all features!');
       }
 
       function exitDemoMode() {
@@ -3961,7 +3965,7 @@
       function showDemoBanner(visible) {
         var banner = document.getElementById('demoBanner');
         if (!banner) return;
-        banner.style.display = visible ? 'flex' : 'none';
+        banner.classList.toggle('demo-active', !!visible);
       }
       // ── End Demo Data ─────────────────────────────────────────────────────────
 
