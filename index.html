@@ -1931,7 +1931,7 @@ body.no-transitions * { transition: none !important; }
       <div id="monthlyChartEmpty" class="empty" style="display:none">No occurrence data yet.</div>
     </div>
 
-    <div class="dash-section">
+    <div class="dash-section" id="dashLeaderboardSection">
       <div class="dash-section-title">Top Agents by Points</div>
       <div id="leaderboard"></div>
       <div id="leaderboardEmpty" class="empty" style="display:none">No data yet.</div>
@@ -1942,6 +1942,11 @@ body.no-transitions * { transition: none !important; }
         <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--muted);margin-bottom:12px">&#9888; Cluster Alerts <span id="clusterBadge" style="display:none;background:var(--danger);color:#fff;border-radius:99px;padding:1px 7px;font-size:10px;margin-left:6px"></span></div>
         <div id="clusterList"></div>
       </div>
+    </div>
+
+    <div class="dash-section dash-full" id="dashHeatmapSection">
+      <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--muted);margin-bottom:10px">Incident Heatmap — Last 12 Months</div>
+      <div id="dashHeatmap"></div>
     </div>
 
     <div class="dash-section dash-full">
@@ -2026,6 +2031,7 @@ body.no-transitions * { transition: none !important; }
                 <th><button class="sort-button" type="button" data-summary-sort="lastdate">Last Occurrence <span id="sumSortLastdate"></span></button></th>
                 <th title="Sum of approved time-off days for this employee">Approved Off Days</th>
                 <th title="Occurrence count per month for the last 6 months">Trend</th>
+                <th title="Points this month vs last month">vs Last Mo</th>
               </tr>
             </thead>
             <tbody id="summaryBody"></tbody>
@@ -2403,7 +2409,11 @@ body.no-transitions * { transition: none !important; }
         rowDensity: 'comfortable',
         dateFormat: 'MM/DD/YYYY',
         defaultTab: 'records',
-        accentColor: 'blue'
+        accentColor: 'blue',
+        showDashHeatmap: true,
+        showDashClusters: true,
+        showDashPeriodCompare: true,
+        showDashLeaderboard: true
       };
       var pointsConfig = {};
       var recordTemplates = [];
@@ -4973,6 +4983,10 @@ body.no-transitions * { transition: none !important; }
             sumLastCell = '<span style="color:' + sumColor + ';font-weight:600">' + sumLabel + '</span>';
           }
           var score = calcAttendanceScore(item.name);
+          var trend = empMonthTrend(item.name);
+          var trendArrow = trend.delta > 0 ? '▲' : trend.delta < 0 ? '▼' : '—';
+          var trendColor = trend.delta > 0 ? 'var(--danger)' : trend.delta < 0 ? 'var(--ok)' : 'var(--muted)';
+          var trendCell = '<td style="text-align:center;font-weight:700;color:' + trendColor + '" title="This month: ' + trend.thisPts.toFixed(1) + ' pts · Last month: ' + trend.lastPts.toFixed(1) + ' pts">' + trendArrow + '<div style="font-size:10px;color:var(--muted)">' + (trend.delta > 0 ? '+' : '') + trend.delta.toFixed(1) + '</div></td>';
           return '<tr' + rowAttr + '>' +
             '<td>' + openByNameBtn + '</td>' +
             '<td>' + deptCell + '</td>' +
@@ -4985,6 +4999,7 @@ body.no-transitions * { transition: none !important; }
             '<td>' + sumLastCell + '</td>' +
             '<td>' + (approvedDays > 0 ? approvedDays.toLocaleString() : '—') + '</td>' +
             '<td class="sparkline-cell">' + buildSparkline(norm(item.name)) + '</td>' +
+            trendCell +
           '</tr>';
         }).join('');
 
@@ -5009,6 +5024,7 @@ body.no-transitions * { transition: none !important; }
             '<td></td>' +
             '<td></td>' +
             '<td>' + (totalApprovedDays > 0 ? totalApprovedDays.toLocaleString() : '—') + '</td>' +
+            '<td></td>' +
             '<td></td>' +
           '</tr>';
         }
@@ -5082,6 +5098,9 @@ body.no-transitions * { transition: none !important; }
         container.innerHTML = items.map(function(item) {
           var ptsColor = item.pts >= 6 ? 'var(--danger)' : item.pts >= 3 ? 'var(--yellow)' : item.pts > 0 ? 'var(--ok)' : 'var(--muted)';
           var score = calcAttendanceScore(item.name);
+          var trend = empMonthTrend(item.name);
+          var trendArrow = trend.delta > 0 ? '▲' : trend.delta < 0 ? '▼' : '—';
+          var trendColor = trend.delta > 0 ? 'var(--danger)' : trend.delta < 0 ? 'var(--ok)' : 'var(--muted)';
           return '<div class="summary-card">' +
             '<div style="flex:1">' +
               '<div class="summary-card-name">' + escapeHtml(item.name) + '</div>' +
@@ -5092,6 +5111,7 @@ body.no-transitions * { transition: none !important; }
               '<div class="summary-card-pts" style="color:' + ptsColor + '">' + item.pts.toFixed(1) + '</div>' +
               '<div style="font-size:10px;color:var(--muted)">pts</div>' +
               '<div style="font-size:11px;font-weight:700;color:' + scoreColor(score) + ';background:var(--card2);border-radius:4px;padding:1px 6px">' + score + '<span style="font-weight:400;color:var(--muted)">/100</span></div>' +
+              '<div style="font-size:11px;font-weight:700;color:' + trendColor + '" title="This month: ' + trend.thisPts.toFixed(1) + ' pts · Last month: ' + trend.lastPts.toFixed(1) + ' pts">' + trendArrow + ' vs last mo</div>' +
             '</div>' +
             '</div>';
         }).join('');
@@ -5820,16 +5840,155 @@ body.no-transitions * { transition: none !important; }
         });
       }
 
+      function empMonthTrend(name) {
+        var now = new Date();
+        var thisY = now.getFullYear(), thisMon = now.getMonth();
+        var lastY = thisMon === 0 ? thisY - 1 : thisY;
+        var lastMon = thisMon === 0 ? 11 : thisMon - 1;
+        var empRows = rows.filter(function(r) { return norm(r.name) === norm(name) && r.type === 'past'; });
+        function ptsInMonth(y, m) {
+          return empRows.filter(function(r) {
+            if (!r.dateIso) return false;
+            var d = new Date(r.dateIso);
+            return d.getFullYear() === y && d.getMonth() === m;
+          }).reduce(function(s,r) { return s + (r.points||0); }, 0);
+        }
+        var thisPts = ptsInMonth(thisY, thisMon);
+        var lastPts = ptsInMonth(lastY, lastMon);
+        var delta = thisPts - lastPts;
+        return { thisPts: thisPts, lastPts: lastPts, delta: delta };
+      }
+
+      function _renderHeatmap() {
+        var el = document.getElementById('dashHeatmap');
+        if (!el) return;
+        var source = getDashRows().filter(function(r) { return r.type === 'past' && r.dateIso; });
+
+        // Build a count map: dateIso -> count
+        var counts = {};
+        var maxCount = 0;
+        source.forEach(function(r) {
+          counts[r.dateIso] = (counts[r.dateIso] || 0) + 1;
+          if (counts[r.dateIso] > maxCount) maxCount = counts[r.dateIso];
+        });
+
+        // Show last 52 weeks (364 days)
+        var today = new Date();
+        var startDate = new Date(today);
+        startDate.setDate(startDate.getDate() - 363);
+        // Align to Sunday
+        startDate.setDate(startDate.getDate() - startDate.getDay());
+
+        // Build week columns
+        var weeks = [];
+        var d = new Date(startDate);
+        while (d <= today) {
+          var week = [];
+          for (var i = 0; i < 7; i++) {
+            var iso = d.toISOString().slice(0, 10);
+            var count = counts[iso] || 0;
+            week.push({ iso: iso, count: count, future: d > today });
+            d.setDate(d.getDate() + 1);
+          }
+          weeks.push(week);
+        }
+
+        // Color scale: 0=bg, 1=low, 2-3=mid, 4+=high
+        function cellColor(count) {
+          if (count === 0) return 'var(--card)';
+          if (count === 1) return 'rgba(16,185,129,0.4)';
+          if (count <= 3) return 'rgba(245,158,11,0.7)';
+          return 'var(--danger)';
+        }
+
+        var months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+        var cellSize = 12;
+        var gap = 2;
+
+        var html = '<div style="overflow-x:auto;padding-bottom:4px">' +
+          '<div style="display:inline-flex;flex-direction:column;gap:2px">' +
+          // Month label row
+          '<div style="display:flex;gap:' + gap + 'px;margin-bottom:2px">' +
+          '<div style="width:20px"></div>' +
+          weeks.map(function(week, wi) {
+            var label = '';
+            var m = new Date(week[0].iso).getMonth();
+            if (wi === 0 || m !== new Date(weeks[wi-1][0].iso).getMonth()) {
+              label = months[m];
+            }
+            return '<div style="width:' + cellSize + 'px;font-size:9px;color:var(--muted);text-align:center;overflow:hidden;white-space:nowrap">' + label + '</div>';
+          }).join('') +
+          '</div>' +
+          // Rows for each day of week
+          ['S','M','T','W','T','F','S'].map(function(dayLabel, dayIdx) {
+            return '<div style="display:flex;align-items:center;gap:' + gap + 'px">' +
+              '<div style="width:14px;font-size:9px;color:var(--muted);text-align:right;flex-shrink:0">' + (dayIdx % 2 === 1 ? dayLabel : '') + '</div>' +
+              weeks.map(function(week) {
+                var cell = week[dayIdx];
+                if (!cell || cell.future) return '<div style="width:' + cellSize + 'px;height:' + cellSize + 'px;border-radius:2px"></div>';
+                var title = cell.count ? cell.iso + ': ' + cell.count + ' incident' + (cell.count > 1 ? 's' : '') : cell.iso + ': none';
+                return '<div title="' + title + '" data-heatmap-date="' + cell.iso + '" style="width:' + cellSize + 'px;height:' + cellSize + 'px;border-radius:2px;background:' + cellColor(cell.count) + ';cursor:' + (cell.count > 0 ? 'pointer' : 'default') + '"></div>';
+              }).join('') +
+              '</div>';
+          }).join('') +
+          // Legend
+          '<div style="display:flex;align-items:center;gap:4px;margin-top:6px;padding-left:18px">' +
+          '<span style="font-size:10px;color:var(--muted)">Less</span>' +
+          ['var(--card)', 'rgba(16,185,129,0.4)', 'rgba(245,158,11,0.7)', 'var(--danger)'].map(function(c) {
+            return '<div style="width:12px;height:12px;border-radius:2px;background:' + c + '"></div>';
+          }).join('') +
+          '<span style="font-size:10px;color:var(--muted)">More</span>' +
+          '</div>' +
+          '</div>' +
+          '</div>';
+
+        el.innerHTML = html;
+
+        // Wire click: filter Records to that date
+        el.querySelectorAll('[data-heatmap-date]').forEach(function(cell) {
+          cell.addEventListener('click', function() {
+            var date = cell.getAttribute('data-heatmap-date');
+            if (!counts[date]) return;
+            var fromEl = document.getElementById('dateFromFilter');
+            var toEl = document.getElementById('dateToFilter');
+            if (fromEl) fromEl.value = date;
+            if (toEl) toEl.value = date;
+            setView('records');
+            if (typeof render === 'function') render();
+            showToast('Showing records for ' + date);
+          });
+        });
+      }
+
       function renderDashboard() {
         if (!document.getElementById('dashboardView') || document.getElementById('dashboardView').classList.contains('hidden')) return;
         populateDashDeptFilter();
         _renderDashStats();
         setTimeout(function() { animateCounters(document.getElementById('dashStats')); }, 50);
-        renderPeriodComparison();
+
+        // Period compare
+        var periodSection = document.getElementById('periodCompareSection');
+        if (periodSection) periodSection.classList.toggle('hidden', appSettings.showDashPeriodCompare === false);
+        if (appSettings.showDashPeriodCompare !== false) renderPeriodComparison();
+
         _renderMonthlyChart();
-        _renderLeaderboard();
-        renderClusterAlerts();
+
+        // Leaderboard
+        var lboardSection = document.getElementById('dashLeaderboardSection');
+        if (lboardSection) lboardSection.classList.toggle('hidden', appSettings.showDashLeaderboard === false);
+        if (appSettings.showDashLeaderboard !== false) _renderLeaderboard();
+
+        // Cluster alerts
+        var clusterSection = document.getElementById('clusterSection');
+        if (clusterSection) clusterSection.classList.toggle('hidden', appSettings.showDashClusters === false);
+        if (appSettings.showDashClusters !== false) renderClusterAlerts();
+
         _renderCalendar();
+
+        // Heatmap
+        var heatmapSection = document.getElementById('dashHeatmapSection');
+        if (heatmapSection) heatmapSection.classList.toggle('hidden', appSettings.showDashHeatmap === false);
+        if (appSettings.showDashHeatmap !== false) _renderHeatmap();
       }
 
       function _renderDashStats() {
@@ -5918,10 +6077,31 @@ body.no-transitions * { transition: none !important; }
           var pct=Math.round((item.pts/maxP)*100);
           var col=item.pts>=6?'var(--danger)':item.pts>=3?'var(--yellow)':'var(--ok)';
           return '<div class="leader-row"><span class="leader-rank">'+(i+1)+'</span>'+
-            '<span class="leader-name">'+escapeHtml(item.name)+'</span>'+
+            '<span class="leader-name">'+
+              '<span class="leaderboard-name-link" data-emp-name="'+escapeHtml(item.name)+'" style="cursor:pointer;font-weight:700;text-decoration:underline;text-decoration-style:dotted;text-underline-offset:2px">'+escapeHtml(item.name)+'</span>'+
+              (typeof openEmpProfile === 'function' ? '<button type="button" class="leaderboard-profile-btn secondary" data-emp-name="'+escapeHtml(item.name)+'" style="font-size:11px;padding:2px 6px;margin-left:6px" title="View profile">👤</button>' : '')+
+            '</span>'+
             '<div class="leader-bar-wrap"><div class="leader-bar" style="width:'+pct+'%;background:'+col+'"></div></div>'+
             '<span class="leader-pts" style="color:'+col+'">'+item.pts.toFixed(1)+'</span></div>';
         }).join('');
+
+        // Event delegation for drill-down and profile
+        el.addEventListener('click', function(e) {
+          var profBtn = e.target.closest('.leaderboard-profile-btn');
+          if (profBtn && typeof openEmpProfile === 'function') {
+            openEmpProfile(profBtn.getAttribute('data-emp-name'));
+            return;
+          }
+          var link = e.target.closest('.leaderboard-name-link');
+          if (!link) return;
+          var name = link.getAttribute('data-emp-name');
+          if (!name) return;
+          var nameFilter = document.getElementById('nameFilter') || document.getElementById('filterName');
+          if (nameFilter) nameFilter.value = name;
+          setView('records');
+          render();
+          showToast('Filtered to: ' + name);
+        });
       }
 
       function _renderCalendar() {
@@ -8287,6 +8467,13 @@ body.no-transitions * { transition: none !important; }
         document.body.classList.remove('accent-blue', 'accent-purple', 'accent-green', 'accent-orange');
         document.body.classList.add('accent-' + appSettings.accentColor);
       }
+      var _dashWidgetChkMap = {
+        dashShowHeatmap: 'showDashHeatmap',
+        dashShowClusters: 'showDashClusters',
+        dashShowPeriodCompare: 'showDashPeriodCompare',
+        dashShowLeaderboard: 'showDashLeaderboard'
+      };
+
       function openSettingsModal() {
         document.querySelectorAll('.settings-density-btn').forEach(function(b) {
           b.classList.toggle('primary', b.getAttribute('data-density') === appSettings.rowDensity);
@@ -8298,6 +8485,11 @@ body.no-transitions * { transition: none !important; }
         });
         var dts = document.getElementById('defaultTabSetting');
         if (dts) dts.value = appSettings.defaultTab;
+        // Sync dashboard widget toggles
+        Object.keys(_dashWidgetChkMap).forEach(function(id) {
+          var el = document.getElementById(id);
+          if (el) el.checked = appSettings[_dashWidgetChkMap[id]] !== false;
+        });
         renderPointsConfigList();
         document.getElementById('settingsModal').classList.remove('hidden');
       }
@@ -8426,13 +8618,19 @@ body.no-transitions * { transition: none !important; }
         if (closeBtn) closeBtn.addEventListener('click', function() { document.getElementById('settingsModal').classList.add('hidden'); });
         var saveBtn = document.getElementById('saveSettingsBtn');
         if (saveBtn) saveBtn.addEventListener('click', function() {
+          // Read dashboard widget toggles
+          Object.keys(_dashWidgetChkMap).forEach(function(id) {
+            var el = document.getElementById(id);
+            if (el) appSettings[_dashWidgetChkMap[id]] = el.checked;
+          });
           saveSettings(); applySettings();
           document.getElementById('settingsModal').classList.add('hidden');
           showToast('Settings saved');
+          renderDashboard();
         });
         var resetBtn = document.getElementById('resetSettingsBtn');
         if (resetBtn) resetBtn.addEventListener('click', function() {
-          appSettings = { rowDensity: 'comfortable', dateFormat: 'MM/DD/YYYY', defaultTab: 'records', accentColor: 'blue' };
+          appSettings = { rowDensity: 'comfortable', dateFormat: 'MM/DD/YYYY', defaultTab: 'records', accentColor: 'blue', showDashHeatmap: true, showDashClusters: true, showDashPeriodCompare: true, showDashLeaderboard: true };
           openSettingsModal();
         });
         document.querySelectorAll('.settings-density-btn').forEach(function(b) {
@@ -9289,6 +9487,15 @@ body.no-transitions * { transition: none !important; }
           <option value="summary">Summary</option>
           <option value="employees">Employees</option>
         </select>
+      </div>
+      <div>
+        <label style="display:block;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--muted);margin-bottom:8px">Dashboard Sections</label>
+        <div style="display:flex;flex-direction:column;gap:8px">
+          <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer"><input type="checkbox" id="dashShowHeatmap"> Incident Heatmap</label>
+          <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer"><input type="checkbox" id="dashShowClusters"> Cluster Alerts</label>
+          <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer"><input type="checkbox" id="dashShowPeriodCompare"> Period Comparison</label>
+          <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer"><input type="checkbox" id="dashShowLeaderboard"> Leaderboard</label>
+        </div>
       </div>
       <div style="margin-top:18px">
         <label style="display:block;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--muted);margin-bottom:8px">Auto-Points by Code <span style="font-weight:400;text-transform:none;font-size:11px">(auto-fills when you type a code)</span></label>
