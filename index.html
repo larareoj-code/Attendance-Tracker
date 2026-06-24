@@ -1561,6 +1561,20 @@
   border-bottom: 2px solid #000;
 }
 
+/* ── Custom confirm modal danger button ─────────────────────────────────── */
+.btn-danger { background: var(--danger); color: #fff; border: none; border-radius: var(--radius); padding: 8px 18px; font-size: 13px; font-weight: 700; cursor: pointer; }
+.btn-danger:hover { filter: brightness(1.15); }
+
+/* ── Theme transition ────────────────────────────────────────────────────── */
+body {
+  transition: background-color 0.25s ease, color 0.25s ease;
+}
+*, *::before, *::after {
+  transition: background-color 0.25s ease, border-color 0.25s ease, color 0.15s ease;
+}
+/* Disable transitions on page load to prevent flash */
+body.no-transitions * { transition: none !important; }
+
   </style>
 <style id="googleidentityservice_button_styles">.qJTHM{-moz-user-select:none;-webkit-user-select:none;-ms-user-select:none;color:#202124;direction:ltr;-webkit-touch-callout:none;font-family:Roboto-Regular,arial,sans-serif;-webkit-font-smoothing:antialiased;font-weight:400;margin:0;overflow:hidden;-webkit-text-size-adjust:100%}.ynRLnc{left:-9999px;position:absolute;top:-9999px}.L6cTce{display:none}.bltWBb{overflow-wrap:break-word;word-break:break-word}.hSRGPd{color:#1a73e8;cursor:pointer;font-weight:500;text-decoration:none}.Bz112c-W3lGp{height:16px;width:16px}.Bz112c-E3DyYd{height:20px;width:20px}.Bz112c-r9oPif{height:24px;width:24px}.Bz112c-u2z5K{height:36px;width:36px}.Bz112c-uaxL4e{border-radius:10px}.LgbsSe-Bz112c{display:block}.S9gUrf-YoZ4jf{border:none;margin:0;padding:0}.S9gUrf-YoZ4jf *{border:none;margin:0;padding:0}.fFW7wc-ibnC6b>.aZ2wEe>div{border-color:#4285f4}.P1ekSe-ZMv3u{-webkit-transition:height .2s linear;transition:height .2s linear}.P1ekSe-ZMv3u>div:first-child{background-color:#1a73e8!important;-webkit-transition:width .3s linear;transition:width .3s linear}.P1ekSe-ZMv3u>div:nth-child(2){background-image:-webkit-gradient(linear,left top,right top,from(rgba(255,255,255,.7)),to(rgba(255,255,255,.7))),-webkit-gradient(linear,left top,right top,from(#1a73e8),to(#1a73e8))!important;background-image:-webkit-linear-gradient(left,rgba(255,255,255,.7),rgba(255,255,255,.7)),-webkit-linear-gradient(left,#1a73e8,#1a73e8)!important;background-image:linear-gradient(90deg,rgba(255,255,255,.7),rgba(255,255,255,.7)),linear-gradient(90deg,#1a73e8,#1a73e8)!important}.P1ekSe-ZMv3u>div:nth-child(3){background-image:-webkit-gradient(linear,left top,right top,from(rgba(255,255,255,.7)),to(rgba(255,255,255,.7))),-webkit-gradient(linear,left top,right top,from(#1a73e8),to(#1a73e8))!important;background-image:-webkit-linear-gradient(left,rgba(255,255,255,.7),rgba(255,255,255,.7)),-webkit-linear-gradient(left,#1a73e8,#1a73e8)!important;background-image:linear-gradient(90deg,rgba(255,255,255,.7),rgba(255,255,255,.7)),linear-gradient(90deg,#1a73e8,#1a73e8)!important}.haAclf{display:inline-block}.nsm7Bb-HzV7m-LgbsSe{border-radius:4px;box-sizing:border-box;-webkit-transition:background-color .218s,border-color .218s;transition:background-color .218s,border-color .218s;-moz-user-select:none;-webkit-user-select:none;-ms-user-select:none;-webkit-appearance:none;background-color:#fff;background-image:none;border:1px solid #dadce0;color:#3c4043;cursor:pointer;font-family:Google Sans,arial,sans-serif;font-size:14px;height:40px;letter-spacing:.25px;outline:none;overflow:hidden;padding:0 12px;position:relative;text-align:center;vertical-align:middle;white-space:nowrap;width:auto}@media screen and (-ms-high-contrast:active){.nsm7Bb-HzV7m-LgbsSe{border:2px solid windowText;color:windowText}}@media screen and (preferes-contrast:more){.nsm7Bb-HzV7m-LgbsSe{color:#000}}.nsm7Bb-HzV7m-LgbsSe.pSzOP-SxQuSe{font-size:14px;height:32px;letter-spacing:.25px;padding:0 10px}.nsm7Bb-HzV7m-LgbsSe.purZT-SxQuSe{font-size:11px;height:20px;letter-spacing:.3px;padding:0 8px}.nsm7Bb-HzV7m-LgbsSe.Bz112c-LgbsSe{padding:0;width:40px}.nsm7Bb-HzV7m-LgbsSe.Bz112c-LgbsSe.pSzOP-SxQuSe{width:32px}.nsm7Bb-HzV7m-LgbsSe.Bz112c-LgbsSe.purZT-SxQuSe{width:20px}.nsm7Bb-HzV7m-LgbsSe.JGcpL-RbRzK{border-radius:20px}.nsm7Bb-HzV7m-LgbsSe.JGcpL-RbRzK.pSzOP-SxQuSe{border-radius:16px}.nsm7Bb-HzV7m-LgbsSe.JGcpL-RbRzK.purZT-SxQuSe{border-radius:10px}.nsm7Bb-HzV7m-LgbsSe.MFS4be-Ia7Qfc{border:none;color:#fff}.nsm7Bb-HzV7m-LgbsSe.MFS4be-v3pZbf-Ia7Qfc{background-color:#1a73e8}.nsm7Bb-HzV7m-LgbsSe.MFS4be-JaPV2b-Ia7Qfc{background-color:#202124;color:#e8eaed}@media screen and (prefers-contrast:more){.nsm7Bb-HzV7m-LgbsSe.MFS4be-JaPV2b-Ia7Qfc{color:#fff}}.nsm7Bb-HzV7m-LgbsSe .nsm7Bb-HzV7m-LgbsSe-Bz112c{height:18px;margin-right:8px;min-width:18px;width:18px}.nsm7Bb-HzV7m-LgbsSe.pSzOP-SxQuSe .nsm7Bb-HzV7m-LgbsSe-Bz112c{height:14px;min-width:14px;width:14px}.nsm7Bb-HzV7m-LgbsSe.purZT-SxQuSe .nsm7Bb-HzV7m-LgbsSe-Bz112c{height:10px;min-width:10px;width:10px}.nsm7Bb-HzV7m-LgbsSe.jVeSEe .nsm7Bb-HzV7m-LgbsSe-Bz112c{margin-left:8px;margin-right:-4px}.nsm7Bb-HzV7m-LgbsSe.Bz112c-LgbsSe .nsm7Bb-HzV7m-LgbsSe-Bz112c{margin:0;padding:10px}.nsm7Bb-HzV7m-LgbsSe.Bz112c-LgbsSe.pSzOP-SxQuSe .nsm7Bb-HzV7m-LgbsSe-Bz112c{padding:8px}.nsm7Bb-HzV7m-LgbsSe.Bz112c-LgbsSe.purZT-SxQuSe .nsm7Bb-HzV7m-LgbsSe-Bz112c{padding:4px}.nsm7Bb-HzV7m-LgbsSe .nsm7Bb-HzV7m-LgbsSe-Bz112c-haAclf{border-top-left-radius:3px;border-bottom-left-radius:3px;display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-pack:center;-webkit-justify-content:center;justify-content:center;-webkit-box-align:center;-webkit-align-items:center;align-items:center;background-color:#fff;height:36px;margin-left:-10px;margin-right:12px;min-width:36px;width:36px}.nsm7Bb-HzV7m-LgbsSe .nsm7Bb-HzV7m-LgbsSe-Bz112c-haAclf .nsm7Bb-HzV7m-LgbsSe-Bz112c,.nsm7Bb-HzV7m-LgbsSe.Bz112c-LgbsSe .nsm7Bb-HzV7m-LgbsSe-Bz112c-haAclf .nsm7Bb-HzV7m-LgbsSe-Bz112c{margin:0;padding:0}.nsm7Bb-HzV7m-LgbsSe.pSzOP-SxQuSe .nsm7Bb-HzV7m-LgbsSe-Bz112c-haAclf{height:28px;margin-left:-8px;margin-right:10px;min-width:28px;width:28px}.nsm7Bb-HzV7m-LgbsSe.purZT-SxQuSe .nsm7Bb-HzV7m-LgbsSe-Bz112c-haAclf{height:16px;margin-left:-6px;margin-right:8px;min-width:16px;width:16px}.nsm7Bb-HzV7m-LgbsSe.Bz112c-LgbsSe .nsm7Bb-HzV7m-LgbsSe-Bz112c-haAclf{border-radius:3px;margin-left:2px;margin-right:0;padding:0}.nsm7Bb-HzV7m-LgbsSe.JGcpL-RbRzK .nsm7Bb-HzV7m-LgbsSe-Bz112c-haAclf{border-radius:18px}.nsm7Bb-HzV7m-LgbsSe.pSzOP-SxQuSe.JGcpL-RbRzK .nsm7Bb-HzV7m-LgbsSe-Bz112c-haAclf{border-radius:14px}.nsm7Bb-HzV7m-LgbsSe.purZT-SxQuSe.JGcpL-RbRzK .nsm7Bb-HzV7m-LgbsSe-Bz112c-haAclf{border-radius:8px}.nsm7Bb-HzV7m-LgbsSe .nsm7Bb-HzV7m-LgbsSe-bN97Pc-sM5MNb{display:-webkit-box;display:-webkit-flex;display:flex;-webkit-align-items:center;-webkit-box-align:center;align-items:center;-webkit-flex-direction:row;-webkit-box-orient:horizontal;-webkit-box-direction:normal;flex-direction:row;-webkit-box-pack:justify;-webkit-justify-content:space-between;justify-content:space-between;-webkit-flex-wrap:nowrap;flex-wrap:nowrap;height:100%;position:relative;width:100%}.nsm7Bb-HzV7m-LgbsSe .oXtfBe-l4eHX{-webkit-box-pack:center;-webkit-justify-content:center;justify-content:center}.nsm7Bb-HzV7m-LgbsSe .nsm7Bb-HzV7m-LgbsSe-BPrWId{-webkit-flex-grow:1;-webkit-box-flex:1;flex-grow:1;font-family:Google Sans,arial,sans-serif;font-weight:500;overflow:hidden;text-overflow:ellipsis;vertical-align:top}.nsm7Bb-HzV7m-LgbsSe.purZT-SxQuSe .nsm7Bb-HzV7m-LgbsSe-BPrWId{font-weight:300}.nsm7Bb-HzV7m-LgbsSe .oXtfBe-l4eHX .nsm7Bb-HzV7m-LgbsSe-BPrWId{-webkit-flex-grow:0;-webkit-box-flex:0;flex-grow:0}.nsm7Bb-HzV7m-LgbsSe .nsm7Bb-HzV7m-LgbsSe-MJoBVe{-webkit-transition:background-color .218s;transition:background-color .218s;bottom:0;left:0;position:absolute;right:0;top:0}.nsm7Bb-HzV7m-LgbsSe:focus,.nsm7Bb-HzV7m-LgbsSe:hover{box-shadow:none;border-color:rgb(210,227,252);outline:none}.nsm7Bb-HzV7m-LgbsSe:focus-within{outline:2px solid #00639b;border-color:transparent}.nsm7Bb-HzV7m-LgbsSe:hover .nsm7Bb-HzV7m-LgbsSe-MJoBVe{background:rgba(66,133,244,.08)}.nsm7Bb-HzV7m-LgbsSe:active .nsm7Bb-HzV7m-LgbsSe-MJoBVe,.nsm7Bb-HzV7m-LgbsSe:focus .nsm7Bb-HzV7m-LgbsSe-MJoBVe{background:rgba(66,133,244,.1)}.nsm7Bb-HzV7m-LgbsSe.MFS4be-Ia7Qfc:hover .nsm7Bb-HzV7m-LgbsSe-MJoBVe{background:rgba(255,255,255,.24)}.nsm7Bb-HzV7m-LgbsSe.MFS4be-Ia7Qfc:active .nsm7Bb-HzV7m-LgbsSe-MJoBVe,.nsm7Bb-HzV7m-LgbsSe.MFS4be-Ia7Qfc:focus .nsm7Bb-HzV7m-LgbsSe-MJoBVe{background:rgba(255,255,255,.32)}.nsm7Bb-HzV7m-LgbsSe .n1UuX-DkfjY{border-radius:50%;display:-webkit-box;display:-webkit-flex;display:flex;height:20px;margin-left:-4px;margin-right:8px;min-width:20px;width:20px}.nsm7Bb-HzV7m-LgbsSe.jVeSEe .nsm7Bb-HzV7m-LgbsSe-BPrWId{font-family:Roboto;font-size:12px;text-align:left}.nsm7Bb-HzV7m-LgbsSe.jVeSEe .nsm7Bb-HzV7m-LgbsSe-BPrWId .K4efff .fmcmS,.nsm7Bb-HzV7m-LgbsSe.jVeSEe .nsm7Bb-HzV7m-LgbsSe-BPrWId .ssJRIf{overflow:hidden;text-overflow:ellipsis}.nsm7Bb-HzV7m-LgbsSe.jVeSEe .nsm7Bb-HzV7m-LgbsSe-BPrWId .K4efff{display:-webkit-box;display:-webkit-flex;display:flex;-webkit-align-items:center;-webkit-box-align:center;align-items:center;color:#5f6368;fill:#5f6368;font-size:11px;font-weight:400}.nsm7Bb-HzV7m-LgbsSe.jVeSEe.MFS4be-Ia7Qfc .nsm7Bb-HzV7m-LgbsSe-BPrWId .K4efff{color:#e8eaed;fill:#e8eaed}@media screen and (prefers-contrast:more){.nsm7Bb-HzV7m-LgbsSe.jVeSEe .nsm7Bb-HzV7m-LgbsSe-BPrWId .K4efff,.nsm7Bb-HzV7m-LgbsSe.jVeSEe.MFS4be-Ia7Qfc .nsm7Bb-HzV7m-LgbsSe-BPrWId .K4efff{color:#000;fill:#000}}.nsm7Bb-HzV7m-LgbsSe.jVeSEe .nsm7Bb-HzV7m-LgbsSe-BPrWId .K4efff .Bz112c{height:18px;margin:-3px -3px -3px 2px;min-width:18px;width:18px}.nsm7Bb-HzV7m-LgbsSe.jVeSEe .nsm7Bb-HzV7m-LgbsSe-Bz112c-haAclf{border-top-left-radius:0;border-bottom-left-radius:0;border-top-right-radius:3px;border-bottom-right-radius:3px;margin-left:12px;margin-right:-10px}.nsm7Bb-HzV7m-LgbsSe.jVeSEe.JGcpL-RbRzK .nsm7Bb-HzV7m-LgbsSe-Bz112c-haAclf{border-radius:18px}.L5Fo6c-sM5MNb{border:0;display:block;left:0;position:relative;top:0}.L5Fo6c-bF1uUb{border-radius:4px;bottom:0;cursor:pointer;left:0;position:absolute;right:0;top:0}.L5Fo6c-bF1uUb:focus{border:none;outline:none}sentinel{}</style></head>
 <body>
@@ -2367,6 +2381,10 @@
   <script>
     (function () {
       'use strict';
+
+      // Disable transitions on initial load to prevent flash
+      document.body.classList.add('no-transitions');
+      setTimeout(function() { document.body.classList.remove('no-transitions'); }, 50);
 
       var STORAGE_KEY = 'attendanceTrackerSavedRowsV4';
       var BUCKET_STORAGE_KEY = 'attendanceTrackerBucketsV1';
@@ -3969,16 +3987,17 @@
           timeOffRequests.length + ' time-off request' + (timeOffRequests.length !== 1 ? 's' : ''),
           Object.keys(buckets).length + ' bucket allocation' + (Object.keys(buckets).length !== 1 ? 's' : '')
         ];
-        if (!confirm('Clear ALL saved data from this browser?\n\n' + summary.join('\n') + '\n\nThis cannot be undone.')) return;
-        rows = [];
-        buckets = {};
-        employees = [];
-        timeOffRequests = [];
-        saveData();
-        saveBucketData();
-        saveEmployees();
-        saveTimeOff();
-        render();
+        showConfirm('Clear ALL saved data from this browser?\n\n' + summary.join('\n') + '\n\nThis cannot be undone.', function() {
+          rows = [];
+          buckets = {};
+          employees = [];
+          timeOffRequests = [];
+          saveData();
+          saveBucketData();
+          saveEmployees();
+          saveTimeOff();
+          render();
+        }, { title: 'Clear All Data', ok: 'Clear All', danger: true });
       }
 
       // ── Demo Data ────────────────────────────────────────────────────────────
@@ -4280,10 +4299,36 @@
               directDupes.slice(0, 3).map(function(d) { return '• ' + d.name + ' on ' + (d.dateIso || d.dateText) + ' (' + (d.code || '') + ')'; }).join('\n') +
               (directDupes.length > 3 ? '\n... and ' + (directDupes.length - 3) + ' more' : '') +
               '\n\nImport anyway?';
-            if (!confirm(dupeMsg)) {
+            var _importedCount = importedCount;
+            var _summaries = summaries;
+            var _files = files;
+            var _duplicateCount = duplicateCount;
+            showConfirm(dupeMsg, function() {
+              saveData();
+              render();
+              addImportHistory(_files.map(function(f){ return f.name; }).join(', '), _importedCount, 0);
+              _summaries.push('Total imported before duplicate removal: ' + _importedCount);
+              _summaries.push('Duplicates removed: ' + _duplicateCount);
+              alert(_summaries.join('\n'));
+            }, { title: 'Duplicate Records', ok: 'Import Anyway', danger: true,
+              cancel: 'Cancel' });
+            // On cancel: remove the rows that were added
+            var _cancelFn = function() {
               rows.splice(rows.length - importedCount, importedCount);
-              return;
-            }
+            };
+            // Patch: override cancel to also remove rows
+            (function() {
+              var modal = document.getElementById('confirmModal');
+              if (!modal) return;
+              var cancelBtn = document.getElementById('confirmModalCancel');
+              if (!cancelBtn) return;
+              var origClick = cancelBtn.onclick;
+              cancelBtn.addEventListener('click', _cancelFn, { once: true });
+              modal.addEventListener('click', function handler(e) {
+                if (e.target === modal) { _cancelFn(); modal.removeEventListener('click', handler); }
+              });
+            })();
+            return;
           }
         }
 
@@ -5470,25 +5515,29 @@
         if (id && employees.some(function (e) { return e.id === id; })) {
           alert('Employee ID already exists.'); return;
         }
+        var _doAddEmployee = function() {
+          employees.push({
+            id: id || createId(),
+            name: name,
+            department: toText(document.getElementById('empDept').value),
+            role: toText(document.getElementById('empRole').value),
+            status: document.getElementById('empStatus').value,
+            standing: (document.getElementById('empStanding')||{value:'good'}).value || 'good',
+            hireDate: (document.getElementById('empHireDate')||{value:''}).value || '',
+            notes: (document.getElementById('empNotes')||{value:''}).value.trim()
+          });
+          saveEmployees();
+          document.getElementById('addEmployeeForm').reset();
+          if(document.getElementById('empNotes')) document.getElementById('empNotes').value = '';
+          renderEmployees();
+          var empSummary = document.getElementById('empSummary');
+          if (empSummary) { empSummary.textContent = name + ' added.'; setTimeout(function () { renderEmployees(); }, 2500); }
+        };
         if (employees.some(function (e) { return norm(e.name) === norm(name); })) {
-          if (!confirm('An employee named "' + name + '" already exists. Add anyway?')) return;
+          showConfirm('An employee named "' + name + '" already exists. Add anyway?', _doAddEmployee, { title: 'Duplicate Name', ok: 'Add Anyway', danger: false });
+          return;
         }
-        employees.push({
-          id: id || createId(),
-          name: name,
-          department: toText(document.getElementById('empDept').value),
-          role: toText(document.getElementById('empRole').value),
-          status: document.getElementById('empStatus').value,
-          standing: (document.getElementById('empStanding')||{value:'good'}).value || 'good',
-          hireDate: (document.getElementById('empHireDate')||{value:''}).value || '',
-          notes: (document.getElementById('empNotes')||{value:''}).value.trim()
-        });
-        saveEmployees();
-        document.getElementById('addEmployeeForm').reset();
-        if(document.getElementById('empNotes')) document.getElementById('empNotes').value = '';
-        renderEmployees();
-        var empSummary = document.getElementById('empSummary');
-        if (empSummary) { empSummary.textContent = name + ' added.'; setTimeout(function () { renderEmployees(); }, 2500); }
+        _doAddEmployee();
       }
 
       function addTimeOffRequest(event) {
@@ -5942,10 +5991,36 @@
         renderEmployees();
         renderTimeOff();
         renderStatus(visibleCount);
-        var recordsTab = document.getElementById('recordsTab');
-        if (recordsTab) {
-          var isFiltered = visibleCount < rows.length;
-          recordsTab.textContent = isFiltered ? 'Records (' + visibleCount.toLocaleString() + ')' : 'Records';
+        updateTabBadges(visibleCount);
+      }
+
+      function updateTabBadges(visibleCount) {
+        // Records tab — show filtered count when filtered, else total
+        var recTab = document.getElementById('recordsTab');
+        if (recTab) {
+          var total = rows.length;
+          var filtered = (visibleCount !== undefined) ? visibleCount : filteredRows().length;
+          var recBase = 'Records';
+          if (filtered < total && total > 0) {
+            recTab.textContent = recBase + ' (' + filtered.toLocaleString() + ')';
+          } else {
+            recTab.textContent = total > 0 ? recBase + ' (' + total.toLocaleString() + ')' : recBase;
+          }
+        }
+
+        // Time Off tab — show pending count
+        var toTab = document.getElementById('timeoffTab');
+        if (toTab) {
+          var pending = timeOffRequests.filter(function(r) { return r.status === 'Pending'; }).length;
+          var toBase = 'Time Off';
+          toTab.textContent = pending > 0 ? toBase + ' (' + pending + ' pending)' : toBase;
+        }
+
+        // Employees tab — show total
+        var empTab = document.getElementById('employeesTab');
+        if (empTab) {
+          var empBase = 'Employees';
+          empTab.textContent = employees.length > 0 ? empBase + ' (' + employees.length + ')' : empBase;
         }
       }
 
@@ -6461,14 +6536,15 @@
       function resetEmployeeName(id) {
         var row = findRow(id);
         if (!row || !row.editedEmployee) return;
-        if (!confirm('Reset employee name back to "' + row.originalName + '"?')) return;
-        var previous = row.name;
-        row.name = row.originalName;
-        row.displayName = row.originalName;
-        row.editedEmployee = false;
-        moveBucketIfNeeded(previous, row.originalName);
-        saveData();
-        render();
+        showConfirm('Reset employee name back to "' + row.originalName + '"?', function() {
+          var previous = row.name;
+          row.name = row.originalName;
+          row.displayName = row.originalName;
+          row.editedEmployee = false;
+          moveBucketIfNeeded(previous, row.originalName);
+          saveData();
+          render();
+        }, { title: 'Reset Name', ok: 'Reset', danger: false });
       }
 
       function editPoints(id) {
@@ -6513,21 +6589,23 @@
       function resetPoints(id) {
         var row = findRow(id);
         if (!row || !row.editedPoints) return;
-        if (!confirm('Reset points back to ' + formatPoints(row.originalPoints) + '?')) return;
-        row.points = row.originalPoints;
-        row.editedPoints = false;
-        saveData();
-        render();
+        showConfirm('Reset points back to ' + formatPoints(row.originalPoints) + '?', function() {
+          row.points = row.originalPoints;
+          row.editedPoints = false;
+          saveData();
+          render();
+        }, { title: 'Reset Points', ok: 'Reset', danger: false });
       }
 
       function resetStatus(id) {
         var row = findRow(id);
         if (!row || !row.statusOverride) return;
-        if (!confirm('Reset status back to auto date-based status?')) return;
-        row.statusOverride = '';
-        row.type = resolveType(row);
-        saveData();
-        render();
+        showConfirm('Reset status back to auto date-based status?', function() {
+          row.statusOverride = '';
+          row.type = resolveType(row);
+          saveData();
+          render();
+        }, { title: 'Reset Status', ok: 'Reset', danger: false });
       }
 
       var _undoRow = null;
@@ -6558,6 +6636,32 @@
           item.classList.remove('toast-show');
           setTimeout(function () { if (item.parentNode) item.parentNode.removeChild(item); }, 250);
         }
+      }
+
+      function showConfirm(msg, onConfirm, opts) {
+        opts = opts || {};
+        var modal = document.getElementById('confirmModal');
+        var title = document.getElementById('confirmModalTitle');
+        var msgEl = document.getElementById('confirmModalMsg');
+        var okBtn = document.getElementById('confirmModalOk');
+        var cancelBtn = document.getElementById('confirmModalCancel');
+        if (!modal) { if (confirm(msg)) onConfirm(); return; } // fallback
+        if (title) title.textContent = opts.title || 'Confirm';
+        if (msgEl) msgEl.textContent = msg;
+        modal.classList.remove('hidden');
+        // Clone to remove old listeners
+        var newOk = okBtn.cloneNode(true);
+        var newCancel = cancelBtn.cloneNode(true);
+        okBtn.parentNode.replaceChild(newOk, okBtn);
+        cancelBtn.parentNode.replaceChild(newCancel, cancelBtn);
+        newOk.textContent = opts.ok || 'Confirm';
+        newOk.className = opts.danger ? 'btn-danger' : 'primary';
+        newCancel.textContent = opts.cancel || 'Cancel';
+        function close() { modal.classList.add('hidden'); }
+        newOk.addEventListener('click', function() { close(); onConfirm(); });
+        newCancel.addEventListener('click', close);
+        modal.addEventListener('click', function handler(e) { if (e.target === modal) { close(); modal.removeEventListener('click', handler); } });
+        newOk.focus();
       }
 
       function deleteRecord(id) {
@@ -6882,22 +6986,24 @@
         });
 
         var dupes = findImportDuplicates(pendingRows);
+        var _doWizardImport = function() {
+          pendingRows.forEach(function(r) { rows.push(r); });
+          var imported = pendingRows.length;
+          addImportHistory(_wizardFilename, imported, skipped);
+          document.getElementById('importWizardModal').classList.add('hidden');
+          saveData();
+          render();
+          showToast('Imported ' + imported + ' rows' + (skipped ? ' (' + skipped + ' skipped)' : ''));
+        };
         if (dupes.length > 0) {
-          var msg = dupes.length + ' row' + (dupes.length > 1 ? 's' : '') + ' appear to already exist (same name + date + code).\n\nExamples:\n' +
+          var wizDupeMsg = dupes.length + ' row' + (dupes.length > 1 ? 's' : '') + ' appear to already exist (same name + date + code).\n\nExamples:\n' +
             dupes.slice(0, 3).map(function(d) { return '• ' + d.name + ' on ' + (d.dateIso || d.dateText) + ' (' + d.code + ')'; }).join('\n') +
             (dupes.length > 3 ? '\n... and ' + (dupes.length - 3) + ' more' : '') +
             '\n\nImport anyway?';
-          if (!confirm(msg)) return;
+          showConfirm(wizDupeMsg, _doWizardImport, { title: 'Duplicate Records', ok: 'Import Anyway', danger: true });
+          return;
         }
-
-        pendingRows.forEach(function(r) { rows.push(r); });
-        var imported = pendingRows.length;
-
-        addImportHistory(_wizardFilename, imported, skipped);
-        document.getElementById('importWizardModal').classList.add('hidden');
-        saveData();
-        render();
-        showToast('Imported ' + imported + ' rows' + (skipped ? ' (' + skipped + ' skipped)' : ''));
+        _doWizardImport();
       }
 
       // ── Task 4: Multi-level Undo Stack ───────────────────────────────────────
@@ -7144,6 +7250,9 @@
           '  ⊞ Columns   Show/hide Records table columns',
           '  🗂 Browse Drive   Pick an existing Google Sheet from your Drive',
           '  Ctrl+K      Open command palette (search anything, quick actions)',
+          '  Ctrl+S      Save all data to local storage',
+          '  Ctrl+N      New record (focus Add Record form)',
+          '  Ctrl+P      Print current view',
         ].join('\n'));
       });
       els.dedupeBtn.addEventListener('click', function () { removeDuplicates(true); });
@@ -7154,7 +7263,12 @@
         if (localStorage.getItem(DEMO_MODE_KEY) === 'true') {
           exitDemoMode();
         } else {
-          if (rows.length > 0 && !confirm('Load demo data?\n\nYour current ' + rows.length + ' record(s) will be temporarily hidden and automatically restored when you exit demo mode.')) return;
+          if (rows.length > 0) {
+            showConfirm('Load demo data?\n\nYour current ' + rows.length + ' record(s) will be temporarily hidden and automatically restored when you exit demo mode.', function() {
+              loadDemoData();
+            }, { title: 'Load Demo Data', ok: 'Load Demo', danger: false });
+            return;
+          }
           loadDemoData();
         }
       });
@@ -7245,19 +7359,19 @@
 
       var driveRestoreBtn = document.getElementById('driveRestoreBtn');
       if (driveRestoreBtn) {
-        driveRestoreBtn.addEventListener('click', async function () {
-          if (!confirm('Restore from Drive backup? This will overwrite all current local data.')) return;
-          driveRestoreBtn.disabled = true;
-          driveRestoreBtn.textContent = 'Restoring…';
-          try {
-            await restoreFromDrive();
-            showToast('Restore complete.', null);
-          } catch (err) {
-            renderCloudStatus('Drive restore failed: ' + shortCloudError(err));
-          } finally {
-            driveRestoreBtn.disabled = false;
-            driveRestoreBtn.textContent = '⬇ Restore from Drive';
-          }
+        driveRestoreBtn.addEventListener('click', function () {
+          showConfirm('Restore from Drive backup? This will overwrite all current local data.', function() {
+            driveRestoreBtn.disabled = true;
+            driveRestoreBtn.textContent = 'Restoring…';
+            restoreFromDrive().then(function() {
+              showToast('Restore complete.', null);
+            }).catch(function(err) {
+              renderCloudStatus('Drive restore failed: ' + shortCloudError(err));
+            }).finally(function() {
+              driveRestoreBtn.disabled = false;
+              driveRestoreBtn.textContent = '⬇ Restore from Drive';
+            });
+          }, { title: 'Restore from Drive', ok: 'Restore', danger: true });
         });
       }
 
@@ -7732,6 +7846,35 @@
           if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
           event.preventDefault();
           popUndo();
+        }
+        // Ctrl+S — save all data
+        if ((event.ctrlKey || event.metaKey) && event.key === 's') {
+          event.preventDefault();
+          saveData(); saveEmployees(); saveTimeOff(); saveBucketData();
+          showToast('All data saved ✓');
+        }
+        // Ctrl+N — new record (focus the name input)
+        if ((event.ctrlKey || event.metaKey) && event.key === 'n') {
+          var tag2 = document.activeElement ? document.activeElement.tagName : '';
+          if (tag2 === 'INPUT' || tag2 === 'TEXTAREA') return;
+          event.preventDefault();
+          var nameInput = document.getElementById('manualName');
+          if (nameInput) {
+            var addSection = nameInput.closest('details');
+            if (addSection && addSection.tagName === 'DETAILS') addSection.open = true;
+            if (activeView !== 'records') setView('records');
+            nameInput.focus();
+            nameInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          }
+        }
+        // Ctrl+P — print
+        if ((event.ctrlKey || event.metaKey) && event.key === 'p') {
+          var ptag = document.activeElement ? document.activeElement.tagName : '';
+          if (ptag === 'INPUT' || ptag === 'TEXTAREA') return;
+          event.preventDefault();
+          var meta = document.getElementById('printMeta');
+          if (meta) meta.textContent = 'Printed: ' + new Date().toLocaleDateString() + ' \xb7 ' + rows.length + ' records total';
+          window.print();
         }
       });
 
@@ -8220,16 +8363,18 @@
             var state = JSON.parse(e.target.result);
             if (!state || !Array.isArray(state.rows)) { showToast('Invalid backup file'); return; }
             var summary = state.rows.length + ' records, ' + (state.employees || []).length + ' employees';
-            if (!confirm('Restore backup from ' + (state.exportedAt || 'unknown date') + '?\n\n' + summary + '\n\nThis will REPLACE your current data.')) return;
-            rows = state.rows || [];
-            employees = state.employees || [];
-            timeOffRequests = state.timeOffRequests || [];
-            buckets = state.buckets || {};
-            if (state.settings) { Object.assign(appSettings, state.settings); saveSettings(); applySettings(); }
-            if (state.pointsConfig) { pointsConfig = state.pointsConfig; savePointsConfig(); }
-            saveData(); saveEmployees(); saveTimeOff(); saveBucketData();
-            render();
-            showToast('Restored ' + rows.length + ' records from backup');
+            var _state = state;
+            showConfirm('Restore backup from ' + (_state.exportedAt || 'unknown date') + '?\n\n' + summary + '\n\nThis will REPLACE your current data.', function() {
+              rows = _state.rows || [];
+              employees = _state.employees || [];
+              timeOffRequests = _state.timeOffRequests || [];
+              buckets = _state.buckets || {};
+              if (_state.settings) { Object.assign(appSettings, _state.settings); saveSettings(); applySettings(); }
+              if (_state.pointsConfig) { pointsConfig = _state.pointsConfig; savePointsConfig(); }
+              saveData(); saveEmployees(); saveTimeOff(); saveBucketData();
+              render();
+              showToast('Restored ' + rows.length + ' records from backup');
+            }, { title: 'Restore Backup', ok: 'Restore', danger: true });
           } catch(err) {
             showToast('Failed to parse backup file: ' + err.message);
           }
@@ -8408,7 +8553,12 @@
         if (btn) btn.textContent = theme === 'light' ? '☽ Dark' : '☀ Light';
         localStorage.setItem(THEME_KEY, theme);
       }
-      applyTheme(localStorage.getItem(THEME_KEY) || 'dark');
+      var savedTheme = localStorage.getItem(THEME_KEY);
+      if (!savedTheme) {
+        var prefersLight = window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches;
+        savedTheme = prefersLight ? 'light' : 'dark';
+      }
+      applyTheme(savedTheme);
       document.getElementById('themeToggleBtn').addEventListener('click', function () {
         var curr = document.documentElement.getAttribute('data-theme');
         applyTheme(curr === 'light' ? 'dark' : 'light');
@@ -9220,6 +9370,16 @@
     <div style="margin-top:22px;display:flex;justify-content:flex-end;gap:10px">
       <button class="secondary" type="button" id="cancelBulkEditBtn">Cancel</button>
       <button class="primary" type="button" id="applyBulkEditBtn">Apply to Selected</button>
+    </div>
+  </div>
+</div>
+<div id="confirmModal" class="hidden" style="position:fixed;inset:0;z-index:9000;background:rgba(0,0,0,0.65);display:flex;align-items:center;justify-content:center;padding:24px">
+  <div style="background:var(--card2);border:1px solid var(--border-light);border-radius:var(--radius);box-shadow:var(--shadow);width:100%;max-width:420px;padding:28px">
+    <div style="font-size:16px;font-weight:700;margin-bottom:10px" id="confirmModalTitle">Confirm</div>
+    <div style="font-size:14px;color:var(--text);line-height:1.5;white-space:pre-wrap;margin-bottom:22px" id="confirmModalMsg"></div>
+    <div style="display:flex;justify-content:flex-end;gap:10px">
+      <button class="secondary" type="button" id="confirmModalCancel">Cancel</button>
+      <button class="primary" type="button" id="confirmModalOk">Confirm</button>
     </div>
   </div>
 </div>
