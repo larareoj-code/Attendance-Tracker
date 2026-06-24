@@ -1075,6 +1075,16 @@
       background: rgba(0,0,0,0.02);
     }
 
+    /* Row density overrides */
+    .density-compact tr td, .density-compact tr th { padding: 4px 8px !important; font-size: 12px; }
+    .density-comfortable tr td, .density-comfortable tr th { padding: 8px 10px; }
+    .density-spacious tr td, .density-spacious tr th { padding: 14px 12px !important; font-size: 14px; }
+
+    /* Accent color overrides */
+    .accent-purple { --blue: #8b5cf6; --blue-dim: rgba(139,92,246,0.18); }
+    .accent-green  { --blue: #10b981; --blue-dim: rgba(16,185,129,0.18); }
+    .accent-orange { --blue: #f97316; --blue-dim: rgba(249,115,22,0.18); }
+
     /* Import Wizard Modal */
     #importWizardModal .mapping-row {
       display: grid;
@@ -1505,6 +1515,10 @@
         <button class="secondary" type="button" id="exportCsvBtn" title="Export all records as CSV" disabled="">CSV ↓</button>
         <button id="dedupeBtn" class="secondary" type="button" disabled="">Remove Duplicates</button>
         <button id="clearSavedBtn" class="danger" type="button">Clear Saved Data</button>
+        <button class="secondary" type="button" id="backupJsonBtn" title="Download a full backup of all your data as JSON">⬇ Backup</button>
+        <button class="secondary" type="button" id="restoreJsonBtn" title="Restore data from a JSON backup file">⬆ Restore</button>
+        <input type="file" id="restoreJsonInput" accept=".json" style="display:none">
+        <button class="secondary" type="button" id="settingsBtn" title="App settings">⚙ Settings</button>
         <button class="secondary" type="button" id="importHistoryBtn" title="View import history">📜 History</button>
         <button class="secondary" type="button" id="undoBtn" title="Nothing to undo" disabled="">↩ Undo</button>
         <button class="secondary" type="button" id="colVisBtn" title="Show/hide table columns">⊞ Columns</button>
@@ -1695,6 +1709,11 @@
         <div class="form-actions">
           <button class="primary" type="submit">Save Record</button>
           <button class="secondary" type="reset">Reset</button>
+        </div>
+        <div id="templateBar" style="margin-top:10px;display:flex;flex-wrap:wrap;gap:6px;align-items:center">
+          <span style="font-size:11px;color:var(--muted);font-weight:700;text-transform:uppercase">Templates:</span>
+          <div id="templateChips" style="display:flex;flex-wrap:wrap;gap:6px"></div>
+          <button class="secondary small" type="button" id="saveTemplateBtn" title="Save current form values as a template">+ Save</button>
         </div>
       </form>
       </div><!-- /manualPanelBody -->
@@ -2242,6 +2261,17 @@
       var COL_VIS_KEY = 'attTracker_colVis';
       var DEMO_MODE_KEY = 'attTracker_demoMode';
       var DEMO_BACKUP_KEY = 'attTracker_demoBackup';
+      var SETTINGS_KEY = 'attTracker_settings';
+      var POINTS_ENGINE_KEY = 'attTracker_pointsConfig';
+      var TEMPLATES_KEY = 'attTracker_recordTemplates';
+      var appSettings = {
+        rowDensity: 'comfortable',
+        dateFormat: 'MM/DD/YYYY',
+        defaultTab: 'records',
+        accentColor: 'blue'
+      };
+      var pointsConfig = {};
+      var recordTemplates = [];
       var employees = [];
       var timeOffRequests = [];
       var summarySort = { key: 'points', dir: -1 };
@@ -7411,6 +7441,256 @@
         });
       });
 
+      // ── Settings ─────────────────────────────────────────────────────────
+      function loadSettings() {
+        try {
+          var s = JSON.parse(localStorage.getItem(SETTINGS_KEY) || '{}');
+          Object.assign(appSettings, s);
+        } catch(e) {}
+        applySettings();
+      }
+      function saveSettings() {
+        localStorage.setItem(SETTINGS_KEY, JSON.stringify(appSettings));
+      }
+      function applySettings() {
+        document.body.classList.remove('density-compact', 'density-comfortable', 'density-spacious');
+        document.body.classList.add('density-' + appSettings.rowDensity);
+        document.body.classList.remove('accent-blue', 'accent-purple', 'accent-green', 'accent-orange');
+        document.body.classList.add('accent-' + appSettings.accentColor);
+      }
+      function openSettingsModal() {
+        document.querySelectorAll('.settings-density-btn').forEach(function(b) {
+          b.classList.toggle('primary', b.getAttribute('data-density') === appSettings.rowDensity);
+          b.classList.toggle('secondary', b.getAttribute('data-density') !== appSettings.rowDensity);
+        });
+        document.querySelectorAll('.settings-accent-btn').forEach(function(b) {
+          b.style.border = b.getAttribute('data-accent') === appSettings.accentColor
+            ? '3px solid white' : '3px solid transparent';
+        });
+        var dts = document.getElementById('defaultTabSetting');
+        if (dts) dts.value = appSettings.defaultTab;
+        renderPointsConfigList();
+        document.getElementById('settingsModal').classList.remove('hidden');
+      }
+
+      // ── Points Engine ────────────────────────────────────────────────────
+      function loadPointsConfig() {
+        try {
+          var saved = localStorage.getItem(POINTS_ENGINE_KEY);
+          if (saved) { pointsConfig = JSON.parse(saved); return; }
+        } catch(e) {}
+        pointsConfig = { 'NCNS': 3, 'UA': 2, 'LT': 1, 'EO': 0.5, 'TA': 0.5, 'AWOL': 3 };
+      }
+      function savePointsConfig() {
+        localStorage.setItem(POINTS_ENGINE_KEY, JSON.stringify(pointsConfig));
+      }
+      function renderPointsConfigList() {
+        var el = document.getElementById('pointsConfigList');
+        if (!el) return;
+        var keys = Object.keys(pointsConfig);
+        if (!keys.length) { el.innerHTML = '<div style="font-size:12px;color:var(--muted)">No codes configured. Add below.</div>'; return; }
+        el.innerHTML = keys.map(function(code) {
+          return '<div style="display:flex;align-items:center;gap:8px;font-size:13px">' +
+            '<span style="background:var(--card);border:1px solid var(--border);border-radius:4px;padding:2px 8px;font-weight:700;min-width:60px;text-align:center">' + escapeHtml(code) + '</span>' +
+            '<span style="color:var(--muted)">=</span>' +
+            '<span>' + pointsConfig[code] + ' pts</span>' +
+            '<button type="button" data-del-code="' + escapeHtml(code) + '" style="margin-left:auto;background:none;border:none;color:var(--danger);cursor:pointer;font-size:16px;padding:0 4px">×</button>' +
+            '</div>';
+        }).join('');
+        el.querySelectorAll('[data-del-code]').forEach(function(btn) {
+          btn.addEventListener('click', function() {
+            delete pointsConfig[btn.getAttribute('data-del-code')];
+            savePointsConfig();
+            renderPointsConfigList();
+          });
+        });
+      }
+
+      // ── Backup / Restore ─────────────────────────────────────────────────
+      function backupAppState() {
+        var state = {
+          version: 3,
+          exportedAt: new Date().toISOString(),
+          rows: rows,
+          employees: employees,
+          timeOffRequests: timeOffRequests,
+          buckets: buckets,
+          settings: appSettings,
+          pointsConfig: pointsConfig
+        };
+        var blob = new Blob([JSON.stringify(state, null, 2)], { type: 'application/json' });
+        var url = URL.createObjectURL(blob);
+        var a = document.createElement('a');
+        a.href = url;
+        a.download = 'attendance-backup-' + new Date().toISOString().slice(0,10) + '.json';
+        document.body.appendChild(a); a.click();
+        setTimeout(function() { document.body.removeChild(a); URL.revokeObjectURL(url); }, 100);
+        showToast('Backup downloaded — ' + rows.length + ' records saved');
+      }
+      function restoreAppState(file) {
+        var reader = new FileReader();
+        reader.onload = function(e) {
+          try {
+            var state = JSON.parse(e.target.result);
+            if (!state || !Array.isArray(state.rows)) { showToast('Invalid backup file'); return; }
+            var summary = state.rows.length + ' records, ' + (state.employees || []).length + ' employees';
+            if (!confirm('Restore backup from ' + (state.exportedAt || 'unknown date') + '?\n\n' + summary + '\n\nThis will REPLACE your current data.')) return;
+            rows = state.rows || [];
+            employees = state.employees || [];
+            timeOffRequests = state.timeOffRequests || [];
+            buckets = state.buckets || {};
+            if (state.settings) { Object.assign(appSettings, state.settings); saveSettings(); applySettings(); }
+            if (state.pointsConfig) { pointsConfig = state.pointsConfig; savePointsConfig(); }
+            saveData(); saveEmployees(); saveTimeOff(); saveBucketData();
+            render();
+            showToast('Restored ' + rows.length + ' records from backup');
+          } catch(err) {
+            showToast('Failed to parse backup file: ' + err.message);
+          }
+        };
+        reader.readAsText(file);
+      }
+
+      // ── Record Templates ─────────────────────────────────────────────────
+      function loadTemplates() {
+        try { recordTemplates = JSON.parse(localStorage.getItem(TEMPLATES_KEY) || '[]'); } catch(e) { recordTemplates = []; }
+      }
+      function saveTemplates() { localStorage.setItem(TEMPLATES_KEY, JSON.stringify(recordTemplates)); }
+      function renderTemplateChips() {
+        var el = document.getElementById('templateChips');
+        if (!el) return;
+        if (!recordTemplates.length) { el.innerHTML = '<span style="font-size:12px;color:var(--muted)">None saved</span>'; return; }
+        el.innerHTML = recordTemplates.map(function(t, i) {
+          return '<span style="display:inline-flex;align-items:center;gap:4px;background:var(--card);border:1px solid var(--border);border-radius:14px;padding:3px 10px;font-size:12px;cursor:pointer" data-tpl-idx="' + i + '">' +
+            '<span class="apply-tpl">' + escapeHtml(t.label || t.code) + '</span>' +
+            '<span data-del-tpl="' + i + '" style="color:var(--muted);font-size:14px;line-height:1;padding-left:2px">×</span>' +
+            '</span>';
+        }).join('');
+        el.querySelectorAll('[data-tpl-idx]').forEach(function(chip) {
+          chip.querySelector('.apply-tpl').addEventListener('click', function() {
+            var t = recordTemplates[parseInt(chip.getAttribute('data-tpl-idx'))];
+            if (!t) return;
+            if (els.manualCode) els.manualCode.value = t.code || '';
+            if (els.manualPoints) { els.manualPoints.value = t.points != null ? t.points : ''; els.manualPoints.removeAttribute('data-manually-set'); }
+            if (els.manualStatusSelect) els.manualStatusSelect.value = t.type || 'past';
+            if (els.manualReason) els.manualReason.value = t.reason || '';
+            showToast('Template applied: ' + (t.label || t.code));
+          });
+          var delBtn = chip.querySelector('[data-del-tpl]');
+          if (delBtn) delBtn.addEventListener('click', function(e) {
+            e.stopPropagation();
+            recordTemplates.splice(parseInt(delBtn.getAttribute('data-del-tpl')), 1);
+            saveTemplates();
+            renderTemplateChips();
+          });
+        });
+      }
+
+      // ── Wire all new event listeners ─────────────────────────────────────
+      (function() {
+        // Settings button
+        var sBtn = document.getElementById('settingsBtn');
+        if (sBtn) sBtn.addEventListener('click', openSettingsModal);
+        var closeBtn = document.getElementById('closeSettingsBtn');
+        if (closeBtn) closeBtn.addEventListener('click', function() { document.getElementById('settingsModal').classList.add('hidden'); });
+        var saveBtn = document.getElementById('saveSettingsBtn');
+        if (saveBtn) saveBtn.addEventListener('click', function() {
+          saveSettings(); applySettings();
+          document.getElementById('settingsModal').classList.add('hidden');
+          showToast('Settings saved');
+        });
+        var resetBtn = document.getElementById('resetSettingsBtn');
+        if (resetBtn) resetBtn.addEventListener('click', function() {
+          appSettings = { rowDensity: 'comfortable', dateFormat: 'MM/DD/YYYY', defaultTab: 'records', accentColor: 'blue' };
+          openSettingsModal();
+        });
+        document.querySelectorAll('.settings-density-btn').forEach(function(b) {
+          b.addEventListener('click', function() {
+            appSettings.rowDensity = this.getAttribute('data-density');
+            document.querySelectorAll('.settings-density-btn').forEach(function(x) {
+              x.classList.toggle('primary', x.getAttribute('data-density') === appSettings.rowDensity);
+              x.classList.toggle('secondary', x.getAttribute('data-density') !== appSettings.rowDensity);
+            });
+            applySettings();
+          });
+        });
+        document.querySelectorAll('.settings-accent-btn').forEach(function(b) {
+          b.addEventListener('click', function() {
+            appSettings.accentColor = this.getAttribute('data-accent');
+            document.querySelectorAll('.settings-accent-btn').forEach(function(x) {
+              x.style.border = x.getAttribute('data-accent') === appSettings.accentColor ? '3px solid white' : '3px solid transparent';
+            });
+            applySettings();
+          });
+        });
+        var settingsModal = document.getElementById('settingsModal');
+        if (settingsModal) settingsModal.addEventListener('click', function(e) { if (e.target === this) this.classList.add('hidden'); });
+
+        // Points config add button
+        var addPtsBtn = document.getElementById('addPointsConfigBtn');
+        if (addPtsBtn) addPtsBtn.addEventListener('click', function() {
+          var code = (document.getElementById('newPointsCode').value || '').trim().toUpperCase();
+          var val = parseFloat(document.getElementById('newPointsValue').value);
+          if (!code || isNaN(val)) { showToast('Enter both a code and a point value'); return; }
+          pointsConfig[code] = val;
+          savePointsConfig();
+          renderPointsConfigList();
+          document.getElementById('newPointsCode').value = '';
+          document.getElementById('newPointsValue').value = '';
+        });
+
+        // Auto-fill points from code input
+        if (els.manualCode) els.manualCode.addEventListener('input', function() {
+          var code = this.value.trim().toUpperCase();
+          if (code && pointsConfig[code] != null) {
+            if (els.manualPoints && !els.manualPoints.getAttribute('data-manually-set')) {
+              els.manualPoints.value = pointsConfig[code];
+            }
+          }
+        });
+        if (els.manualPoints) {
+          els.manualPoints.addEventListener('input', function() { this.setAttribute('data-manually-set', '1'); });
+          els.manualPoints.addEventListener('focus', function() { this.removeAttribute('data-manually-set'); });
+        }
+
+        // Backup / Restore
+        var backupBtn = document.getElementById('backupJsonBtn');
+        if (backupBtn) backupBtn.addEventListener('click', backupAppState);
+        var restoreBtn = document.getElementById('restoreJsonBtn');
+        var restoreInput = document.getElementById('restoreJsonInput');
+        if (restoreBtn) restoreBtn.addEventListener('click', function() { if (restoreInput) restoreInput.click(); });
+        if (restoreInput) restoreInput.addEventListener('change', function() {
+          if (this.files[0]) { restoreAppState(this.files[0]); this.value = ''; }
+        });
+
+        // Template save button
+        var saveTplBtn = document.getElementById('saveTemplateBtn');
+        if (saveTplBtn) saveTplBtn.addEventListener('click', function() {
+          var code = els.manualCode ? els.manualCode.value.trim().toUpperCase() : '';
+          if (!code) { showToast('Enter a Code before saving a template'); return; }
+          var pts = els.manualPoints ? parseFloat(els.manualPoints.value) : 0;
+          var label = prompt('Template name (or press OK for "' + code + '"):');
+          if (label === null) return;
+          recordTemplates.push({
+            label: label || code,
+            code: code,
+            points: isNaN(pts) ? 0 : pts,
+            type: els.manualStatusSelect ? els.manualStatusSelect.value : 'past',
+            reason: els.manualReason ? els.manualReason.value.trim() : ''
+          });
+          if (recordTemplates.length > 20) recordTemplates.shift();
+          saveTemplates();
+          renderTemplateChips();
+          showToast('Template saved: ' + (label || code));
+        });
+      }());
+
+      // ── Init: load all persisted data ────────────────────────────────────
+      loadSettings();
+      loadPointsConfig();
+      loadTemplates();
+      renderTemplateChips();
+
       loadSavedData();
       loadBucketData();
       loadEmployees();
@@ -7431,7 +7711,7 @@
       var cloudRedirectMessage = consumeCloudRedirectResponse();
       render();
       if (cloudRedirectMessage) renderCloudStatus(cloudRedirectMessage);
-      setView(activeView);
+      setView(appSettings.defaultTab || activeView);
       setInterval(function () { if (lastSyncTime) renderCloudStatus(); }, 60000);
 
       // Theme toggle (Item 3)
@@ -8092,6 +8372,56 @@
       <button type="button" id="closeImportHistoryBtn" style="background:none;border:none;color:var(--muted);font-size:20px;cursor:pointer;line-height:1;padding:0 4px">×</button>
     </div>
     <div id="importHistoryList"></div>
+  </div>
+</div>
+
+<div id="settingsModal" class="hidden" style="position:fixed;inset:0;z-index:300;background:rgba(0,0,0,0.6);display:flex;align-items:center;justify-content:center;padding:24px">
+  <div style="background:var(--card2);border:1px solid var(--border-light);border-radius:var(--radius);box-shadow:var(--shadow);width:100%;max-width:480px;padding:28px;max-height:90vh;overflow-y:auto">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px">
+      <strong style="font-size:16px">⚙ Settings</strong>
+      <button type="button" id="closeSettingsBtn" style="background:none;border:none;color:var(--muted);font-size:22px;cursor:pointer;padding:0 4px;line-height:1">×</button>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:18px">
+      <div>
+        <label style="display:block;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--muted);margin-bottom:8px">Row Density</label>
+        <div style="display:flex;gap:8px">
+          <button class="settings-density-btn secondary" data-density="compact" style="flex:1">Compact</button>
+          <button class="settings-density-btn secondary" data-density="comfortable" style="flex:1">Comfortable</button>
+          <button class="settings-density-btn secondary" data-density="spacious" style="flex:1">Spacious</button>
+        </div>
+      </div>
+      <div>
+        <label style="display:block;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--muted);margin-bottom:8px">Accent Color</label>
+        <div style="display:flex;gap:10px;align-items:center">
+          <button class="settings-accent-btn" data-accent="blue" title="Blue" style="width:28px;height:28px;border-radius:50%;background:#4a90d9;border:3px solid transparent;cursor:pointer"></button>
+          <button class="settings-accent-btn" data-accent="purple" title="Purple" style="width:28px;height:28px;border-radius:50%;background:#8b5cf6;border:3px solid transparent;cursor:pointer"></button>
+          <button class="settings-accent-btn" data-accent="green" title="Green" style="width:28px;height:28px;border-radius:50%;background:#10b981;border:3px solid transparent;cursor:pointer"></button>
+          <button class="settings-accent-btn" data-accent="orange" title="Orange" style="width:28px;height:28px;border-radius:50%;background:#f97316;border:3px solid transparent;cursor:pointer"></button>
+        </div>
+      </div>
+      <div>
+        <label for="defaultTabSetting" style="display:block;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--muted);margin-bottom:8px">Default Tab on Load</label>
+        <select id="defaultTabSetting" style="width:100%">
+          <option value="dashboard">Dashboard</option>
+          <option value="records">Records</option>
+          <option value="summary">Summary</option>
+          <option value="employees">Employees</option>
+        </select>
+      </div>
+      <div style="margin-top:18px">
+        <label style="display:block;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--muted);margin-bottom:8px">Auto-Points by Code <span style="font-weight:400;text-transform:none;font-size:11px">(auto-fills when you type a code)</span></label>
+        <div id="pointsConfigList" style="display:flex;flex-direction:column;gap:6px;max-height:200px;overflow-y:auto"></div>
+        <div style="display:flex;gap:8px;margin-top:8px">
+          <input id="newPointsCode" type="text" placeholder="Code (e.g. NCNS)" style="flex:1;text-transform:uppercase">
+          <input id="newPointsValue" type="number" placeholder="Pts" step="0.5" min="0" max="99" style="width:70px">
+          <button class="secondary" type="button" id="addPointsConfigBtn">+ Add</button>
+        </div>
+      </div>
+    </div>
+    <div style="margin-top:22px;padding-top:16px;border-top:1px solid var(--border);display:flex;justify-content:flex-end;gap:10px">
+      <button class="secondary" type="button" id="resetSettingsBtn">Reset Defaults</button>
+      <button class="primary" type="button" id="saveSettingsBtn">Save Settings</button>
+    </div>
   </div>
 </div>
 
