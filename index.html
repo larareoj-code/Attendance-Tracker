@@ -1218,6 +1218,75 @@
     .preset-chip-del { background: none; border: none; color: var(--muted); cursor: pointer; font-size: 15px; line-height: 1; padding: 0 0 0 2px; }
     .preset-chip-del:hover { color: var(--danger); }
 
+/* Dashboard */
+.dashboard-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  padding: 4px 0;
+}
+.dash-full { grid-column: 1 / -1; }
+.dash-section {
+  background: var(--card2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 18px 20px;
+}
+.dash-section-title {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--muted);
+  margin-bottom: 14px;
+}
+.dash-stats-row { display: flex; gap: 12px; flex-wrap: wrap; }
+.dash-stat {
+  flex: 1;
+  min-width: 110px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 13px 15px;
+}
+.dash-stat-label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); }
+.dash-stat-value { font-size: 26px; font-weight: 800; margin-top: 6px; line-height: 1; }
+.leader-row { display: flex; align-items: center; gap: 10px; padding: 6px 0; border-bottom: 1px solid var(--border); }
+.leader-row:last-child { border-bottom: none; }
+.leader-rank { font-size: 12px; font-weight: 700; color: var(--muted); width: 20px; text-align: right; flex-shrink: 0; }
+.leader-name { font-size: 13px; font-weight: 600; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.leader-bar-wrap { width: 80px; background: var(--border); border-radius: 4px; height: 7px; flex-shrink: 0; }
+.leader-bar { height: 7px; border-radius: 4px; }
+.leader-pts { font-size: 13px; font-weight: 700; width: 34px; text-align: right; flex-shrink: 0; }
+.cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 3px; }
+.cal-day-hdr { text-align: center; font-size: 10px; font-weight: 700; color: var(--muted); padding: 3px 0; text-transform: uppercase; }
+.cal-cell {
+  aspect-ratio: 1;
+  border-radius: 5px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 600;
+  min-height: 32px;
+  transition: outline 0.1s;
+}
+.cal-cell.cal-empty { background: transparent; }
+.cal-cell.cal-today { outline: 2px solid var(--blue); outline-offset: -2px; }
+.cal-cell[data-cnt="0"] { background: rgba(255,255,255,0.03); color: var(--muted); }
+.cal-cell[data-cnt="1"] { background: rgba(245,200,75,0.14); color: var(--text); }
+.cal-cell[data-cnt="2"] { background: rgba(245,200,75,0.28); color: var(--text); }
+.cal-cell[data-cnt="3"] { background: rgba(248,113,113,0.22); color: var(--text); }
+.cal-cell[data-cnt="4"] { background: rgba(248,113,113,0.40); color: var(--text); }
+.cal-cell[data-cnt="5+"] { background: rgba(248,113,113,0.60); color: #fff; }
+.cal-cell:not(.cal-empty):hover { outline: 2px solid var(--blue-light); outline-offset: -2px; cursor: pointer; }
+.cal-cnt { font-size: 10px; opacity: 0.75; }
+@media (max-width: 900px) {
+  .dashboard-grid { grid-template-columns: 1fr; }
+  .dash-full { grid-column: 1; }
+}
+
   </style>
 <style id="googleidentityservice_button_styles">.qJTHM{-moz-user-select:none;-webkit-user-select:none;-ms-user-select:none;color:#202124;direction:ltr;-webkit-touch-callout:none;font-family:Roboto-Regular,arial,sans-serif;-webkit-font-smoothing:antialiased;font-weight:400;margin:0;overflow:hidden;-webkit-text-size-adjust:100%}.ynRLnc{left:-9999px;position:absolute;top:-9999px}.L6cTce{display:none}.bltWBb{overflow-wrap:break-word;word-break:break-word}.hSRGPd{color:#1a73e8;cursor:pointer;font-weight:500;text-decoration:none}.Bz112c-W3lGp{height:16px;width:16px}.Bz112c-E3DyYd{height:20px;width:20px}.Bz112c-r9oPif{height:24px;width:24px}.Bz112c-u2z5K{height:36px;width:36px}.Bz112c-uaxL4e{border-radius:10px}.LgbsSe-Bz112c{display:block}.S9gUrf-YoZ4jf{border:none;margin:0;padding:0}.S9gUrf-YoZ4jf *{border:none;margin:0;padding:0}.fFW7wc-ibnC6b>.aZ2wEe>div{border-color:#4285f4}.P1ekSe-ZMv3u{-webkit-transition:height .2s linear;transition:height .2s linear}.P1ekSe-ZMv3u>div:first-child{background-color:#1a73e8!important;-webkit-transition:width .3s linear;transition:width .3s linear}.P1ekSe-ZMv3u>div:nth-child(2){background-image:-webkit-gradient(linear,left top,right top,from(rgba(255,255,255,.7)),to(rgba(255,255,255,.7))),-webkit-gradient(linear,left top,right top,from(#1a73e8),to(#1a73e8))!important;background-image:-webkit-linear-gradient(left,rgba(255,255,255,.7),rgba(255,255,255,.7)),-webkit-linear-gradient(left,#1a73e8,#1a73e8)!important;background-image:linear-gradient(90deg,rgba(255,255,255,.7),rgba(255,255,255,.7)),linear-gradient(90deg,#1a73e8,#1a73e8)!important}.P1ekSe-ZMv3u>div:nth-child(3){background-image:-webkit-gradient(linear,left top,right top,from(rgba(255,255,255,.7)),to(rgba(255,255,255,.7))),-webkit-gradient(linear,left top,right top,from(#1a73e8),to(#1a73e8))!important;background-image:-webkit-linear-gradient(left,rgba(255,255,255,.7),rgba(255,255,255,.7)),-webkit-linear-gradient(left,#1a73e8,#1a73e8)!important;background-image:linear-gradient(90deg,rgba(255,255,255,.7),rgba(255,255,255,.7)),linear-gradient(90deg,#1a73e8,#1a73e8)!important}.haAclf{display:inline-block}.nsm7Bb-HzV7m-LgbsSe{border-radius:4px;box-sizing:border-box;-webkit-transition:background-color .218s,border-color .218s;transition:background-color .218s,border-color .218s;-moz-user-select:none;-webkit-user-select:none;-ms-user-select:none;-webkit-appearance:none;background-color:#fff;background-image:none;border:1px solid #dadce0;color:#3c4043;cursor:pointer;font-family:Google Sans,arial,sans-serif;font-size:14px;height:40px;letter-spacing:.25px;outline:none;overflow:hidden;padding:0 12px;position:relative;text-align:center;vertical-align:middle;white-space:nowrap;width:auto}@media screen and (-ms-high-contrast:active){.nsm7Bb-HzV7m-LgbsSe{border:2px solid windowText;color:windowText}}@media screen and (preferes-contrast:more){.nsm7Bb-HzV7m-LgbsSe{color:#000}}.nsm7Bb-HzV7m-LgbsSe.pSzOP-SxQuSe{font-size:14px;height:32px;letter-spacing:.25px;padding:0 10px}.nsm7Bb-HzV7m-LgbsSe.purZT-SxQuSe{font-size:11px;height:20px;letter-spacing:.3px;padding:0 8px}.nsm7Bb-HzV7m-LgbsSe.Bz112c-LgbsSe{padding:0;width:40px}.nsm7Bb-HzV7m-LgbsSe.Bz112c-LgbsSe.pSzOP-SxQuSe{width:32px}.nsm7Bb-HzV7m-LgbsSe.Bz112c-LgbsSe.purZT-SxQuSe{width:20px}.nsm7Bb-HzV7m-LgbsSe.JGcpL-RbRzK{border-radius:20px}.nsm7Bb-HzV7m-LgbsSe.JGcpL-RbRzK.pSzOP-SxQuSe{border-radius:16px}.nsm7Bb-HzV7m-LgbsSe.JGcpL-RbRzK.purZT-SxQuSe{border-radius:10px}.nsm7Bb-HzV7m-LgbsSe.MFS4be-Ia7Qfc{border:none;color:#fff}.nsm7Bb-HzV7m-LgbsSe.MFS4be-v3pZbf-Ia7Qfc{background-color:#1a73e8}.nsm7Bb-HzV7m-LgbsSe.MFS4be-JaPV2b-Ia7Qfc{background-color:#202124;color:#e8eaed}@media screen and (prefers-contrast:more){.nsm7Bb-HzV7m-LgbsSe.MFS4be-JaPV2b-Ia7Qfc{color:#fff}}.nsm7Bb-HzV7m-LgbsSe .nsm7Bb-HzV7m-LgbsSe-Bz112c{height:18px;margin-right:8px;min-width:18px;width:18px}.nsm7Bb-HzV7m-LgbsSe.pSzOP-SxQuSe .nsm7Bb-HzV7m-LgbsSe-Bz112c{height:14px;min-width:14px;width:14px}.nsm7Bb-HzV7m-LgbsSe.purZT-SxQuSe .nsm7Bb-HzV7m-LgbsSe-Bz112c{height:10px;min-width:10px;width:10px}.nsm7Bb-HzV7m-LgbsSe.jVeSEe .nsm7Bb-HzV7m-LgbsSe-Bz112c{margin-left:8px;margin-right:-4px}.nsm7Bb-HzV7m-LgbsSe.Bz112c-LgbsSe .nsm7Bb-HzV7m-LgbsSe-Bz112c{margin:0;padding:10px}.nsm7Bb-HzV7m-LgbsSe.Bz112c-LgbsSe.pSzOP-SxQuSe .nsm7Bb-HzV7m-LgbsSe-Bz112c{padding:8px}.nsm7Bb-HzV7m-LgbsSe.Bz112c-LgbsSe.purZT-SxQuSe .nsm7Bb-HzV7m-LgbsSe-Bz112c{padding:4px}.nsm7Bb-HzV7m-LgbsSe .nsm7Bb-HzV7m-LgbsSe-Bz112c-haAclf{border-top-left-radius:3px;border-bottom-left-radius:3px;display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-pack:center;-webkit-justify-content:center;justify-content:center;-webkit-box-align:center;-webkit-align-items:center;align-items:center;background-color:#fff;height:36px;margin-left:-10px;margin-right:12px;min-width:36px;width:36px}.nsm7Bb-HzV7m-LgbsSe .nsm7Bb-HzV7m-LgbsSe-Bz112c-haAclf .nsm7Bb-HzV7m-LgbsSe-Bz112c,.nsm7Bb-HzV7m-LgbsSe.Bz112c-LgbsSe .nsm7Bb-HzV7m-LgbsSe-Bz112c-haAclf .nsm7Bb-HzV7m-LgbsSe-Bz112c{margin:0;padding:0}.nsm7Bb-HzV7m-LgbsSe.pSzOP-SxQuSe .nsm7Bb-HzV7m-LgbsSe-Bz112c-haAclf{height:28px;margin-left:-8px;margin-right:10px;min-width:28px;width:28px}.nsm7Bb-HzV7m-LgbsSe.purZT-SxQuSe .nsm7Bb-HzV7m-LgbsSe-Bz112c-haAclf{height:16px;margin-left:-6px;margin-right:8px;min-width:16px;width:16px}.nsm7Bb-HzV7m-LgbsSe.Bz112c-LgbsSe .nsm7Bb-HzV7m-LgbsSe-Bz112c-haAclf{border-radius:3px;margin-left:2px;margin-right:0;padding:0}.nsm7Bb-HzV7m-LgbsSe.JGcpL-RbRzK .nsm7Bb-HzV7m-LgbsSe-Bz112c-haAclf{border-radius:18px}.nsm7Bb-HzV7m-LgbsSe.pSzOP-SxQuSe.JGcpL-RbRzK .nsm7Bb-HzV7m-LgbsSe-Bz112c-haAclf{border-radius:14px}.nsm7Bb-HzV7m-LgbsSe.purZT-SxQuSe.JGcpL-RbRzK .nsm7Bb-HzV7m-LgbsSe-Bz112c-haAclf{border-radius:8px}.nsm7Bb-HzV7m-LgbsSe .nsm7Bb-HzV7m-LgbsSe-bN97Pc-sM5MNb{display:-webkit-box;display:-webkit-flex;display:flex;-webkit-align-items:center;-webkit-box-align:center;align-items:center;-webkit-flex-direction:row;-webkit-box-orient:horizontal;-webkit-box-direction:normal;flex-direction:row;-webkit-box-pack:justify;-webkit-justify-content:space-between;justify-content:space-between;-webkit-flex-wrap:nowrap;flex-wrap:nowrap;height:100%;position:relative;width:100%}.nsm7Bb-HzV7m-LgbsSe .oXtfBe-l4eHX{-webkit-box-pack:center;-webkit-justify-content:center;justify-content:center}.nsm7Bb-HzV7m-LgbsSe .nsm7Bb-HzV7m-LgbsSe-BPrWId{-webkit-flex-grow:1;-webkit-box-flex:1;flex-grow:1;font-family:Google Sans,arial,sans-serif;font-weight:500;overflow:hidden;text-overflow:ellipsis;vertical-align:top}.nsm7Bb-HzV7m-LgbsSe.purZT-SxQuSe .nsm7Bb-HzV7m-LgbsSe-BPrWId{font-weight:300}.nsm7Bb-HzV7m-LgbsSe .oXtfBe-l4eHX .nsm7Bb-HzV7m-LgbsSe-BPrWId{-webkit-flex-grow:0;-webkit-box-flex:0;flex-grow:0}.nsm7Bb-HzV7m-LgbsSe .nsm7Bb-HzV7m-LgbsSe-MJoBVe{-webkit-transition:background-color .218s;transition:background-color .218s;bottom:0;left:0;position:absolute;right:0;top:0}.nsm7Bb-HzV7m-LgbsSe:focus,.nsm7Bb-HzV7m-LgbsSe:hover{box-shadow:none;border-color:rgb(210,227,252);outline:none}.nsm7Bb-HzV7m-LgbsSe:focus-within{outline:2px solid #00639b;border-color:transparent}.nsm7Bb-HzV7m-LgbsSe:hover .nsm7Bb-HzV7m-LgbsSe-MJoBVe{background:rgba(66,133,244,.08)}.nsm7Bb-HzV7m-LgbsSe:active .nsm7Bb-HzV7m-LgbsSe-MJoBVe,.nsm7Bb-HzV7m-LgbsSe:focus .nsm7Bb-HzV7m-LgbsSe-MJoBVe{background:rgba(66,133,244,.1)}.nsm7Bb-HzV7m-LgbsSe.MFS4be-Ia7Qfc:hover .nsm7Bb-HzV7m-LgbsSe-MJoBVe{background:rgba(255,255,255,.24)}.nsm7Bb-HzV7m-LgbsSe.MFS4be-Ia7Qfc:active .nsm7Bb-HzV7m-LgbsSe-MJoBVe,.nsm7Bb-HzV7m-LgbsSe.MFS4be-Ia7Qfc:focus .nsm7Bb-HzV7m-LgbsSe-MJoBVe{background:rgba(255,255,255,.32)}.nsm7Bb-HzV7m-LgbsSe .n1UuX-DkfjY{border-radius:50%;display:-webkit-box;display:-webkit-flex;display:flex;height:20px;margin-left:-4px;margin-right:8px;min-width:20px;width:20px}.nsm7Bb-HzV7m-LgbsSe.jVeSEe .nsm7Bb-HzV7m-LgbsSe-BPrWId{font-family:Roboto;font-size:12px;text-align:left}.nsm7Bb-HzV7m-LgbsSe.jVeSEe .nsm7Bb-HzV7m-LgbsSe-BPrWId .K4efff .fmcmS,.nsm7Bb-HzV7m-LgbsSe.jVeSEe .nsm7Bb-HzV7m-LgbsSe-BPrWId .ssJRIf{overflow:hidden;text-overflow:ellipsis}.nsm7Bb-HzV7m-LgbsSe.jVeSEe .nsm7Bb-HzV7m-LgbsSe-BPrWId .K4efff{display:-webkit-box;display:-webkit-flex;display:flex;-webkit-align-items:center;-webkit-box-align:center;align-items:center;color:#5f6368;fill:#5f6368;font-size:11px;font-weight:400}.nsm7Bb-HzV7m-LgbsSe.jVeSEe.MFS4be-Ia7Qfc .nsm7Bb-HzV7m-LgbsSe-BPrWId .K4efff{color:#e8eaed;fill:#e8eaed}@media screen and (prefers-contrast:more){.nsm7Bb-HzV7m-LgbsSe.jVeSEe .nsm7Bb-HzV7m-LgbsSe-BPrWId .K4efff,.nsm7Bb-HzV7m-LgbsSe.jVeSEe.MFS4be-Ia7Qfc .nsm7Bb-HzV7m-LgbsSe-BPrWId .K4efff{color:#000;fill:#000}}.nsm7Bb-HzV7m-LgbsSe.jVeSEe .nsm7Bb-HzV7m-LgbsSe-BPrWId .K4efff .Bz112c{height:18px;margin:-3px -3px -3px 2px;min-width:18px;width:18px}.nsm7Bb-HzV7m-LgbsSe.jVeSEe .nsm7Bb-HzV7m-LgbsSe-Bz112c-haAclf{border-top-left-radius:0;border-bottom-left-radius:0;border-top-right-radius:3px;border-bottom-right-radius:3px;margin-left:12px;margin-right:-10px}.nsm7Bb-HzV7m-LgbsSe.jVeSEe.JGcpL-RbRzK .nsm7Bb-HzV7m-LgbsSe-Bz112c-haAclf{border-radius:18px}.L5Fo6c-sM5MNb{border:0;display:block;left:0;position:relative;top:0}.L5Fo6c-bF1uUb{border-radius:4px;bottom:0;cursor:pointer;left:0;position:absolute;right:0;top:0}.L5Fo6c-bF1uUb:focus{border:none;outline:none}sentinel{}</style></head>
 <body>
@@ -1490,12 +1559,47 @@
 
     <section class="panel">
       <div class="tabs" role="tablist" aria-label="Attendance views">
+        <button class="tab-button" id="dashboardTab" type="button" role="tab" aria-selected="false" data-view="dashboard" title="Dashboard (Ctrl+`)">Dashboard</button>
         <button class="tab-button" id="recordsTab" type="button" role="tab" aria-selected="false" data-view="records" title="Records (Ctrl+1)">Records</button>
         <button class="tab-button active" id="summaryTab" type="button" role="tab" aria-selected="true" data-view="summary" title="Point Summary by Agent (Ctrl+2)">Point Summary by Agent</button>
         <button class="tab-button" id="bucketTab" type="button" role="tab" aria-selected="false" data-view="bucket" title="Bucket (Ctrl+3)">Bucket</button>
         <button class="tab-button" id="employeesTab" type="button" role="tab" aria-selected="false" data-view="employees" title="Employees (Ctrl+4)">Employees</button>
         <button class="tab-button" id="timeoffTab" type="button" role="tab" aria-selected="false" data-view="timeoff" title="Time Off (Ctrl+5)">Time Off</button>
       </div>
+
+      <div id="dashboardView" class="hidden" role="tabpanel" aria-labelledby="dashboardTab">
+  <div class="dashboard-grid">
+
+    <div class="dash-section dash-full">
+      <div class="dash-section-title">Overview</div>
+      <div id="dashStats" class="dash-stats-row"></div>
+    </div>
+
+    <div class="dash-section">
+      <div class="dash-section-title">Monthly Occurrences (Last 12 Months)</div>
+      <canvas id="monthlyChart" style="width:100%;display:block"></canvas>
+      <div id="monthlyChartEmpty" class="empty" style="display:none">No occurrence data yet.</div>
+    </div>
+
+    <div class="dash-section">
+      <div class="dash-section-title">Top Agents by Points</div>
+      <div id="leaderboard"></div>
+      <div id="leaderboardEmpty" class="empty" style="display:none">No data yet.</div>
+    </div>
+
+    <div class="dash-section dash-full">
+      <div class="dash-section-title" style="display:flex;align-items:center;gap:12px">
+        <span>Attendance Calendar</span>
+        <button class="secondary small" type="button" id="calPrevBtn">&#9666;</button>
+        <span id="calMonthLabel" style="font-weight:700;font-size:14px;min-width:130px;text-align:center"></span>
+        <button class="secondary small" type="button" id="calNextBtn">&#9656;</button>
+        <span style="font-size:12px;color:var(--muted);margin-left:auto">Click a day to filter Records</span>
+      </div>
+      <div id="attendanceCalendar" style="margin-top:12px"></div>
+    </div>
+
+  </div>
+</div>
 
       <div id="recordsView" class="hidden" role="tabpanel" aria-labelledby="recordsTab">
         <div id="bulkBar" class="bulk-bar">
@@ -4519,6 +4623,147 @@
 
       // ── End Employees / Time Off ────────────────────────────────────────────
 
+      // ── Dashboard ──────────────────────────────────────────────────────────
+      var _calYear = new Date().getFullYear();
+      var _calMonth = new Date().getMonth();
+
+      function renderDashboard() {
+        if (!document.getElementById('dashboardView') || document.getElementById('dashboardView').classList.contains('hidden')) return;
+        _renderDashStats();
+        _renderMonthlyChart();
+        _renderLeaderboard();
+        _renderCalendar();
+      }
+
+      function _renderDashStats() {
+        var el = document.getElementById('dashStats');
+        if (!el) return;
+        var occ = rows.filter(function(r) { return isOccurrence(r.type); });
+        var totalPts = occ.reduce(function(s,r) { return s + (parseFloat(r.points)||0); }, 0);
+        var pendingTO = timeOffRequests.filter(function(r) { return r.status === 'Pending'; }).length;
+        var empPts = {};
+        occ.forEach(function(r) { var k = norm(r.name); empPts[k] = (empPts[k]||0) + (parseFloat(r.points)||0); });
+        var highRisk = Object.values(empPts).filter(function(p) { return p >= 6; }).length;
+        var stats = [
+          { label: 'Total Records', value: rows.length, color: 'var(--yellow)' },
+          { label: 'Occurrences', value: occ.length, color: 'var(--danger)' },
+          { label: 'Employees', value: employees.length, color: 'var(--blue)' },
+          { label: 'High Risk ≥6 pts', value: highRisk, color: 'var(--danger)' },
+          { label: 'Pending Time Off', value: pendingTO, color: '#c084fc' },
+          { label: 'Total Points', value: totalPts % 1 === 0 ? totalPts : totalPts.toFixed(1), color: 'var(--yellow)' },
+        ];
+        el.innerHTML = stats.map(function(s) {
+          return '<div class="dash-stat"><div class="dash-stat-label">'+escapeHtml(s.label)+'</div><div class="dash-stat-value" style="color:'+s.color+'">'+s.value+'</div></div>';
+        }).join('');
+      }
+
+      function _renderMonthlyChart() {
+        var canvas = document.getElementById('monthlyChart');
+        var emptyEl = document.getElementById('monthlyChartEmpty');
+        if (!canvas) return;
+        var occRows = rows.filter(function(r) { return isOccurrence(r.type) && r.dateIso; });
+        if (!occRows.length) { canvas.style.display='none'; if(emptyEl) emptyEl.style.display=''; return; }
+        canvas.style.display='block'; if(emptyEl) emptyEl.style.display='none';
+        var now = new Date(), months = [];
+        for (var i=11; i>=0; i--) {
+          var d = new Date(now.getFullYear(), now.getMonth()-i, 1);
+          months.push({ y: d.getFullYear(), m: d.getMonth(), count: 0, label: d.toLocaleString('default',{month:'short'}) });
+        }
+        occRows.forEach(function(r) {
+          var d = new Date(r.dateIso);
+          months.forEach(function(mo) { if(mo.y===d.getFullYear()&&mo.m===d.getMonth()) mo.count++; });
+        });
+        var W = canvas.parentElement ? canvas.parentElement.offsetWidth-40 : 460;
+        if (W < 200) W = 460;
+        var H = 200;
+        canvas.width = W; canvas.height = H;
+        var ctx = canvas.getContext('2d');
+        ctx.clearRect(0,0,W,H);
+        var pL=36,pR=10,pT=18,pB=40, cW=W-pL-pR, cH=H-pT-pB;
+        var maxC = Math.max(1, Math.max.apply(null, months.map(function(m){return m.count;})));
+        ctx.strokeStyle='rgba(255,255,255,0.05)'; ctx.lineWidth=1;
+        for(var g=0;g<=4;g++){var y=pT+(cH/4)*g; ctx.beginPath();ctx.moveTo(pL,y);ctx.lineTo(W-pR,y);ctx.stroke();}
+        ctx.fillStyle='rgba(139,153,171,0.7)'; ctx.font='10px system-ui'; ctx.textAlign='right';
+        for(var g=0;g<=4;g++){var y=pT+(cH/4)*g; ctx.fillText(Math.round(maxC*(1-g/4)),pL-4,y+4);}
+        var bW = cW/months.length;
+        months.forEach(function(mo,i){
+          var bH = (mo.count/maxC)*cH;
+          var x=pL+i*bW+bW*0.15, w=bW*0.7, y=pT+cH-bH;
+          if(mo.count>0){
+            var gr=ctx.createLinearGradient(x,y,x,y+bH);
+            gr.addColorStop(0,'rgba(74,144,217,0.9)'); gr.addColorStop(1,'rgba(74,144,217,0.35)');
+            ctx.fillStyle=gr;
+            if(ctx.roundRect){ctx.beginPath();ctx.roundRect(x,y,w,bH,[3,3,0,0]);ctx.fill();}
+            else{ctx.fillRect(x,y,w,bH);}
+            ctx.fillStyle='rgba(255,255,255,0.8)'; ctx.font='10px system-ui'; ctx.textAlign='center';
+            ctx.fillText(mo.count,x+w/2,y-4);
+          }
+          ctx.fillStyle='rgba(139,153,171,0.75)'; ctx.font='10px system-ui'; ctx.textAlign='center';
+          ctx.fillText(mo.label,x+w/2,H-pB+14);
+        });
+      }
+
+      function _renderLeaderboard() {
+        var el = document.getElementById('leaderboard');
+        var emEl = document.getElementById('leaderboardEmpty');
+        if (!el) return;
+        var pts = {};
+        rows.forEach(function(r){ if(!isOccurrence(r.type)) return; var k=r.name; pts[k]=(pts[k]||0)+(parseFloat(r.points)||0); });
+        var sorted = Object.keys(pts).map(function(n){return{name:n,pts:pts[n]};}).sort(function(a,b){return b.pts-a.pts;}).slice(0,10);
+        if(!sorted.length){el.innerHTML='';if(emEl)emEl.style.display='';return;}
+        if(emEl)emEl.style.display='none';
+        var maxP = sorted[0].pts||1;
+        el.innerHTML = sorted.map(function(item,i){
+          var pct=Math.round((item.pts/maxP)*100);
+          var col=item.pts>=6?'var(--danger)':item.pts>=3?'var(--yellow)':'var(--ok)';
+          return '<div class="leader-row"><span class="leader-rank">'+(i+1)+'</span>'+
+            '<span class="leader-name">'+escapeHtml(item.name)+'</span>'+
+            '<div class="leader-bar-wrap"><div class="leader-bar" style="width:'+pct+'%;background:'+col+'"></div></div>'+
+            '<span class="leader-pts" style="color:'+col+'">'+item.pts.toFixed(1)+'</span></div>';
+        }).join('');
+      }
+
+      function _renderCalendar() {
+        var el = document.getElementById('attendanceCalendar');
+        var lbl = document.getElementById('calMonthLabel');
+        if (!el) return;
+        var date = new Date(_calYear, _calMonth, 1);
+        if (lbl) lbl.textContent = date.toLocaleString('default',{month:'long',year:'numeric'});
+        var dayCounts = {};
+        rows.forEach(function(r){
+          if(!isOccurrence(r.type)||!r.dateIso) return;
+          var d=new Date(r.dateIso);
+          if(d.getFullYear()===_calYear&&d.getMonth()===_calMonth) dayCounts[d.getDate()]=(dayCounts[d.getDate()]||0)+1;
+        });
+        var dim=new Date(_calYear,_calMonth+1,0).getDate();
+        var firstDow=new Date(_calYear,_calMonth,1).getDay();
+        var todayStr=new Date().toISOString().slice(0,10);
+        var hdrs=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].map(function(d){return'<div class="cal-day-hdr">'+d+'</div>';}).join('');
+        var cells='';
+        for(var p=0;p<firstDow;p++) cells+='<div class="cal-cell cal-empty"></div>';
+        for(var day=1;day<=dim;day++){
+          var iso=_calYear+'-'+String(_calMonth+1).padStart(2,'0')+'-'+String(day).padStart(2,'0');
+          var cnt=dayCounts[day]||0;
+          var cntKey=cnt>=5?'5+':String(cnt);
+          var today=iso===todayStr?' cal-today':'';
+          cells+='<div class="cal-cell'+today+'" data-cnt="'+cntKey+'" data-date="'+iso+'" title="'+iso+': '+cnt+' occurrence(s)">'+
+            '<span>'+day+'</span>'+(cnt>0?'<span class="cal-cnt">'+cnt+'</span>':'')+
+            '</div>';
+        }
+        el.innerHTML='<div class="cal-grid">'+hdrs+cells+'</div>';
+        el.querySelectorAll('.cal-cell[data-date]').forEach(function(cell){
+          cell.addEventListener('click',function(){
+            var d=this.getAttribute('data-date');
+            if(!d) return;
+            var from=document.getElementById('dateFromFilter'), to=document.getElementById('dateToFilter');
+            if(from&&to){ from.value=d; to.value=d; from.dispatchEvent(new Event('change')); to.dispatchEvent(new Event('change')); }
+            var rTab=document.getElementById('recordsTab')||document.querySelector('[data-view="records"]');
+            if(rTab) rTab.click();
+          });
+        });
+      }
+      // ── End Dashboard ──────────────────────────────────────────────────────
+
       function render() {
         rows = rows.map(function (row) {
           var currentType = normalizeStatusValue(row.type);
@@ -4537,6 +4782,7 @@
 
         populateFilters();
         var visibleCount = filteredRows().length;
+        renderDashboard();
         renderStats();
         renderRecords();
         renderSummary();
@@ -4553,26 +4799,31 @@
 
       function setView(view) {
         activeView = view;
+        var showDashboard = activeView === 'dashboard';
         var showRecords = activeView === 'records';
         var showSummary = activeView === 'summary';
         var showBucket = activeView === 'bucket';
         var showEmployees = activeView === 'employees';
         var showTimeoff = activeView === 'timeoff';
+        document.getElementById('dashboardView').classList.toggle('hidden', !showDashboard);
         els.recordsView.classList.toggle('hidden', !showRecords);
         els.summaryView.classList.toggle('hidden', !showSummary);
         els.bucketView.classList.toggle('hidden', !showBucket);
         document.getElementById('employeesView').classList.toggle('hidden', !showEmployees);
         document.getElementById('timeoffView').classList.toggle('hidden', !showTimeoff);
+        document.getElementById('dashboardTab').classList.toggle('active', showDashboard);
         els.recordsTab.classList.toggle('active', showRecords);
         els.summaryTab.classList.toggle('active', showSummary);
         els.bucketTab.classList.toggle('active', showBucket);
         document.getElementById('employeesTab').classList.toggle('active', showEmployees);
         document.getElementById('timeoffTab').classList.toggle('active', showTimeoff);
+        document.getElementById('dashboardTab').setAttribute('aria-selected', String(showDashboard));
         els.recordsTab.setAttribute('aria-selected', String(showRecords));
         els.summaryTab.setAttribute('aria-selected', String(showSummary));
         els.bucketTab.setAttribute('aria-selected', String(showBucket));
         document.getElementById('employeesTab').setAttribute('aria-selected', String(showEmployees));
         document.getElementById('timeoffTab').setAttribute('aria-selected', String(showTimeoff));
+        if (showDashboard) renderDashboard();
       }
 
       function findRow(id) {
@@ -5403,6 +5654,7 @@
           'Keyboard Shortcuts',
           '',
           'Navigation:',
+          '  Ctrl+`            Switch to Dashboard tab',
           '  Ctrl+1 … Ctrl+5   Switch to tab 1–5',
           '  ← →               Move between tabs (when tab focused)',
           '  /                  Focus search input (from Records tab)',
@@ -5705,6 +5957,17 @@
         openColVisModal();
       });
 
+      (function() {
+        var prev = document.getElementById('calPrevBtn');
+        var next = document.getElementById('calNextBtn');
+        if (prev) prev.addEventListener('click', function() {
+          _calMonth--; if(_calMonth<0){_calMonth=11;_calYear--;} _renderCalendar();
+        });
+        if (next) next.addEventListener('click', function() {
+          _calMonth++; if(_calMonth>11){_calMonth=0;_calYear++;} _renderCalendar();
+        });
+      })();
+
       (function () {
         function makeCollapsible(toggleId, bodyId, chevronId, storageKey) {
           var toggle = document.getElementById(toggleId);
@@ -5838,6 +6101,13 @@
           if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
           var idx = parseInt(event.key, 10) - 1;
           if (TAB_VIEWS[idx]) { event.preventDefault(); setView(TAB_VIEWS[idx]); }
+        }
+        if ((event.ctrlKey || event.metaKey) && (event.key === '`' || event.key === '0')) {
+          var tag = document.activeElement && document.activeElement.tagName;
+          if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
+          event.preventDefault();
+          var dashBtn = document.getElementById('dashboardTab');
+          if (dashBtn) dashBtn.click();
         }
       });
 
