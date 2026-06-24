@@ -1859,6 +1859,7 @@
           <span id="bulkCount">0 selected</span>
           <button class="secondary small" type="button" id="bulkDeleteBtn">🗑 Delete Selected</button>
           <button class="secondary small" type="button" id="bulkExportBtn">⬆ Export Selected</button>
+          <button class="primary small" type="button" id="bulkEditBtn">✏ Edit Selected (<span id="bulkEditCount">0</span>)</button>
           <button class="secondary small" type="button" id="bulkDeselectBtn" style="margin-left:auto">✕ Deselect All</button>
         </div>
         <div id="recordsTableView">
@@ -4144,9 +4145,36 @@
         }
 
         var duplicateCount = removeDuplicates(false);
+        event.target.value = '';
+
+        // Smart duplicate detection: warn before saving if new rows match existing
+        // We re-derive the newly added records by checking what's in rows beyond what was there before
+        // (importedCount tracks how many were added via sheetToRecords concat)
+        if (importedCount > 0) {
+          var newlyAdded = rows.slice(rows.length - importedCount);
+          // Re-check against rows *before* the newly added ones
+          var priorRows = rows.slice(0, rows.length - importedCount);
+          var priorKeys = new Set(priorRows.map(function(r) {
+            return norm(r.name) + '|' + (r.dateIso || r.dateText || '') + '|' + (r.code || '').toUpperCase();
+          }));
+          var directDupes = newlyAdded.filter(function(r) {
+            var key = norm(r.name) + '|' + (r.dateIso || r.dateText || '') + '|' + (r.code || '').toUpperCase();
+            return priorKeys.has(key);
+          });
+          if (directDupes.length > 0) {
+            var dupeMsg = directDupes.length + ' possible duplicate' + (directDupes.length > 1 ? 's' : '') + ' detected (same name + date + code as existing records).\n\nExamples:\n' +
+              directDupes.slice(0, 3).map(function(d) { return '• ' + d.name + ' on ' + (d.dateIso || d.dateText) + ' (' + (d.code || '') + ')'; }).join('\n') +
+              (directDupes.length > 3 ? '\n... and ' + (directDupes.length - 3) + ' more' : '') +
+              '\n\nImport anyway?';
+            if (!confirm(dupeMsg)) {
+              rows.splice(rows.length - importedCount, importedCount);
+              return;
+            }
+          }
+        }
+
         saveData();
         render();
-        event.target.value = '';
 
         addImportHistory(files.map(function(f){ return f.name; }).join(', '), importedCount, 0);
         summaries.push('Total imported before duplicate removal: ' + importedCount);
@@ -4414,6 +4442,75 @@
 
       window.openRecordEditModal = openRecordEditModal;
 
+      // ── Bulk Edit Modal ──────────────────────────────────────────────────────
+      function openBulkEditModal() {
+        var count = selectedIds.size;
+        if (!count) return;
+        var subtitle = document.getElementById('bulkEditSubtitle');
+        if (subtitle) subtitle.textContent = 'Editing ' + count + ' selected record' + (count !== 1 ? 's' : '') + '.';
+        ['bulkEditCode','bulkEditPoints'].forEach(function(id) { var el = document.getElementById(id); if (el) el.value = ''; });
+        ['bulkEditType','bulkEditFlag'].forEach(function(id) { var el = document.getElementById(id); if (el) el.value = ''; });
+        document.getElementById('bulkEditModal').classList.remove('hidden');
+      }
+      window.openBulkEditModal = openBulkEditModal;
+
+      function applyBulkEdit() {
+        var code = (document.getElementById('bulkEditCode').value || '').trim().toUpperCase();
+        var type = document.getElementById('bulkEditType').value;
+        var ptsRaw = document.getElementById('bulkEditPoints').value;
+        var flag = document.getElementById('bulkEditFlag').value;
+        var pts = ptsRaw !== '' ? parseFloat(ptsRaw) : null;
+
+        if (!code && !type && pts === null && !flag) {
+          showToast('No changes specified — nothing to apply');
+          return;
+        }
+
+        var snapshots = {};
+        selectedIds.forEach(function(id) {
+          var row = rows.find(function(r) { return r.id === id; });
+          if (row) snapshots[id] = Object.assign({}, row);
+        });
+
+        var count = 0;
+        selectedIds.forEach(function(id) {
+          var row = rows.find(function(r) { return r.id === id; });
+          if (!row) return;
+          if (code) row.code = code;
+          if (type) row.type = type;
+          if (pts !== null && !isNaN(pts)) { row.points = pts; row.editedPoints = true; }
+          if (flag === 'clear') row.flag = '';
+          else if (flag) row.flag = flag;
+          count++;
+        });
+
+        pushUndo('Bulk edit (' + count + ')', function() {
+          Object.keys(snapshots).forEach(function(id) {
+            var row = rows.find(function(r) { return r.id === id; });
+            if (row) Object.assign(row, snapshots[id]);
+          });
+          saveData(); render();
+        });
+
+        document.getElementById('bulkEditModal').classList.add('hidden');
+        saveData();
+        render();
+        showToast('Updated ' + count + ' record' + (count !== 1 ? 's' : ''));
+      }
+
+      (function() {
+        var bulkEditBtn = document.getElementById('bulkEditBtn');
+        if (bulkEditBtn) bulkEditBtn.addEventListener('click', openBulkEditModal);
+        var closeBtn = document.getElementById('closeBulkEditBtn');
+        var cancelBtn = document.getElementById('cancelBulkEditBtn');
+        var applyBtn = document.getElementById('applyBulkEditBtn');
+        var modal = document.getElementById('bulkEditModal');
+        if (closeBtn) closeBtn.addEventListener('click', function() { modal.classList.add('hidden'); });
+        if (cancelBtn) cancelBtn.addEventListener('click', function() { modal.classList.add('hidden'); });
+        if (applyBtn) applyBtn.addEventListener('click', applyBulkEdit);
+        if (modal) modal.addEventListener('click', function(e) { if (e.target === this) this.classList.add('hidden'); });
+      })();
+
       // ── Quick Filter Chips ─────────────────────────────────────────────────
       var _activeQuickChip = null;
 
@@ -4550,8 +4647,18 @@
                 '<button class="small secondary" type="button" data-action="duplicate" data-id="' + actionMenuId + '">Duplicate</button>' +
                 '<button class="small danger" type="button" data-action="delete" data-id="' + actionMenuId + '">Delete</button>' +
               '</div>' +
-            '</div></td>' +
+            '</div>' +
+            '<button type="button" class="note-toggle-btn secondary small" data-row-id="' + row.id + '" title="' + (row.note ? 'Edit note' : 'Add note') + '" style="margin-top:4px;padding:3px 7px;font-size:11px">' + (row.note ? '📝' : '+ Note') + '</button>' +
+            '</td>' +
             '<td>' + escapeHtml(row.sourceFile) + '</td>' +
+          '</tr>' +
+          '<tr class="note-row hidden" id="note-row-' + row.id + '">' +
+            '<td colspan="20" style="padding:8px 12px;background:var(--card)">' +
+              '<div style="display:flex;gap:8px;align-items:flex-start">' +
+                '<textarea class="note-textarea" data-row-id="' + row.id + '" placeholder="Add a note for this record..." style="flex:1;min-height:60px;font-size:13px;resize:vertical;background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:8px;color:var(--text);font-family:inherit">' + escapeHtml(row.note || '') + '</textarea>' +
+                '<button type="button" class="note-save-btn primary small" data-row-id="' + row.id + '" style="white-space:nowrap">Save Note</button>' +
+              '</div>' +
+            '</td>' +
           '</tr>';
         }).join('');
 
@@ -6331,13 +6438,13 @@
       function exportCsv(rowsToExport, filename) {
         var data = (rowsToExport || rows);
         if (!data.length) { showToast('No records to export'); return; }
-        var headers = ['Name', 'Date', 'Status', 'Code', 'Reason', 'Start Time', 'End Time', 'Points', 'Flag', 'Source File'];
+        var headers = ['Name', 'Date', 'Status', 'Code', 'Reason', 'Start Time', 'End Time', 'Points', 'Flag', 'Source File', 'Note'];
         var csvRows = [headers.join(',')];
         data.forEach(function(r) {
           var cells = [
             r.name || '', r.dateText || r.dateIso || '', r.type || '', r.code || '',
             r.reason || '', r.startTime || '', r.endTime || '',
-            r.points != null ? r.points : '', r.flag || '', r.sourceFile || ''
+            r.points != null ? r.points : '', r.flag || '', r.sourceFile || '', r.note || ''
           ].map(function(val) {
             val = String(val).replace(/"/g, '""');
             return /[,"\n\r]/.test(val) ? '"' + val + '"' : val;
@@ -6476,6 +6583,16 @@
           }).join('') + '</tbody></table>';
       }
 
+      function findImportDuplicates(incomingRows) {
+        var existingKeys = new Set(rows.map(function(r) {
+          return norm(r.name) + '|' + (r.dateIso || r.dateText || '') + '|' + (r.code || '').toUpperCase();
+        }));
+        return incomingRows.filter(function(r) {
+          var key = norm(r.name) + '|' + (r.dateIso || r.dateText || '') + '|' + (r.code || '').toUpperCase();
+          return existingKeys.has(key);
+        });
+      }
+
       function commitImportWizard() {
         var mapping = {};
         IMPORT_FIELDS.forEach(function(field) {
@@ -6485,8 +6602,8 @@
         if (!mapping.name) { alert('Employee Name column is required.'); return; }
         if (!mapping.dateText) { alert('Date column is required.'); return; }
 
-        var imported = 0;
         var skipped = 0;
+        var pendingRows = [];
         _wizardRawData.forEach(function(rawRow) {
           var name = String(rawRow[mapping.name] || '').trim();
           var date = String(rawRow[mapping.dateText] || '').trim();
@@ -6525,9 +6642,20 @@
             followUpMonth: '',
             bucketApplied: false
           };
-          rows.push(newRow);
-          imported++;
+          pendingRows.push(newRow);
         });
+
+        var dupes = findImportDuplicates(pendingRows);
+        if (dupes.length > 0) {
+          var msg = dupes.length + ' row' + (dupes.length > 1 ? 's' : '') + ' appear to already exist (same name + date + code).\n\nExamples:\n' +
+            dupes.slice(0, 3).map(function(d) { return '• ' + d.name + ' on ' + (d.dateIso || d.dateText) + ' (' + d.code + ')'; }).join('\n') +
+            (dupes.length > 3 ? '\n... and ' + (dupes.length - 3) + ' more' : '') +
+            '\n\nImport anyway?';
+          if (!confirm(msg)) return;
+        }
+
+        pendingRows.forEach(function(r) { rows.push(r); });
+        var imported = pendingRows.length;
 
         addImportHistory(_wizardFilename, imported, skipped);
         document.getElementById('importWizardModal').classList.add('hidden');
@@ -7376,7 +7504,42 @@
       });
 
       els.recordsBody.addEventListener('click', function (event) {
-        var button = event.target.closest('button[data-action]');
+        var target = event.target;
+
+        // Note toggle
+        var noteToggle = target.closest('.note-toggle-btn');
+        if (noteToggle) {
+          var rowId = noteToggle.getAttribute('data-row-id');
+          var noteRow = document.getElementById('note-row-' + rowId);
+          if (noteRow) {
+            noteRow.classList.toggle('hidden');
+            if (!noteRow.classList.contains('hidden')) {
+              var ta = noteRow.querySelector('.note-textarea');
+              if (ta) ta.focus();
+            }
+          }
+          return;
+        }
+
+        // Note save
+        var noteSave = target.closest('.note-save-btn');
+        if (noteSave) {
+          var rowId = noteSave.getAttribute('data-row-id');
+          var row = findRow(rowId);
+          var noteRow = document.getElementById('note-row-' + rowId);
+          var ta = noteRow ? noteRow.querySelector('.note-textarea') : null;
+          if (row && ta) {
+            row.note = ta.value.trim();
+            saveData();
+            var toggleBtn = document.querySelector('.note-toggle-btn[data-row-id="' + rowId + '"]');
+            if (toggleBtn) { toggleBtn.textContent = row.note ? '📝' : '+ Note'; toggleBtn.title = row.note ? 'Edit note' : 'Add note'; }
+            noteRow.classList.add('hidden');
+            showToast(row.note ? 'Note saved' : 'Note cleared');
+          }
+          return;
+        }
+
+        var button = target.closest('button[data-action]');
         if (!button) return;
         closeAllActionMenus();
         handleRecordAction(button);
@@ -8039,6 +8202,10 @@
         } else {
           bar.classList.remove('visible');
         }
+        var bulkEditCountEl = document.getElementById('bulkEditCount');
+        if (bulkEditCountEl) bulkEditCountEl.textContent = selectedIds.size;
+        var bulkEditBtn = document.getElementById('bulkEditBtn');
+        if (bulkEditBtn) bulkEditBtn.disabled = selectedIds.size === 0;
         var allCheck = document.getElementById('selectAllCheck');
         if (allCheck) {
           var visIds = filteredRows().map(function(r) { return r.id; });
@@ -8618,4 +8785,48 @@
     <span class="mobile-tab-label">Time Off</span>
   </button>
 </nav>
+
+<div id="bulkEditModal" class="hidden" style="position:fixed;inset:0;z-index:300;background:rgba(0,0,0,0.6);display:flex;align-items:center;justify-content:center;padding:24px">
+  <div style="background:var(--card2);border:1px solid var(--border-light);border-radius:var(--radius);box-shadow:var(--shadow);width:100%;max-width:480px;padding:28px">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+      <strong style="font-size:16px">✏ Bulk Edit</strong>
+      <button type="button" id="closeBulkEditBtn" style="background:none;border:none;color:var(--muted);font-size:22px;cursor:pointer;padding:0 4px;line-height:1">×</button>
+    </div>
+    <p id="bulkEditSubtitle" style="font-size:13px;color:var(--muted);margin:0 0 18px"></p>
+    <p style="font-size:12px;color:var(--muted);margin:0 0 14px">Leave a field blank to keep existing values unchanged.</p>
+    <div style="display:flex;flex-direction:column;gap:14px">
+      <div>
+        <label for="bulkEditCode" style="display:block;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--muted);margin-bottom:5px">Code</label>
+        <input id="bulkEditCode" type="text" placeholder="Leave blank to keep existing" style="width:100%;text-transform:uppercase">
+      </div>
+      <div>
+        <label for="bulkEditType" style="display:block;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--muted);margin-bottom:5px">Status / Type</label>
+        <select id="bulkEditType" style="width:100%">
+          <option value="">— keep existing —</option>
+          <option value="past">Occurrence</option>
+          <option value="future">Future Request</option>
+          <option value="pastrequest">Past Request</option>
+        </select>
+      </div>
+      <div>
+        <label for="bulkEditPoints" style="display:block;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--muted);margin-bottom:5px">Points</label>
+        <input id="bulkEditPoints" type="number" placeholder="Leave blank to keep existing" step="0.5" min="0" style="width:100%">
+      </div>
+      <div>
+        <label for="bulkEditFlag" style="display:block;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--muted);margin-bottom:5px">Flag</label>
+        <select id="bulkEditFlag" style="width:100%">
+          <option value="">— keep existing —</option>
+          <option value="clear">⊘ Clear flag</option>
+          <option value="giveback30">30 Day Give Back</option>
+          <option value="policyDropOffPending">Policy Drop Off Pending</option>
+          <option value="cluster">Cluster</option>
+        </select>
+      </div>
+    </div>
+    <div style="margin-top:22px;display:flex;justify-content:flex-end;gap:10px">
+      <button class="secondary" type="button" id="cancelBulkEditBtn">Cancel</button>
+      <button class="primary" type="button" id="applyBulkEditBtn">Apply to Selected</button>
+    </div>
+  </div>
+</div>
 </body></html>
