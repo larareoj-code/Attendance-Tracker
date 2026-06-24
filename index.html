@@ -6759,6 +6759,7 @@
           empPts[k]=(empPts[k]||0)+(parseFloat(r.points)||0);
           empOcc[k]=(empOcc[k]||0)+1;
         });
+        var toasted = {};
         rules.forEach(function(rule) {
           rows.forEach(function(r) {
             if (!isOccurrence(r.type)) return;
@@ -6768,7 +6769,13 @@
             if (rule.cond==='code_is' && (r.code||'').toLowerCase()===(rule.value||'').toLowerCase()) triggered=true;
             if (triggered) {
               if (rule.action==='flag' && !r.flag) r.flag='⚠ Policy: '+(rule.label||rule.cond);
-              if (rule.action==='toast') showToast('Policy alert: '+(rule.label||rule.cond)+' — '+r.name);
+              if (rule.action==='toast') {
+                var ruleKey = rule.label || rule.cond;
+                if (!toasted[ruleKey]) {
+                  toasted[ruleKey] = true;
+                  showToast('Policy alert: '+ruleKey+' — '+r.name);
+                }
+              }
             }
           });
         });
