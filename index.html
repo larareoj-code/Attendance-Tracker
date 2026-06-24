@@ -524,6 +524,20 @@
       border-radius: 14px;
     }
 
+    #recordsTableView .table-wrap,
+    #summaryTableView .table-wrap {
+      overflow-y: auto;
+      max-height: calc(100vh - 300px);
+    }
+
+    @media print {
+      #recordsTableView .table-wrap,
+      #summaryTableView .table-wrap {
+        overflow-y: visible !important;
+        max-height: none !important;
+      }
+    }
+
     table {
       width: 100%;
       border-collapse: separate;
@@ -2580,14 +2594,21 @@
       }
 
       function highlightMatch(text, query) {
-        if (!query) return escapeHtml(text);
-        var idx = String(text).toLowerCase().indexOf(String(query).toLowerCase());
-        if (idx === -1) return escapeHtml(text);
-        return escapeHtml(String(text).slice(0, idx)) +
-          '<mark style="background:rgba(245,200,75,0.35);color:inherit;border-radius:2px;padding:0 1px">' +
-          escapeHtml(String(text).slice(idx, idx + query.length)) +
-          '</mark>' +
-          escapeHtml(String(text).slice(idx + query.length));
+        if (!query || text == null) return escapeHtml(String(text || ''));
+        var str = String(text);
+        var escapedQ = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        var parts = [];
+        var re = new RegExp('(' + escapedQ + ')', 'gi');
+        var lastIndex = 0;
+        var m;
+        while ((m = re.exec(str)) !== null) {
+          if (m.index > lastIndex) parts.push(escapeHtml(str.slice(lastIndex, m.index)));
+          parts.push('<mark style="background:rgba(245,200,75,0.35);color:inherit;border-radius:2px;padding:0 1px">' + escapeHtml(m[1]) + '</mark>');
+          lastIndex = m.index + m[1].length;
+          if (m[1].length === 0) { re.lastIndex++; }
+        }
+        if (lastIndex < str.length) parts.push(escapeHtml(str.slice(lastIndex)));
+        return parts.join('');
       }
 
       function isBlank(value) {
@@ -4713,8 +4734,8 @@
             '<td>' + escapeHtml(row.dateText || formatDate(row.date)) + '</td>' +
             '<td><span class="badge ' + escapeHtml(statusBadgeClass(row.type)) + '">' + escapeHtml(statusLabel(row.type)) + '</span></td>' +
             '<td>' + followUpText + '</td>' +
-            '<td>' + escapeHtml(row.code) + '</td>' +
-            '<td>' + escapeHtml(row.reason) + '</td>' +
+            '<td>' + highlightMatch(row.code, nameSearchVal) + '</td>' +
+            '<td>' + highlightMatch(row.reason, nameSearchVal) + '</td>' +
             '<td>' + escapeHtml(row.startTime) + '</td>' +
             '<td>' + escapeHtml(row.endTime) + '</td>' +
             '<td>' + pointText + '</td>' +
