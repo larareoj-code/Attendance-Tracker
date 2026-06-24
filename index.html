@@ -8235,6 +8235,7 @@ body.no-transitions * { transition: none !important; }
       // Import Employees roster
       function importEmployeeRoster(file) {
         var ext = file.name.split('.').pop().toLowerCase();
+        if (ext !== 'csv' && !window.XLSX) { showToast('Excel library not loaded — try CSV format'); return; }
         function processRows(matrix) {
           if (!matrix.length) { showToast('No data found in file'); return; }
           var header = matrix[0].map(function(h) { return String(h || '').trim().toLowerCase(); });
