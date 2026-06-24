@@ -1806,8 +1806,19 @@
   <div class="dashboard-grid">
 
     <div class="dash-section dash-full">
+      <div id="dashDeptFilterBar" style="display:flex;align-items:center;gap:10px;margin-bottom:16px;flex-wrap:wrap">
+        <label style="font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.06em">Department:</label>
+        <select id="dashDeptFilter" style="min-width:160px;font-size:13px">
+          <option value="">All Departments</option>
+        </select>
+        <span id="dashDeptCount" style="font-size:12px;color:var(--muted)"></span>
+      </div>
       <div class="dash-section-title">Overview</div>
       <div id="dashStats" class="dash-stats-row"></div>
+      <div id="periodCompareSection" style="margin-bottom:24px;margin-top:20px">
+        <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--muted);margin-bottom:12px">This Month vs Last Month</div>
+        <div id="periodCompareCards" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px"></div>
+      </div>
     </div>
 
     <div class="dash-section">
@@ -1820,6 +1831,13 @@
       <div class="dash-section-title">Top Agents by Points</div>
       <div id="leaderboard"></div>
       <div id="leaderboardEmpty" class="empty" style="display:none">No data yet.</div>
+    </div>
+
+    <div class="dash-section dash-full">
+      <div id="clusterSection" style="margin-bottom:24px">
+        <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--muted);margin-bottom:12px">&#9888; Cluster Alerts <span id="clusterBadge" style="display:none;background:var(--danger);color:#fff;border-radius:99px;padding:1px 7px;font-size:10px;margin-left:6px"></span></div>
+        <div id="clusterList"></div>
+      </div>
     </div>
 
     <div class="dash-section dash-full">
@@ -1899,6 +1917,7 @@
                 <th><button class="sort-button" type="button" data-summary-sort="pastRequest">Past Requests <span id="sumSortPastRequest"></span></button></th>
                 <th><button class="sort-button" type="button" data-summary-sort="future">Future Requests <span id="sumSortFuture"></span></button></th>
                 <th><button class="sort-button" type="button" data-summary-sort="points">Total Points <span id="sumSortPoints"></span></button></th>
+                <th title="Attendance score: 100 minus weighted penalties (points×8, NCNS×10), min 0">Score</th>
                 <th><button class="sort-button" type="button" data-summary-sort="lastdate">Last Occurrence <span id="sumSortLastdate"></span></button></th>
                 <th title="Sum of approved time-off days for this employee">Approved Off Days</th>
                 <th title="Occurrence count per month for the last 6 months">Trend</th>
@@ -4686,6 +4705,7 @@
             var sumColor = sumDays <= 7 ? 'var(--danger)' : sumDays <= 30 ? 'var(--yellow)' : 'var(--muted)';
             sumLastCell = '<span style="color:' + sumColor + ';font-weight:600">' + sumLabel + '</span>';
           }
+          var score = calcAttendanceScore(item.name);
           return '<tr' + rowAttr + '>' +
             '<td>' + openByNameBtn + '</td>' +
             '<td>' + deptCell + '</td>' +
@@ -4694,6 +4714,7 @@
             '<td>' + item.pastRequest.toLocaleString() + '</td>' +
             '<td>' + item.future.toLocaleString() + '</td>' +
             '<td><span style="' + ptStyle + '">' + escapeHtml(formatPoints(pts)) + '</span>' + ptFlag + '</td>' +
+            '<td style="text-align:center"><span style="font-weight:700;color:' + scoreColor(score) + '">' + score + '</span><div style="font-size:10px;color:var(--muted)">/100</div></td>' +
             '<td>' + sumLastCell + '</td>' +
             '<td>' + (approvedDays > 0 ? approvedDays.toLocaleString() : '—') + '</td>' +
             '<td class="sparkline-cell">' + buildSparkline(norm(item.name)) + '</td>' +
@@ -4718,6 +4739,7 @@
             '<td>' + totals.pastRequest.toLocaleString() + '</td>' +
             '<td>' + totals.future.toLocaleString() + '</td>' +
             '<td>' + escapeHtml(formatPoints(totals.points)) + '</td>' +
+            '<td></td>' +
             '<td></td>' +
             '<td>' + (totalApprovedDays > 0 ? totalApprovedDays.toLocaleString() : '—') + '</td>' +
             '<td></td>' +
@@ -4792,15 +4814,17 @@
         }
         container.innerHTML = items.map(function(item) {
           var ptsColor = item.pts >= 6 ? 'var(--danger)' : item.pts >= 3 ? 'var(--yellow)' : item.pts > 0 ? 'var(--ok)' : 'var(--muted)';
+          var score = calcAttendanceScore(item.name);
           return '<div class="summary-card">' +
             '<div style="flex:1">' +
               '<div class="summary-card-name">' + escapeHtml(item.name) + '</div>' +
               (item.dept ? '<div class="summary-card-dept">' + escapeHtml(item.dept) + '</div>' : '') +
               '<div class="summary-card-stats">' + item.total + ' records · ' + item.occ + ' occurrences</div>' +
             '</div>' +
-            '<div style="text-align:right">' +
+            '<div style="text-align:right;display:flex;flex-direction:column;align-items:flex-end;gap:4px">' +
               '<div class="summary-card-pts" style="color:' + ptsColor + '">' + item.pts.toFixed(1) + '</div>' +
               '<div style="font-size:10px;color:var(--muted)">pts</div>' +
+              '<div style="font-size:11px;font-weight:700;color:' + scoreColor(score) + ';background:var(--card2);border-radius:4px;padding:1px 6px">' + score + '<span style="font-weight:400;color:var(--muted)">/100</span></div>' +
             '</div>' +
             '</div>';
         }).join('');
@@ -5254,6 +5278,136 @@
       // ── Dashboard ──────────────────────────────────────────────────────────
       var _calYear = new Date().getFullYear();
       var _calMonth = new Date().getMonth();
+      var _dashDept = '';
+
+      function populateDashDeptFilter() {
+        var sel = document.getElementById('dashDeptFilter');
+        if (!sel) return;
+        var depts = [];
+        employees.forEach(function(e) { if (e.department && depts.indexOf(e.department) === -1) depts.push(e.department); });
+        rows.forEach(function(r) {
+          var emp = employees.find(function(e) { return norm(e.name) === norm(r.name); });
+          if (emp && emp.department && depts.indexOf(emp.department) === -1) depts.push(emp.department);
+        });
+        depts.sort();
+        var prev = sel.value;
+        sel.innerHTML = '<option value="">All Departments</option>' + depts.map(function(d) {
+          return '<option value="' + escapeHtml(d) + '"' + (d === prev ? ' selected' : '') + '>' + escapeHtml(d) + '</option>';
+        }).join('');
+        _dashDept = sel.value;
+      }
+
+      function getDashRows() {
+        if (!_dashDept) return rows;
+        var names = employees.filter(function(e) { return e.department === _dashDept; }).map(function(e) { return norm(e.name); });
+        return rows.filter(function(r) { return names.indexOf(norm(r.name)) !== -1; });
+      }
+
+      function renderPeriodComparison() {
+        var el = document.getElementById('periodCompareCards');
+        if (!el) return;
+        var source = getDashRows().filter(function(r) { return r.type === 'past' || r.type === 'pastrequest'; });
+        var now = new Date();
+        var thisYear = now.getFullYear(), thisMon = now.getMonth();
+        var lastYear = thisMon === 0 ? thisYear - 1 : thisYear;
+        var lastMon  = thisMon === 0 ? 11 : thisMon - 1;
+
+        function inMonth(r, y, m) {
+          if (!r.dateIso) return false;
+          var d = new Date(r.dateIso);
+          return d.getFullYear() === y && d.getMonth() === m;
+        }
+        var thisRows = source.filter(function(r) { return inMonth(r, thisYear, thisMon); });
+        var lastRows = source.filter(function(r) { return inMonth(r, lastYear, lastMon); });
+
+        function pts(arr) { return arr.reduce(function(s, r) { return s + (r.points || 0); }, 0); }
+        function ncns(arr) { return arr.filter(function(r) { return (r.code||'').toUpperCase() === 'NCNS'; }).length; }
+        function affected(arr) { var n = {}; arr.forEach(function(r) { n[norm(r.name)] = 1; }); return Object.keys(n).length; }
+
+        var metrics = [
+          { label: 'Occurrences', cur: thisRows.length, prev: lastRows.length },
+          { label: 'Total Points', cur: +pts(thisRows).toFixed(1), prev: +pts(lastRows).toFixed(1) },
+          { label: 'NCNS', cur: ncns(thisRows), prev: ncns(lastRows) },
+          { label: 'Employees Affected', cur: affected(thisRows), prev: affected(lastRows) },
+        ];
+
+        el.innerHTML = metrics.map(function(m) {
+          var delta = m.cur - m.prev;
+          var pct = m.prev ? Math.round(Math.abs(delta) / m.prev * 100) : (m.cur ? 100 : 0);
+          var arrow = delta > 0 ? '▲' : delta < 0 ? '▼' : '—';
+          var color = delta > 0 ? 'var(--danger)' : delta < 0 ? 'var(--ok)' : 'var(--muted)';
+          return '<div style="background:var(--card2);border:1px solid var(--border);border-radius:var(--radius);padding:14px">' +
+            '<div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:6px">' + escapeHtml(m.label) + '</div>' +
+            '<div style="font-size:22px;font-weight:800;color:var(--text)">' + m.cur + '</div>' +
+            '<div style="font-size:12px;margin-top:4px;color:' + color + '">' + arrow + ' ' + (delta !== 0 ? pct + '% vs last month' : 'no change') + '</div>' +
+            '<div style="font-size:11px;color:var(--muted);margin-top:2px">Last month: ' + m.prev + '</div>' +
+            '</div>';
+        }).join('');
+      }
+
+      function detectClusters() {
+        var results = [];
+        var byEmployee = {};
+        rows.filter(function(r) { return r.type === 'past' && r.dateIso; }).forEach(function(r) {
+          var k = norm(r.name);
+          if (!byEmployee[k]) byEmployee[k] = { name: r.name, incidents: [] };
+          byEmployee[k].incidents.push(r);
+        });
+        Object.keys(byEmployee).forEach(function(k) {
+          var emp = byEmployee[k];
+          var sorted = emp.incidents.slice().sort(function(a, b) { return a.dateIso < b.dateIso ? -1 : 1; });
+          for (var i = 0; i < sorted.length; i++) {
+            var start = new Date(sorted[i].dateIso);
+            var window = [sorted[i]];
+            for (var j = i + 1; j < sorted.length; j++) {
+              var d = new Date(sorted[j].dateIso);
+              if ((d - start) / 86400000 <= 7) { window.push(sorted[j]); } else break;
+            }
+            if (window.length >= 3) {
+              var alreadyCaptured = results.some(function(r2) {
+                return norm(r2.name) === k && r2.windowStart === sorted[i].dateIso;
+              });
+              if (!alreadyCaptured) {
+                results.push({ name: emp.name, windowStart: sorted[i].dateIso, windowEnd: window[window.length-1].dateIso, count: window.length, incidents: window });
+              }
+            }
+          }
+        });
+        return results.sort(function(a, b) { return b.count - a.count; });
+      }
+
+      function renderClusterAlerts() {
+        var el = document.getElementById('clusterList');
+        var badge = document.getElementById('clusterBadge');
+        if (!el) return;
+        var clusters = detectClusters();
+        if (badge) { badge.style.display = clusters.length ? 'inline' : 'none'; badge.textContent = clusters.length; }
+        if (!clusters.length) {
+          el.innerHTML = '<div style="font-size:13px;color:var(--muted);padding:8px 0">No cluster patterns detected.</div>';
+          return;
+        }
+        el.innerHTML = clusters.slice(0, 10).map(function(c) {
+          return '<div style="background:var(--card2);border:1px solid var(--border);border-left:3px solid var(--danger);border-radius:var(--radius);padding:12px 14px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">' +
+            '<div>' +
+              '<div style="font-size:13px;font-weight:700">' + escapeHtml(c.name) + '</div>' +
+              '<div style="font-size:12px;color:var(--muted);margin-top:2px">' + c.count + ' incidents · ' + c.windowStart + ' &#8594; ' + c.windowEnd + '</div>' +
+            '</div>' +
+            '<span style="background:rgba(239,68,68,0.15);color:var(--danger);border-radius:6px;padding:3px 10px;font-size:12px;font-weight:700">' + c.count + ' in 7 days</span>' +
+            '</div>';
+        }).join('');
+      }
+
+      function calcAttendanceScore(name) {
+        var empRows = rows.filter(function(r) { return norm(r.name) === norm(name) && r.type === 'past'; });
+        var totalPoints = empRows.reduce(function(s, r) { return s + (r.points || 0); }, 0);
+        var ncnsCount = empRows.filter(function(r) { return (r.code || '').toUpperCase() === 'NCNS'; }).length;
+        var score = Math.max(0, Math.round(100 - totalPoints * 8 - ncnsCount * 10));
+        return score;
+      }
+
+      function scoreColor(s) {
+        return s >= 80 ? 'var(--ok)' : s >= 50 ? 'var(--yellow)' : 'var(--danger)';
+      }
 
       function animateCounters(container) {
         if (!container) return;
@@ -5276,26 +5430,33 @@
 
       function renderDashboard() {
         if (!document.getElementById('dashboardView') || document.getElementById('dashboardView').classList.contains('hidden')) return;
+        populateDashDeptFilter();
         _renderDashStats();
         setTimeout(function() { animateCounters(document.getElementById('dashStats')); }, 50);
+        renderPeriodComparison();
         _renderMonthlyChart();
         _renderLeaderboard();
+        renderClusterAlerts();
         _renderCalendar();
       }
 
       function _renderDashStats() {
         var el = document.getElementById('dashStats');
         if (!el) return;
-        var occ = rows.filter(function(r) { return isOccurrence(r.type); });
+        var dashRows = getDashRows();
+        var occ = dashRows.filter(function(r) { return isOccurrence(r.type); });
         var totalPts = occ.reduce(function(s,r) { return s + (parseFloat(r.points)||0); }, 0);
         var pendingTO = timeOffRequests.filter(function(r) { return r.status === 'Pending'; }).length;
         var empPts = {};
         occ.forEach(function(r) { var k = norm(r.name); empPts[k] = (empPts[k]||0) + (parseFloat(r.points)||0); });
         var highRisk = Object.values(empPts).filter(function(p) { return p >= 6; }).length;
+        var empCount = _dashDept
+          ? employees.filter(function(e) { return e.department === _dashDept; }).length
+          : employees.length;
         var stats = [
-          { label: 'Total Records', value: rows.length, rawValue: rows.length, color: 'var(--yellow)' },
+          { label: 'Total Records', value: dashRows.length, rawValue: dashRows.length, color: 'var(--yellow)' },
           { label: 'Occurrences', value: occ.length, rawValue: occ.length, color: 'var(--danger)' },
-          { label: 'Employees', value: employees.length, rawValue: employees.length, color: 'var(--blue)' },
+          { label: 'Employees', value: empCount, rawValue: empCount, color: 'var(--blue)' },
           { label: 'High Risk ≥6 pts', value: highRisk, rawValue: highRisk, color: 'var(--danger)' },
           { label: 'Pending Time Off', value: pendingTO, rawValue: pendingTO, color: '#c084fc' },
           { label: 'Total Points', value: totalPts % 1 === 0 ? totalPts : totalPts.toFixed(1), rawValue: totalPts, color: 'var(--yellow)' },
@@ -5309,7 +5470,7 @@
         var canvas = document.getElementById('monthlyChart');
         var emptyEl = document.getElementById('monthlyChartEmpty');
         if (!canvas) return;
-        var occRows = rows.filter(function(r) { return isOccurrence(r.type) && r.dateIso; });
+        var occRows = getDashRows().filter(function(r) { return isOccurrence(r.type) && r.dateIso; });
         if (!occRows.length) { canvas.style.display='none'; if(emptyEl) emptyEl.style.display=''; return; }
         canvas.style.display='block'; if(emptyEl) emptyEl.style.display='none';
         var now = new Date(), months = [];
@@ -5356,7 +5517,7 @@
         var emEl = document.getElementById('leaderboardEmpty');
         if (!el) return;
         var pts = {};
-        rows.forEach(function(r){ if(!isOccurrence(r.type)) return; var k=r.name; pts[k]=(pts[k]||0)+(parseFloat(r.points)||0); });
+        getDashRows().forEach(function(r){ if(!isOccurrence(r.type)) return; var k=r.name; pts[k]=(pts[k]||0)+(parseFloat(r.points)||0); });
         var sorted = Object.keys(pts).map(function(n){return{name:n,pts:pts[n]};}).sort(function(a,b){return b.pts-a.pts;}).slice(0,10);
         if(!sorted.length){el.innerHTML='';if(emEl)emEl.style.display='';return;}
         if(emEl)emEl.style.display='none';
@@ -6982,6 +7143,16 @@
         applyColVis(hiddenCols);
         openColVisModal();
       });
+
+      (function() {
+        var dashDeptSel = document.getElementById('dashDeptFilter');
+        if (dashDeptSel) dashDeptSel.addEventListener('change', function() {
+          _dashDept = this.value;
+          var count = document.getElementById('dashDeptCount');
+          if (count) count.textContent = _dashDept ? (getDashRows().length + ' records in dept') : '';
+          renderDashboard();
+        });
+      })();
 
       (function() {
         var prev = document.getElementById('calPrevBtn');
