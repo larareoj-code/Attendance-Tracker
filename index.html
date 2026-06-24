@@ -1048,6 +1048,28 @@
       @page { margin: 1.5cm; size: landscape; }
       h2, h3 { page-break-after: avoid; color: #111 !important; }
       .empty { display: none !important; }
+
+      /* severity coloring in print — use left border instead of background */
+      tbody tr[data-severity="high"] td:first-child { border-left: 3pt solid #dc2626 !important; }
+      tbody tr[data-severity="mid"] td:first-child { border-left: 3pt solid #d97706 !important; }
+      tbody tr[data-severity="low"] td:first-child { border-left: 3pt solid #059669 !important; }
+
+      /* mark/highlight in print */
+      mark { background: #e5e5e5 !important; color: #111 !important; }
+
+      /* links */
+      a { color: #111 !important; text-decoration: none; }
+
+      /* employee cards */
+      .emp-card { break-inside: avoid; border: 1pt solid #ccc !important; margin-bottom: 8pt; }
+
+      /* hide interactive table cell buttons */
+      td button, td .action-btn, td .chip { display: none !important; }
+
+      /* additional chrome to hide */
+      #fabBtn, #toastContainer, #demoBanner, #cmdPalette,
+      .modal-overlay, #toBulkBar, #atRiskSection,
+      #dashChartTooltip, #whosOffSection, #timeOffStatsCard { display: none !important; }
     }
     /* Row severity coloring */
     tbody tr[data-severity="low"] td { background: rgba(52,211,153,0.04); }
@@ -6819,6 +6841,12 @@ body.no-transitions * { transition: none !important; }
         renderTimeOff();
         renderStatus(visibleCount);
         updateTabBadges(visibleCount);
+        // Update CSV export button tooltip with filtered count
+        var csvExportBtn = document.getElementById('exportCsvBtn');
+        if (csvExportBtn) {
+          var fCount = visibleCount;
+          csvExportBtn.title = 'Export ' + fCount + ' row' + (fCount !== 1 ? 's' : '') + ' to CSV' + (fCount < rows.length ? ' (filtered)' : '');
+        }
       }
 
       function updateTabBadges(visibleCount) {
@@ -7661,7 +7689,8 @@ body.no-transitions * { transition: none !important; }
         var blob = new Blob(['﻿' + csvRows.join('\r\n')], { type: 'text/csv;charset=utf-8;' });
         var url = URL.createObjectURL(blob);
         var a = document.createElement('a');
-        a.href = url; a.download = (filename || 'attendance-' + new Date().toISOString().slice(0,10)) + '.csv';
+        var isFiltered = data.length < rows.length;
+        a.href = url; a.download = (filename || 'attendance' + (isFiltered ? '-filtered' : '') + '-' + new Date().toISOString().slice(0,10)) + '.csv';
         document.body.appendChild(a); a.click();
         setTimeout(function() { document.body.removeChild(a); URL.revokeObjectURL(url); }, 100);
         showToast('Exported ' + data.length + ' records as CSV');
@@ -9893,10 +9922,38 @@ body.no-transitions * { transition: none !important; }
       })();
 
       // ── Print button wiring ───────────────────────────────────────────────
+      function updatePrintMeta() {
+        var meta = document.getElementById('printMeta');
+        if (!meta) return;
+        var viewNames = { dashboardView: 'Dashboard', recordsView: 'Records', summaryView: 'Summary',
+                          bucketView: 'Bucket', employeesView: 'Employees', timeoffView: 'Time Off' };
+        var activePanel = document.querySelector('[role="tabpanel"]:not(.hidden)');
+        var viewName = (activePanel && viewNames[activePanel.id]) || 'Report';
+        var now = new Date().toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' });
+        var filtered = filteredRows();
+        var activeFilters = [];
+        var nameF = document.getElementById('nameFilter');
+        if (nameF && nameF.value) activeFilters.push('Employee: ' + nameF.value);
+        var deptF = document.getElementById('deptFilter');
+        if (deptF && deptF.value) activeFilters.push('Dept: ' + deptF.value);
+        var typeF = document.getElementById('typeFilter');
+        if (typeF && typeF.value) activeFilters.push('Type: ' + typeF.value);
+        var dateFrom = document.getElementById('dateFrom');
+        var dateTo = document.getElementById('dateTo');
+        if (dateFrom && dateFrom.value) activeFilters.push('From: ' + dateFrom.value);
+        if (dateTo && dateTo.value) activeFilters.push('To: ' + dateTo.value);
+        var filterStr = activeFilters.length ? ' · Filters: ' + activeFilters.join(', ') : '';
+        var countStr = filtered.length < rows.length
+          ? ' · ' + filtered.length + ' of ' + rows.length + ' records'
+          : ' · ' + rows.length + ' records';
+        meta.textContent = viewName + ' · Printed ' + now + countStr + filterStr;
+      }
+
+      window.addEventListener('beforeprint', updatePrintMeta);
+
       var printBtn = document.getElementById('printBtn');
       if (printBtn) printBtn.addEventListener('click', function() {
-        var meta = document.getElementById('printMeta');
-        if (meta) meta.textContent = 'Printed: ' + new Date().toLocaleDateString() + ' · ' + rows.length + ' records total';
+        updatePrintMeta();
         window.print();
       });
 
