@@ -1852,6 +1852,21 @@ body.no-transitions * { transition: none !important; }
         <div>
           <label for="nameFilter">Name</label>
           <select id="nameFilter"><option value="">All names</option></select>
+          <div id="multiEmpFilterWrap" style="display:flex;flex-wrap:wrap;gap:4px;align-items:center;min-height:32px">
+            <div id="multiEmpChips" style="display:flex;flex-wrap:wrap;gap:4px"></div>
+            <div style="position:relative">
+              <input id="multiEmpSearch" type="text" placeholder="+ Add employee…" autocomplete="off"
+                style="font-size:12px;padding:4px 8px;border:1px solid var(--border);border-radius:var(--radius);background:var(--bg);color:var(--text);width:160px;display:none">
+              <div id="multiEmpDropdown" style="position:absolute;top:100%;left:0;z-index:200;background:var(--card2);border:1px solid var(--border-light);border-radius:var(--radius);box-shadow:var(--shadow);max-height:200px;overflow-y:auto;min-width:200px;display:none"></div>
+            </div>
+            <button type="button" id="multiEmpAddBtn" class="secondary small" style="font-size:11px;padding:3px 8px">+ Filter</button>
+          </div>
+        </div>
+        <div>
+          <label for="deptFilter">Dept</label>
+          <select id="deptFilter" style="min-width:130px;font-size:13px">
+            <option value="">All Depts</option>
+          </select>
         </div>
         <div>
           <label for="codeFilter">Code</label>
@@ -1874,6 +1889,24 @@ body.no-transitions * { transition: none !important; }
             <option value="policyDropOffPending">Policy Drop Off Pending</option>
             <option value="cluster">Cluster</option>
           </select>
+        </div>
+        <div>
+          <label for="flagFilter">Flag Type</label>
+          <select id="flagFilter" style="font-size:13px;min-width:120px">
+            <option value="">All Flags</option>
+            <option value="cluster">Cluster</option>
+            <option value="giveback30">30-Day Give Back</option>
+            <option value="policyDropOffPending">Policy Drop Off</option>
+            <option value="any">Any Flag</option>
+          </select>
+        </div>
+        <div>
+          <label>Pts</label>
+          <div style="display:flex;align-items:center;gap:4px">
+            <input id="ptsMinFilter" type="number" min="0" max="99" step="0.5" placeholder="Min" style="width:52px;font-size:12px;padding:4px 6px">
+            <span style="font-size:11px;color:var(--muted)">–</span>
+            <input id="ptsMaxFilter" type="number" min="0" max="99" step="0.5" placeholder="Max" style="width:52px;font-size:12px;padding:4px 6px">
+          </div>
         </div>
         <div>
           <label for="dateFromFilter">From</label>
@@ -4485,6 +4518,36 @@ body.no-transitions * { transition: none !important; }
           result = result.filter(function(r) { return (r.type||'').toUpperCase().indexOf('NCNS') !== -1 || (r.code||'').toUpperCase().indexOf('NCNS') !== -1; });
         }
 
+        // Multi-employee filter (overrides single select when active)
+        if (_multiEmpFilter.size > 0) {
+          result = result.filter(function(r) { return _multiEmpFilter.has(norm(r.name)); });
+        }
+
+        // Department filter
+        var deptFilter = document.getElementById('deptFilter');
+        var deptVal = deptFilter ? deptFilter.value : '';
+        if (deptVal) {
+          var deptNames = employees.filter(function(e) { return e.department === deptVal; }).map(function(e) { return norm(e.name); });
+          result = result.filter(function(r) { return deptNames.indexOf(norm(r.name)) !== -1; });
+        }
+
+        // Flag filter dropdown
+        var flagFilter = document.getElementById('flagFilter');
+        var flagVal = flagFilter ? flagFilter.value : '';
+        if (flagVal) {
+          if (flagVal === 'any') {
+            result = result.filter(function(r) { return r.flag && r.flag !== '' && r.flag !== 'none'; });
+          } else {
+            result = result.filter(function(r) { return r.flag === flagVal; });
+          }
+        }
+
+        // Point range filter
+        var ptsMin = parseFloat(document.getElementById('ptsMinFilter') ? document.getElementById('ptsMinFilter').value : '');
+        var ptsMax = parseFloat(document.getElementById('ptsMaxFilter') ? document.getElementById('ptsMaxFilter').value : '');
+        if (!isNaN(ptsMin)) result = result.filter(function(r) { return (r.points || 0) >= ptsMin; });
+        if (!isNaN(ptsMax)) result = result.filter(function(r) { return (r.points || 0) <= ptsMax; });
+
         return result;
       }
 
@@ -4539,6 +4602,19 @@ body.no-transitions * { transition: none !important; }
 
         replaceOptions(els.nameFilter, 'All names', names, currentName);
         replaceOptions(els.codeFilter, 'All codes', codes, currentCode);
+
+        var deptFilterEl = document.getElementById('deptFilter');
+        if (deptFilterEl) {
+          var prevDept = deptFilterEl.value;
+          var depts = [];
+          employees.forEach(function(e) { if (e.department && depts.indexOf(e.department) === -1) depts.push(e.department); });
+          depts.sort();
+          deptFilterEl.innerHTML = '<option value="">All Depts</option>' + depts.map(function(d) {
+            return '<option value="' + escapeHtml(d) + '"' + (d === prevDept ? ' selected' : '') + '>' + escapeHtml(d) + '</option>';
+          }).join('');
+        }
+
+        if (typeof renderMultiEmpChips === 'function') renderMultiEmpChips();
       }
 
       function replaceOptions(select, emptyLabel, values, selectedValue) {
@@ -4682,6 +4758,7 @@ body.no-transitions * { transition: none !important; }
 
       // ── Quick Filter Chips ─────────────────────────────────────────────────
       var _activeQuickChip = null;
+      var _multiEmpFilter = new Set(); // Set of norm(name) values
 
       function updateQuickChipUI() {
         document.querySelectorAll('.quick-chip[data-quick]').forEach(function(b) {
@@ -4690,6 +4767,91 @@ body.no-transitions * { transition: none !important; }
         var clr = document.getElementById('clearQuickChip');
         if (clr) clr.style.display = _activeQuickChip ? '' : 'none';
       }
+
+      // ── Multi-Employee Filter Chips ────────────────────────────────────────
+      function renderMultiEmpChips() {
+        var chips = document.getElementById('multiEmpChips');
+        if (!chips) return;
+        if (_multiEmpFilter.size === 0) { chips.innerHTML = ''; return; }
+        chips.innerHTML = Array.from(_multiEmpFilter).map(function(n) {
+          var emp = employees.find(function(e) { return norm(e.name) === n; });
+          var displayName = emp ? emp.name : n;
+          return '<span style="display:inline-flex;align-items:center;gap:4px;background:var(--blue);color:#fff;border-radius:99px;padding:3px 10px;font-size:12px">' +
+            escapeHtml(displayName) +
+            '<button type="button" data-remove-emp="' + escapeHtml(n) + '" style="background:none;border:none;color:rgba(255,255,255,0.8);cursor:pointer;font-size:14px;padding:0;line-height:1;margin-left:2px">×</button>' +
+            '</span>';
+        }).join('');
+        chips.querySelectorAll('[data-remove-emp]').forEach(function(btn) {
+          btn.addEventListener('click', function() {
+            _multiEmpFilter.delete(btn.getAttribute('data-remove-emp'));
+            renderMultiEmpChips();
+            render();
+          });
+        });
+      }
+
+      (function() {
+        var addBtn = document.getElementById('multiEmpAddBtn');
+        var searchInput = document.getElementById('multiEmpSearch');
+        var dropdown = document.getElementById('multiEmpDropdown');
+        if (!addBtn) return;
+
+        function showDropdown(query) {
+          var q = norm(query);
+          var opts = employees.filter(function(e) {
+            return (!q || norm(e.name).includes(q)) && !_multiEmpFilter.has(norm(e.name));
+          }).slice(0, 15);
+          if (!opts.length) { dropdown.style.display = 'none'; return; }
+          dropdown.innerHTML = opts.map(function(e) {
+            return '<div class="multi-emp-opt" data-emp-norm="' + escapeHtml(norm(e.name)) + '" data-emp-name="' + escapeHtml(e.name) + '" style="padding:8px 12px;cursor:pointer;font-size:13px">' + escapeHtml(e.name) + (e.department ? ' <span style="color:var(--muted);font-size:11px">· ' + escapeHtml(e.department) + '</span>' : '') + '</div>';
+          }).join('');
+          dropdown.style.display = 'block';
+          dropdown.querySelectorAll('.multi-emp-opt').forEach(function(opt) {
+            opt.addEventListener('mousedown', function(e) {
+              e.preventDefault();
+              _multiEmpFilter.add(opt.getAttribute('data-emp-norm'));
+              searchInput.value = '';
+              dropdown.style.display = 'none';
+              renderMultiEmpChips();
+              render();
+            });
+            opt.addEventListener('mouseover', function() { opt.style.background = 'var(--card)'; });
+            opt.addEventListener('mouseout', function() { opt.style.background = ''; });
+          });
+        }
+
+        addBtn.addEventListener('click', function() {
+          searchInput.style.display = 'inline-block';
+          searchInput.focus();
+          showDropdown('');
+          addBtn.style.display = 'none';
+        });
+        searchInput.addEventListener('input', function() { showDropdown(this.value); });
+        searchInput.addEventListener('blur', function() {
+          setTimeout(function() { dropdown.style.display = 'none'; searchInput.style.display = 'none'; addBtn.style.display = ''; }, 150);
+        });
+        searchInput.addEventListener('keydown', function(e) {
+          if (e.key === 'Escape') { searchInput.blur(); }
+        });
+        document.addEventListener('click', function(e) {
+          if (!e.target.closest('#multiEmpFilterWrap')) {
+            dropdown.style.display = 'none';
+            if (searchInput.style.display !== 'none') { searchInput.style.display = 'none'; addBtn.style.display = ''; }
+          }
+        });
+      })();
+
+      // ── Wire dept / flag / pts filter events ──────────────────────────────
+      (function() {
+        var deptFilter = document.getElementById('deptFilter');
+        if (deptFilter) deptFilter.addEventListener('change', function() { render(); });
+        var flagFilter = document.getElementById('flagFilter');
+        if (flagFilter) flagFilter.addEventListener('change', function() { render(); });
+        ['ptsMinFilter','ptsMaxFilter'].forEach(function(id) {
+          var el = document.getElementById(id);
+          if (el) el.addEventListener('input', function() { render(); });
+        });
+      })();
 
       function clearFilters() {
         els.searchInput.value = '';
@@ -4701,6 +4863,16 @@ body.no-transitions * { transition: none !important; }
         var dt = document.getElementById('dateToFilter');
         if (df) df.value = '';
         if (dt) dt.value = '';
+        // Clear new filters
+        _multiEmpFilter.clear();
+        if (typeof renderMultiEmpChips === 'function') renderMultiEmpChips();
+        var deptFilter = document.getElementById('deptFilter');
+        if (deptFilter) deptFilter.value = '';
+        var flagFilter = document.getElementById('flagFilter');
+        if (flagFilter) flagFilter.value = '';
+        ['ptsMinFilter','ptsMaxFilter'].forEach(function(id) {
+          var el = document.getElementById(id); if (el) el.value = '';
+        });
         render();
       }
 
@@ -8983,7 +9155,7 @@ body.no-transitions * { transition: none !important; }
 
       function captureFilterState() {
         var state = {};
-        ['searchInput', 'nameFilter', 'codeFilter', 'typeFilter', 'followUpFilter', 'dateFromFilter', 'dateToFilter'].forEach(function(id) {
+        ['searchInput', 'nameFilter', 'codeFilter', 'typeFilter', 'followUpFilter', 'dateFromFilter', 'dateToFilter', 'deptFilter', 'flagFilter', 'ptsMinFilter', 'ptsMaxFilter'].forEach(function(id) {
           var el = document.getElementById(id);
           if (el) state[id] = el.value;
         });
