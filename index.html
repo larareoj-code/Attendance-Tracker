@@ -8490,6 +8490,9 @@
         document.addEventListener('click', function(e) {
           if (!moreMenu.contains(e.target) && e.target !== moreBtn) closeMoreMenu();
         });
+        document.addEventListener('keydown', function(e) {
+          if (e.key === 'Escape') closeMoreMenu();
+        });
       })();
 
       // ── Print button wiring ───────────────────────────────────────────────
