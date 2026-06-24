@@ -1956,6 +1956,10 @@ body.no-transitions * { transition: none !important; }
         <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--muted);margin-bottom:12px">This Month vs Last Month</div>
         <div id="periodCompareCards" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px"></div>
       </div>
+      <div id="whosOffSection" style="margin-bottom:24px">
+        <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--muted);margin-bottom:10px">📅 Who's Off This Week</div>
+        <div id="whosOffList"></div>
+      </div>
     </div>
 
     <div class="dash-section">
@@ -2182,9 +2186,16 @@ body.no-transitions * { transition: none !important; }
           <button class="secondary small" type="button" id="exportTimeOffBtn" title="Export visible time-off requests to Excel" style="margin-left:auto">Export Time Off</button>
           <span id="toSummary" style="font-size:13px;color:var(--muted)"></span>
         </div>
+        <div id="toBulkBar" class="hidden" style="display:flex;align-items:center;gap:10px;padding:8px 12px;background:var(--card);border:1px solid var(--border);border-radius:var(--radius);margin-bottom:8px;flex-wrap:wrap">
+          <span style="font-size:13px;font-weight:700"><span id="toBulkCount">0</span> selected</span>
+          <button class="secondary" type="button" id="toBulkApproveBtn" style="background:var(--ok);color:#fff;border:none;padding:6px 14px;border-radius:var(--radius);font-size:13px;font-weight:700;cursor:pointer">✓ Approve All</button>
+          <button class="secondary" type="button" id="toBulkDenyBtn" style="background:var(--danger);color:#fff;border:none;padding:6px 14px;border-radius:var(--radius);font-size:13px;font-weight:700;cursor:pointer">✗ Deny All</button>
+          <button class="secondary" type="button" id="toBulkClearBtn">Clear Selection</button>
+        </div>
         <div class="table-wrap">
           <table aria-label="Time-off requests">
             <thead><tr>
+              <th><input type="checkbox" id="toSelectAll" title="Select all"></th>
               <th><button class="sort-button" type="button" data-to-sort="employeeName">Employee <span id="toSortEmployee"></span></button></th>
               <th><button class="sort-button" type="button" data-to-sort="type">Type <span id="toSortType"></span></button></th>
               <th><button class="sort-button" type="button" data-to-sort="startDate">Start <span id="toSortStart"></span></button></th>
@@ -2452,6 +2463,14 @@ body.no-transitions * { transition: none !important; }
       var recordTemplates = [];
       var employees = [];
       var timeOffRequests = [];
+      var selectedToIds = new Set();
+      function updateToBulkBar() {
+        var bar = document.getElementById('toBulkBar');
+        var count = document.getElementById('toBulkCount');
+        if (!bar) return;
+        bar.classList.toggle('hidden', selectedToIds.size === 0);
+        if (count) count.textContent = selectedToIds.size;
+      }
       var summarySort = { key: 'points', dir: -1 };
       var employeeSort = { key: 'name', dir: 1 };
       var timeOffSort = { key: 'startDate', dir: -1 };
@@ -5671,6 +5690,7 @@ body.no-transitions * { transition: none !important; }
           var days = calcDays(req.startDate, req.endDate);
           var tone = timeoffBadge(req.status);
           return '<tr>' +
+            '<td><input type="checkbox" class="to-select-cb" data-to-id="' + escapeHtml(req.id) + '"' + (selectedToIds.has(req.id) ? ' checked' : '') + '></td>' +
             '<td><button class="name-button" type="button" data-summary-action="view-employee" data-name="' + escapeHtml(req.employeeName) + '">' + escapeHtml(req.employeeName) + '</button></td>' +
             '<td>' + escapeHtml(req.type) + '</td>' +
             '<td>' + escapeHtml(req.startDate) + '</td>' +
@@ -5679,6 +5699,10 @@ body.no-transitions * { transition: none !important; }
             '<td><span class="badge ' + tone + '">' + escapeHtml(req.status) + '</span></td>' +
             '<td><span class="editable-cell" data-to-notes-id="' + escapeHtml(req.id) + '" title="Click to edit notes">' + escapeHtml(req.notes || '—') + '</span></td>' +
             '<td><div style="display:flex;gap:6px;flex-wrap:wrap">' +
+              (req.status === 'Pending' ?
+                '<button type="button" class="to-approve-btn" data-to-id="' + escapeHtml(req.id) + '" title="Approve" style="padding:4px 10px;font-size:12px;background:var(--ok);color:#fff;border:none;border-radius:var(--radius);cursor:pointer;font-weight:700;margin-right:0">✓ Approve</button>' +
+                '<button type="button" class="to-deny-btn" data-to-id="' + escapeHtml(req.id) + '" title="Deny" style="padding:4px 10px;font-size:12px;background:var(--danger);color:#fff;border:none;border-radius:var(--radius);cursor:pointer;font-weight:700">✗ Deny</button>'
+              : '') +
               '<button class="small secondary" type="button" data-to-action="approve" data-to-id="' + escapeHtml(req.id) + '"' + (req.status === 'Approved' ? ' disabled style="opacity:.4;cursor:default"' : '') + '>Approve</button>' +
               '<button class="small secondary" type="button" data-to-action="deny" data-to-id="' + escapeHtml(req.id) + '"' + (req.status === 'Denied' ? ' disabled style="opacity:.4;cursor:default"' : '') + '>Deny</button>' +
               (req.status !== 'Pending' ? '<button class="small secondary" type="button" data-to-action="pending" data-to-id="' + escapeHtml(req.id) + '" title="Reset status to Pending">Reset</button>' : '') +
@@ -5820,6 +5844,23 @@ body.no-transitions * { transition: none !important; }
             renderEmployees();
           });
         }
+      }
+
+      function detectTimeOffConflicts(req) {
+        // Returns array of conflicting employee names
+        var emp = employees.find(function(e) { return norm(e.name) === norm(req.employeeName); });
+        if (!emp || !emp.department) return [];
+        var reqStart = new Date(req.startDate);
+        var reqEnd = new Date(req.endDate || req.startDate);
+        return timeOffRequests.filter(function(other) {
+          if (other.id === req.id) return false;
+          if (other.status !== 'Approved') return false;
+          var otherEmp = employees.find(function(e) { return norm(e.name) === norm(other.employeeName); });
+          if (!otherEmp || otherEmp.department !== emp.department) return false;
+          var otherStart = new Date(other.startDate);
+          var otherEnd = new Date(other.endDate || other.startDate);
+          return reqStart <= otherEnd && reqEnd >= otherStart; // overlap
+        }).map(function(other) { return other.employeeName; });
       }
 
       function handleTimeOffAction(button) {
@@ -6132,6 +6173,43 @@ body.no-transitions * { transition: none !important; }
         });
       }
 
+      function renderWhosOff() {
+        var el = document.getElementById('whosOffList');
+        if (!el) return;
+        var today = new Date();
+        today.setHours(0,0,0,0);
+        var weekEnd = new Date(today);
+        weekEnd.setDate(weekEnd.getDate() + 7);
+
+        var upcoming = timeOffRequests.filter(function(r) {
+          if (r.status !== 'Approved') return false;
+          var start = new Date(r.startDate);
+          var end = new Date(r.endDate || r.startDate);
+          return start <= weekEnd && end >= today;
+        });
+
+        if (!upcoming.length) {
+          el.innerHTML = '<div style="font-size:13px;color:var(--muted);padding:6px 0">No approved time off in the next 7 days.</div>';
+          return;
+        }
+
+        el.innerHTML = upcoming.map(function(r) {
+          var emp = employees.find(function(e) { return norm(e.name) === norm(r.employeeName); });
+          var deptLabel = emp && emp.department ? ' · ' + escapeHtml(emp.department) : '';
+          var dateLabel = r.startDate === r.endDate ? r.startDate : r.startDate + ' → ' + r.endDate;
+          return '<div style="display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid var(--border);font-size:13px">' +
+            '<div>' +
+              '<span style="font-weight:700">' + escapeHtml(r.employeeName) + '</span>' +
+              '<span style="color:var(--muted);font-size:12px">' + deptLabel + '</span>' +
+            '</div>' +
+            '<div style="text-align:right">' +
+              '<div style="font-size:12px;color:var(--muted)">' + escapeHtml(r.type) + '</div>' +
+              '<div style="font-size:11px;color:var(--muted)">' + escapeHtml(dateLabel) + '</div>' +
+            '</div>' +
+            '</div>';
+        }).join('');
+      }
+
       function renderDashboard() {
         if (!document.getElementById('dashboardView') || document.getElementById('dashboardView').classList.contains('hidden')) return;
         populateDashDeptFilter();
@@ -6142,6 +6220,8 @@ body.no-transitions * { transition: none !important; }
         var periodSection = document.getElementById('periodCompareSection');
         if (periodSection) periodSection.classList.toggle('hidden', appSettings.showDashPeriodCompare === false);
         if (appSettings.showDashPeriodCompare !== false) renderPeriodComparison();
+
+        renderWhosOff();
 
         _renderMonthlyChart();
 
@@ -8589,6 +8669,41 @@ body.no-transitions * { transition: none !important; }
         });
       });
       document.getElementById('timeoffBody').addEventListener('click', function (event) {
+        var target = event.target;
+
+        // Quick approve
+        if (target.classList.contains('to-approve-btn')) {
+          var id = target.getAttribute('data-to-id');
+          var req = timeOffRequests.find(function(r) { return r.id === id; });
+          if (!req) return;
+          var conflicts = detectTimeOffConflicts(req);
+          var msg = 'Approve ' + req.type + ' for ' + req.employeeName + '?\n' + req.startDate + (req.endDate !== req.startDate ? ' → ' + req.endDate : '');
+          if (conflicts.length) msg += '\n\n⚠ Conflict: ' + conflicts.join(', ') + ' from same dept also off.';
+          showConfirm(msg, function() {
+            var prev = req.status;
+            req.status = 'Approved';
+            pushUndo('Approve time-off: ' + req.employeeName, function() { req.status = prev; saveTimeOff(); render(); });
+            saveTimeOff(); render();
+            showToast('Approved: ' + req.employeeName);
+          }, { title: 'Approve Request', ok: 'Approve' });
+          return;
+        }
+
+        // Quick deny
+        if (target.classList.contains('to-deny-btn')) {
+          var id = target.getAttribute('data-to-id');
+          var req = timeOffRequests.find(function(r) { return r.id === id; });
+          if (!req) return;
+          showConfirm('Deny ' + req.type + ' request for ' + req.employeeName + '?', function() {
+            var prev = req.status;
+            req.status = 'Denied';
+            pushUndo('Deny time-off: ' + req.employeeName, function() { req.status = prev; saveTimeOff(); render(); });
+            saveTimeOff(); render();
+            showToast('Denied: ' + req.employeeName);
+          }, { title: 'Deny Request', ok: 'Deny', danger: true });
+          return;
+        }
+
         var actionBtn = event.target.closest('button[data-to-action]');
         if (actionBtn) { handleTimeOffAction(actionBtn); return; }
         var nameBtn = event.target.closest('button[data-summary-action="view-employee"]');
@@ -8622,6 +8737,82 @@ body.no-transitions * { transition: none !important; }
           if (e.key === 'Escape') { input.removeEventListener('blur', commitNotes); notesCell.textContent = currentNotes || '—'; }
         });
       });
+
+      // ── Bulk Time-Off Actions ─────────────────────────────────────────────
+      (function() {
+        // Checkbox changes on time-off rows
+        var toBody = document.getElementById('timeoffBody');
+        if (toBody) toBody.addEventListener('change', function(e) {
+          if (e.target.classList.contains('to-select-cb')) {
+            var id = e.target.getAttribute('data-to-id');
+            if (e.target.checked) selectedToIds.add(id); else selectedToIds.delete(id);
+            updateToBulkBar();
+          }
+        });
+
+        // Select-all checkbox
+        var selAll = document.getElementById('toSelectAll');
+        if (selAll) selAll.addEventListener('change', function() {
+          document.querySelectorAll('.to-select-cb').forEach(function(cb) {
+            cb.checked = selAll.checked;
+            var id = cb.getAttribute('data-to-id');
+            if (selAll.checked) selectedToIds.add(id); else selectedToIds.delete(id);
+          });
+          updateToBulkBar();
+        });
+
+        // Bulk approve
+        var approveAllBtn = document.getElementById('toBulkApproveBtn');
+        if (approveAllBtn) approveAllBtn.addEventListener('click', function() {
+          var ids = Array.from(selectedToIds);
+          if (!ids.length) return;
+          showConfirm('Approve ' + ids.length + ' selected request(s)?', function() {
+            var snapshots = {};
+            ids.forEach(function(id) {
+              var req = timeOffRequests.find(function(r) { return r.id === id; });
+              if (req) { snapshots[id] = req.status; req.status = 'Approved'; }
+            });
+            pushUndo('Bulk approve ' + ids.length + ' time-off', function() {
+              Object.keys(snapshots).forEach(function(id) {
+                var req = timeOffRequests.find(function(r) { return r.id === id; });
+                if (req) req.status = snapshots[id];
+              });
+              saveTimeOff(); render();
+            });
+            selectedToIds.clear(); saveTimeOff(); render();
+            showToast('Approved ' + ids.length + ' request(s)');
+          }, { title: 'Bulk Approve', ok: 'Approve All' });
+        });
+
+        // Bulk deny
+        var denyAllBtn = document.getElementById('toBulkDenyBtn');
+        if (denyAllBtn) denyAllBtn.addEventListener('click', function() {
+          var ids = Array.from(selectedToIds);
+          if (!ids.length) return;
+          showConfirm('Deny ' + ids.length + ' selected request(s)?', function() {
+            var snapshots = {};
+            ids.forEach(function(id) {
+              var req = timeOffRequests.find(function(r) { return r.id === id; });
+              if (req) { snapshots[id] = req.status; req.status = 'Denied'; }
+            });
+            pushUndo('Bulk deny ' + ids.length + ' time-off', function() {
+              Object.keys(snapshots).forEach(function(id) {
+                var req = timeOffRequests.find(function(r) { return r.id === id; });
+                if (req) req.status = snapshots[id];
+              });
+              saveTimeOff(); render();
+            });
+            selectedToIds.clear(); saveTimeOff(); render();
+            showToast('Denied ' + ids.length + ' request(s)');
+          }, { title: 'Bulk Deny', ok: 'Deny All', danger: true });
+        });
+
+        // Clear selection
+        var clearSelBtn = document.getElementById('toBulkClearBtn');
+        if (clearSelBtn) clearSelBtn.addEventListener('click', function() {
+          selectedToIds.clear(); updateToBulkBar(); render();
+        });
+      })();
 
       // ── Settings ─────────────────────────────────────────────────────────
       function loadSettings() {
