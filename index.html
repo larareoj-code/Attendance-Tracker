@@ -1508,7 +1508,12 @@
         <button class="secondary" type="button" id="shortcutsBtn" title="Keyboard shortcuts">⌨ Shortcuts</button>
         <button class="secondary" type="button" id="policyRulesBtn" title="Configure auto-flagging rules">⚖ Rules</button>
         <button class="secondary" type="button" id="dataHealthBtn" title="Check data quality">🩺 Health</button>
+        <button class="secondary" type="button" id="demoDataBtn" title="Load demo data to explore the app">🎭 Demo</button>
       </div>
+    </div>
+    <div id="demoBanner" style="display:none;background:linear-gradient(90deg,#7c3aed,#4f46e5);color:#fff;padding:8px 20px;font-size:13px;font-weight:700;align-items:center;gap:14px;justify-content:center;position:sticky;top:0;z-index:600">
+      <span>🎭 Demo Mode — sample data loaded. Your real data is safely preserved.</span>
+      <button type="button" id="exitDemoBtn" style="background:rgba(255,255,255,0.18);border:1px solid rgba(255,255,255,0.4);color:#fff;border-radius:6px;padding:4px 14px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit">Exit Demo</button>
     </div>
   </header>
 
@@ -2232,6 +2237,8 @@
       var EMPLOYEES_KEY = 'attendanceTrackerEmployeesV1';
       var TIMEOFF_KEY = 'attendanceTrackerTimeOffV1';
       var COL_VIS_KEY = 'attTracker_colVis';
+      var DEMO_MODE_KEY = 'attTracker_demoMode';
+      var DEMO_BACKUP_KEY = 'attTracker_demoBackup';
       var employees = [];
       var timeOffRequests = [];
       var summarySort = { key: 'points', dir: -1 };
@@ -3806,6 +3813,155 @@
         saveTimeOff();
         render();
       }
+
+      // ── Demo Data ────────────────────────────────────────────────────────────
+      function loadDemoData() {
+        if (localStorage.getItem(DEMO_MODE_KEY) === 'true') return; // already in demo mode
+
+        // Back up real data
+        localStorage.setItem(DEMO_BACKUP_KEY, JSON.stringify({
+          rows: rows, employees: employees, timeOffRequests: timeOffRequests, buckets: buckets
+        }));
+        localStorage.setItem(DEMO_MODE_KEY, 'true');
+
+        var today = new Date();
+        function daysAgo(n) {
+          var d = new Date(today); d.setDate(d.getDate() - n);
+          return d.toISOString().slice(0, 10);
+        }
+        function daysAhead(n) {
+          var d = new Date(today); d.setDate(d.getDate() + n);
+          return d.toISOString().slice(0, 10);
+        }
+
+        employees = [
+          { name: 'Marcus Johnson',  department: 'Fulfillment', role: 'Associate',  employeeId: 'EMP-001', notes: 'Night shift lead backup' },
+          { name: 'Priya Patel',     department: 'Fulfillment', role: 'Associate',  employeeId: 'EMP-002', notes: '' },
+          { name: 'Devon Williams',  department: 'Shipping',    role: 'Specialist', employeeId: 'EMP-003', notes: 'On corrective action plan' },
+          { name: 'Sarah Kim',       department: 'Receiving',   role: 'Associate',  employeeId: 'EMP-004', notes: '' },
+          { name: 'James Torres',    department: 'Shipping',    role: 'Associate',  employeeId: 'EMP-005', notes: '' },
+          { name: 'Aisha Brooks',    department: 'Fulfillment', role: 'Lead',       employeeId: 'EMP-006', notes: '' },
+          { name: 'Tyler Reed',      department: 'Receiving',   role: 'Associate',  employeeId: 'EMP-007', notes: 'Pending FMLA paperwork' },
+          { name: 'Nadia Okonkwo',   department: 'Shipping',    role: 'Associate',  employeeId: 'EMP-008', notes: '' },
+          { name: 'Carlos Mendez',   department: 'Fulfillment', role: 'Associate',  employeeId: 'EMP-009', notes: '' },
+          { name: 'Brianna Scott',   department: 'Receiving',   role: 'Specialist', employeeId: 'EMP-010', notes: '' },
+          { name: 'Kevin Park',      department: 'Shipping',    role: 'Associate',  employeeId: 'EMP-011', notes: '' },
+          { name: 'Lisa Nguyen',     department: 'Fulfillment', role: 'Associate',  employeeId: 'EMP-012', notes: '' },
+        ];
+
+        function row(name, daysBack, type, code, reason, pts, flag) {
+          var d = daysAgo(daysBack);
+          return { id: 'demo_' + Math.random().toString(36).slice(2), name: name,
+            dateIso: d, dateText: d, type: type || 'past', code: code || '',
+            reason: reason || '', points: pts != null ? pts : 1, flag: flag || '',
+            startTime: '', endTime: '', sourceFile: 'Demo Data',
+            editedPoints: false, editedEmployee: false, statusOverride: false };
+        }
+
+        rows = [
+          // Devon Williams — high risk (7.5 pts)
+          row('Devon Williams',  5,  'past', 'NCNS', 'No call no show', 3),
+          row('Devon Williams',  18, 'past', 'UA',   'Unexcused absence', 2),
+          row('Devon Williams',  32, 'past', 'NCNS', 'No call no show', 3, '⚠ Policy: High point alert'),
+          row('Devon Williams',  45, 'past', 'LT',   'Late arrival >2hr', 1),
+          row('Devon Williams',  60, 'past', 'EO',   'Early out', 0.5),
+
+          // Tyler Reed — moderate (4.5 pts)
+          row('Tyler Reed',      3,  'past', 'LT',   'Late — traffic', 1),
+          row('Tyler Reed',      12, 'past', 'UA',   'Unexcused absence', 2),
+          row('Tyler Reed',      28, 'past', 'LT',   'Late <1hr', 0.5),
+          row('Tyler Reed',      40, 'past', 'EO',   'Early out approved', 0.5, 'giveback30'),
+          row('Tyler Reed',      55, 'past', 'LT',   'Late <1hr', 0.5),
+
+          // Marcus Johnson — low (2 pts)
+          row('Marcus Johnson',  8,  'past', 'LT',   'Late >1hr', 1),
+          row('Marcus Johnson',  22, 'past', 'LT',   'Late <1hr', 0.5),
+          row('Marcus Johnson',  50, 'past', 'EO',   'Early out', 0.5),
+
+          // Priya Patel — perfect + future request
+          row('Priya Patel',     1,  'future', 'PTO', 'Vacation', 0),
+          row('Priya Patel',     70, 'past',   'LT',  'Late <1hr', 0.5),
+
+          // Sarah Kim — clean record
+          row('Sarah Kim',       90, 'past', 'LT',   'Late <1hr', 0.5),
+
+          // James Torres — moderate
+          row('James Torres',    6,  'past', 'UA',   'Unexcused absence', 2),
+          row('James Torres',    20, 'past', 'LT',   'Late <1hr', 0.5),
+          row('James Torres',    35, 'past', 'EO',   'Early out medical', 0.5),
+
+          // Aisha Brooks — lead, one incident
+          row('Aisha Brooks',    15, 'past', 'LT',   'Late >1hr', 1),
+
+          // Nadia Okonkwo — escalating
+          row('Nadia Okonkwo',   2,  'past', 'NCNS', 'No call no show', 3, '⚠ Policy: High point alert'),
+          row('Nadia Okonkwo',   25, 'past', 'LT',   'Late >2hr', 1),
+          row('Nadia Okonkwo',   38, 'past', 'UA',   'Unexcused absence', 2),
+
+          // Carlos Mendez — one occurrence
+          row('Carlos Mendez',   10, 'past', 'LT',   'Late <1hr', 0.5),
+
+          // Brianna Scott — past request
+          row('Brianna Scott',   7,  'pastrequest', 'SL', 'Sick leave', 0),
+          row('Brianna Scott',   14, 'pastrequest', 'SL', 'Sick leave', 0),
+
+          // Kevin Park — one NCNS
+          row('Kevin Park',      4,  'past', 'NCNS', 'No call no show', 3, 'cluster'),
+
+          // Lisa Nguyen — clean
+          row('Lisa Nguyen',     30, 'past', 'LT',   'Late <1hr', 0.5),
+        ];
+
+        timeOffRequests = [
+          { id: 'demo_to1', employeeName: 'Priya Patel',    type: 'Vacation', startDate: daysAhead(5),  endDate: daysAhead(9),  status: 'Approved', notes: 'Annual leave' },
+          { id: 'demo_to2', employeeName: 'Tyler Reed',     type: 'FMLA',     startDate: daysAhead(14), endDate: daysAhead(28), status: 'Pending',  notes: 'Awaiting paperwork' },
+          { id: 'demo_to3', employeeName: 'Sarah Kim',      type: 'Personal', startDate: daysAhead(2),  endDate: daysAhead(2),  status: 'Approved', notes: '' },
+          { id: 'demo_to4', employeeName: 'Carlos Mendez',  type: 'Sick',     startDate: daysAgo(3),    endDate: daysAgo(3),    status: 'Approved', notes: 'Doctor note provided' },
+          { id: 'demo_to5', employeeName: 'Aisha Brooks',   type: 'Vacation', startDate: daysAhead(20), endDate: daysAhead(24), status: 'Pending',  notes: '' },
+          { id: 'demo_to6', employeeName: 'Marcus Johnson', type: 'Personal', startDate: daysAhead(7),  endDate: daysAhead(7),  status: 'Denied',   notes: 'Minimum staffing requirement' },
+        ];
+
+        buckets = {};
+
+        saveData();
+        saveEmployees();
+        saveTimeOff();
+        render();
+        showDemoBanner(true);
+        showToast('Demo data loaded — explore all features!');
+
+        // Switch to Dashboard to show the data
+        var dashBtn = document.querySelector('[data-view="dashboard"]');
+        if (dashBtn) dashBtn.click();
+      }
+
+      function exitDemoMode() {
+        var backup = null;
+        try { backup = JSON.parse(localStorage.getItem(DEMO_BACKUP_KEY) || 'null'); } catch(e) {}
+        if (backup) {
+          rows = backup.rows || [];
+          employees = backup.employees || [];
+          timeOffRequests = backup.timeOffRequests || [];
+          buckets = backup.buckets || {};
+        } else {
+          rows = []; employees = []; timeOffRequests = []; buckets = {};
+        }
+        localStorage.removeItem(DEMO_MODE_KEY);
+        localStorage.removeItem(DEMO_BACKUP_KEY);
+        saveData();
+        saveEmployees();
+        saveTimeOff();
+        render();
+        showDemoBanner(false);
+        showToast('Demo exited — your data has been restored.');
+      }
+
+      function showDemoBanner(visible) {
+        var banner = document.getElementById('demoBanner');
+        if (!banner) return;
+        banner.style.display = visible ? 'flex' : 'none';
+      }
+      // ── End Demo Data ─────────────────────────────────────────────────────────
 
       async function handleCloudConnect() {
         try {
@@ -6431,6 +6587,22 @@
       });
       els.dedupeBtn.addEventListener('click', function () { removeDuplicates(true); });
       els.clearSavedBtn.addEventListener('click', clearSavedData);
+
+      var demoDataBtn = document.getElementById('demoDataBtn');
+      if (demoDataBtn) demoDataBtn.addEventListener('click', function () {
+        if (localStorage.getItem(DEMO_MODE_KEY) === 'true') {
+          exitDemoMode();
+        } else {
+          if (rows.length > 0 && !confirm('Load demo data?\n\nYour current ' + rows.length + ' record(s) will be temporarily hidden and automatically restored when you exit demo mode.')) return;
+          loadDemoData();
+        }
+      });
+      var exitDemoBtn = document.getElementById('exitDemoBtn');
+      if (exitDemoBtn) exitDemoBtn.addEventListener('click', exitDemoMode);
+
+      // Restore demo banner if page reloaded mid-session
+      if (localStorage.getItem(DEMO_MODE_KEY) === 'true') showDemoBanner(true);
+
       els.cloudClientIdInput.addEventListener('change', function () {
         saveCloudConfig();
         renderCloudOAuthValues();
