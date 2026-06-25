@@ -1760,6 +1760,9 @@ body.no-transitions * { transition: none !important; }
         <button class="secondary" type="button" id="restoreJsonBtn" title="Restore data from a JSON backup file">⬆ Restore</button>
         <input type="file" id="restoreJsonInput" accept=".json" style="display:none">
         <button class="secondary" type="button" id="settingsBtn" title="App settings">⚙ Settings</button>
+        <div id="cloudSyncBadge" title="Google Drive sync status" style="display:none;align-items:center;gap:5px;padding:4px 10px;border-radius:20px;font-size:11px;font-weight:700;background:rgba(34,197,94,0.12);border:1px solid rgba(34,197,94,0.3);color:#16a34a;cursor:default;white-space:nowrap">
+          <span id="cloudSyncBadgeIcon">●</span><span id="cloudSyncBadgeText">Synced</span>
+        </div>
         <button class="secondary" type="button" id="importHistoryBtn" title="View import history">📜 History</button>
         <button class="secondary" type="button" id="undoBtn" title="Nothing to undo" disabled="">↩ Undo</button>
         <button class="secondary" type="button" id="colVisBtn" title="Show/hide table columns">⊞ Columns</button>
@@ -1809,10 +1812,26 @@ body.no-transitions * { transition: none !important; }
         <span id="cloudPanelChevron" style="font-size:13px;color:var(--muted);transition:transform 0.2s">▼</span>
       </div>
       <div id="cloudPanelBody">
+      <div id="cloudSetupGuide" style="display:none;padding:12px 14px;margin-bottom:12px;background:rgba(59,130,246,0.07);border:1px solid rgba(59,130,246,0.25);border-radius:var(--radius)">
+        <div style="font-size:12px;font-weight:700;color:var(--blue);margin-bottom:6px">Google Drive Setup Guide</div>
+        <ol style="margin:0;padding-left:18px;font-size:12px;color:var(--text);line-height:1.7">
+          <li>Create a Google account (or use an existing one)</li>
+          <li>Go to <strong>console.cloud.google.com</strong> → New Project → name it <em>AttendanceTracker</em></li>
+          <li>Enable <strong>Google Drive API</strong> and <strong>Google Sheets API</strong></li>
+          <li>Create credentials → <strong>OAuth 2.0 Client ID</strong> (Web application type)</li>
+          <li>Add the <strong>Authorized JS origin</strong> and <strong>Redirect URI</strong> shown below</li>
+          <li>Create credentials → <strong>API Key</strong>, restrict to Drive + Sheets APIs</li>
+          <li>Paste both into the fields below and click <strong>Connect</strong></li>
+        </ol>
+      </div>
       <div class="cloud-grid">
         <div>
           <label for="cloudClientIdInput">Google OAuth Client ID</label>
           <input id="cloudClientIdInput" type="text" autocomplete="off" placeholder="xxxxxxxxxxxx-xxxx.apps.googleusercontent.com">
+        </div>
+        <div>
+          <label for="cloudApiKeyInput">Google API Key</label>
+          <input id="cloudApiKeyInput" type="text" autocomplete="off" placeholder="AIzaSy...">
         </div>
         <div>
           <label for="cloudSheetIdInput">Spreadsheet ID</label>
@@ -1831,6 +1850,7 @@ body.no-transitions * { transition: none !important; }
           </div>
         </div>
         <button id="cloudConnectBtn" class="secondary" type="button">Connect</button>
+        <button id="cloudTestBtn" class="secondary" type="button" title="Verify credentials with a lightweight Drive API ping">Test Connection</button>
         <button id="cloudRedirectBtn" class="secondary" type="button">Redirect Sign-In</button>
         <button id="cloudCreateSheetBtn" class="yellow" type="button">Create Sheet</button>
         <button id="cloudPushBtn" class="primary" type="button">Push Cloud</button>
@@ -1869,6 +1889,12 @@ body.no-transitions * { transition: none !important; }
             <button id="copyCloudAuthUrlBtn" class="secondary small" type="button">Copy</button>
           </div>
         </div>
+      </div>
+      <div id="cloudAccountRow" style="display:none;align-items:center;gap:8px;padding:6px 10px;background:rgba(34,197,94,0.07);border:1px solid rgba(34,197,94,0.2);border-radius:var(--radius);margin-bottom:6px;font-size:12px">
+        <span style="font-size:16px">✓</span>
+        <span>Connected as <strong id="cloudAccountEmail">—</strong></span>
+        <span id="cloudLastSyncDisplay" style="margin-left:auto;color:var(--muted)"></span>
+        <button type="button" id="cloudDisconnectBtn" class="secondary small" style="font-size:11px;padding:2px 8px">Disconnect</button>
       </div>
       <p id="cloudStatus" class="cloud-status">Add OAuth Client ID to enable Google Sheets cloud storage.</p>
       </div><!-- /cloudPanelBody -->
@@ -2760,9 +2786,11 @@ body.no-transitions * { transition: none !important; }
       var buckets = {};
       var cloudConfig = {
         clientId: '',
+        apiKey: '',
         spreadsheetId: '',
         autoSync: false
       };
+      var cloudConnectedEmail = '';
       var cloudTokenClient = null;
       var cloudAccessToken = '';
       var cloudTokenExpiresAt = 0;
@@ -3633,7 +3661,7 @@ body.no-transitions * { transition: none !important; }
           client_id: cloudConfig.clientId || '[OAuth Client ID]',
           redirect_uri: getCloudRedirectUri(),
           response_type: 'token',
-          scope: 'https://www.googleapis.com/auth/spreadsheets https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/drive.metadata.readonly',
+          scope: 'https://www.googleapis.com/auth/spreadsheets https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/drive.metadata.readonly https://www.googleapis.com/auth/userinfo.email',
           include_granted_scopes: 'true',
           state: state || 'preview',
           prompt: 'consent'
@@ -3752,6 +3780,7 @@ body.no-transitions * { transition: none !important; }
 
       function saveCloudConfig() {
         cloudConfig.clientId = toText(els.cloudClientIdInput.value);
+        cloudConfig.apiKey = toText((document.getElementById('cloudApiKeyInput') || {}).value || '');
         cloudConfig.spreadsheetId = parseSpreadsheetId(els.cloudSheetIdInput.value);
         els.cloudSheetIdInput.value = cloudConfig.spreadsheetId;
         cloudConfig.autoSync = Boolean(els.cloudAutoSyncToggle.checked);
@@ -3769,10 +3798,11 @@ body.no-transitions * { transition: none !important; }
           var parsed = JSON.parse(saved);
           if (!parsed || typeof parsed !== 'object') return;
           cloudConfig.clientId = toText(parsed.clientId);
+          cloudConfig.apiKey = toText(parsed.apiKey || '');
           cloudConfig.spreadsheetId = toText(parsed.spreadsheetId);
           cloudConfig.autoSync = Boolean(parsed.autoSync);
         } catch (error) {
-          cloudConfig = { clientId: '', spreadsheetId: '', autoSync: false };
+          cloudConfig = { clientId: '', apiKey: '', spreadsheetId: '', autoSync: false };
         }
       }
 
@@ -3824,10 +3854,58 @@ body.no-transitions * { transition: none !important; }
         nudge.style.display = '';
       }
 
+      function _updateSyncBadge(state, label) {
+        var badge = document.getElementById('cloudSyncBadge');
+        var icon = document.getElementById('cloudSyncBadgeIcon');
+        var text = document.getElementById('cloudSyncBadgeText');
+        if (!badge) return;
+        if (!state) { badge.style.display = 'none'; return; }
+        badge.style.display = 'flex';
+        var styles = {
+          synced:  { bg: 'rgba(34,197,94,0.12)',  border: 'rgba(34,197,94,0.3)',  color: '#16a34a', icon: '●' },
+          syncing: { bg: 'rgba(59,130,246,0.12)', border: 'rgba(59,130,246,0.3)', color: '#2563eb', icon: '↻' },
+          pending: { bg: 'rgba(245,158,11,0.12)', border: 'rgba(245,158,11,0.3)', color: '#d97706', icon: '●' },
+          error:   { bg: 'rgba(239,68,68,0.12)',  border: 'rgba(239,68,68,0.3)',  color: '#dc2626', icon: '✕' }
+        };
+        var s = styles[state] || styles.synced;
+        badge.style.background = s.bg;
+        badge.style.border = '1px solid ' + s.border;
+        badge.style.color = s.color;
+        if (icon) icon.textContent = s.icon;
+        if (text) text.textContent = label || state.charAt(0).toUpperCase() + state.slice(1);
+      }
+
+      function _updateAccountRow() {
+        var row = document.getElementById('cloudAccountRow');
+        var emailEl = document.getElementById('cloudAccountEmail');
+        var lastSyncEl = document.getElementById('cloudLastSyncDisplay');
+        var tokenActive = Boolean(cloudAccessToken) && Date.now() < (cloudTokenExpiresAt - 30000);
+        if (!row) return;
+        if (tokenActive) {
+          row.style.display = 'flex';
+          if (emailEl) emailEl.textContent = cloudConnectedEmail || 'Google Account';
+          if (lastSyncEl) lastSyncEl.textContent = lastSyncTime ? 'Last sync: ' + timeAgo(lastSyncTime) : '';
+        } else {
+          row.style.display = 'none';
+        }
+      }
+
+      function _updateSetupGuide() {
+        var guide = document.getElementById('cloudSetupGuide');
+        if (guide) guide.style.display = cloudConfig.clientId ? 'none' : 'block';
+      }
+
       function renderCloudStatus(message) {
+        _updateSetupGuide();
+        _updateAccountRow();
+
         if (message) {
-          if (/pushed|pulled/i.test(message)) {
+          if (/pushed|pulled|synced|backup/i.test(message)) {
             lastSyncTime = new Date();
+            _updateAccountRow();
+            _updateSyncBadge('synced', 'Synced');
+          } else if (/error|failed|paused/i.test(message)) {
+            _updateSyncBadge('error', 'Error');
           }
           var suffix = lastSyncTime ? ' (' + timeAgo(lastSyncTime) + ')' : '';
           els.cloudStatus.textContent = message + suffix;
@@ -3838,12 +3916,20 @@ body.no-transitions * { transition: none !important; }
 
         if (!cloudConfig.clientId) {
           els.cloudStatus.textContent = 'Add OAuth Client ID to enable Google Sheets cloud storage.';
+          _updateSyncBadge(null);
           return;
         }
 
         if (!cloudConfig.spreadsheetId) {
           els.cloudStatus.textContent = 'Connected config ready. Create a sheet or paste a Spreadsheet ID.';
+          _updateSyncBadge(tokenActive ? 'pending' : null, tokenActive ? 'No Sheet' : null);
           return;
+        }
+
+        if (tokenActive) {
+          _updateSyncBadge(lastSyncTime ? 'synced' : 'pending', lastSyncTime ? 'Synced' : 'Not synced');
+        } else {
+          _updateSyncBadge('pending', 'Sign in');
         }
 
         var syncAgo = lastSyncTime ? ' | last sync ' + timeAgo(lastSyncTime) : '';
@@ -3858,6 +3944,41 @@ body.no-transitions * { transition: none !important; }
         return text.slice(0, 167) + '...';
       }
 
+      async function testCloudConnection() {
+        var btn = document.getElementById('cloudTestBtn');
+        if (btn) { btn.disabled = true; btn.textContent = 'Testing…'; }
+        _updateSyncBadge('syncing', 'Testing');
+        try {
+          if (!cloudConfig.clientId) throw new Error('Enter OAuth Client ID first.');
+          await ensureCloudToken({ interactive: true });
+          var resp = await cloudFetch('https://www.googleapis.com/drive/v3/about?fields=user', { method: 'GET' });
+          if (!resp.ok) throw new Error('Drive API returned ' + resp.status);
+          var data = await resp.json();
+          cloudConnectedEmail = (data.user && data.user.emailAddress) ? data.user.emailAddress : '';
+          _updateAccountRow();
+          _updateSyncBadge('synced', 'Connected');
+          renderCloudStatus('Connection OK' + (cloudConnectedEmail ? ' — ' + cloudConnectedEmail : ''));
+          showToast('Google Drive connected' + (cloudConnectedEmail ? ' as ' + cloudConnectedEmail : ''));
+        } catch (err) {
+          _updateSyncBadge('error', 'Error');
+          renderCloudStatus('Connection failed: ' + shortCloudError(err));
+          showToast('Connection test failed');
+        } finally {
+          if (btn) { btn.disabled = false; btn.textContent = 'Test Connection'; }
+        }
+      }
+
+      function cloudDisconnect() {
+        cloudAccessToken = '';
+        cloudTokenExpiresAt = 0;
+        cloudConnectedEmail = '';
+        cloudTokenClient = null;
+        _updateAccountRow();
+        _updateSyncBadge(null);
+        renderCloudStatus();
+        showToast('Disconnected from Google');
+      }
+
       function queueCloudSync() {
         if (!cloudConfig.autoSync || suppressCloudSync) return;
         if (!cloudConfig.clientId || !cloudConfig.spreadsheetId) return;
@@ -3866,11 +3987,14 @@ body.no-transitions * { transition: none !important; }
         cloudSyncTimer = setTimeout(async function () {
           if (cloudSyncInFlight) return;
           cloudSyncInFlight = true;
+          _updateSyncBadge('syncing', 'Syncing…');
           try {
             await cloudPushAll({ silent: true, interactive: false });
             renderCloudStatus('Auto-synced to cloud at ' + new Date().toLocaleTimeString());
+            _updateSyncBadge('synced', 'Synced');
           } catch (error) {
             renderCloudStatus('Auto-sync paused: ' + shortCloudError(error));
+            _updateSyncBadge('error', 'Sync error');
           } finally {
             cloudSyncInFlight = false;
           }
@@ -3883,7 +4007,7 @@ body.no-transitions * { transition: none !important; }
         }
         cloudTokenClient = google.accounts.oauth2.initTokenClient({
           client_id: cloudConfig.clientId,
-          scope: 'https://www.googleapis.com/auth/spreadsheets https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/drive.metadata.readonly',
+          scope: 'https://www.googleapis.com/auth/spreadsheets https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/drive.metadata.readonly https://www.googleapis.com/auth/userinfo.email',
           error_callback: function (error) {
             var errorType = (error && error.type) ? error.type : 'popup_failed';
             if (cloudTokenErrorTimer) clearTimeout(cloudTokenErrorTimer);
@@ -3954,7 +4078,12 @@ body.no-transitions * { transition: none !important; }
         var headers = request.headers || {};
         headers.Authorization = 'Bearer ' + token;
         request.headers = headers;
-        var response = await fetch(url, request);
+        // Append API key for quota attribution when configured
+        var fetchUrl = url;
+        if (cloudConfig.apiKey && fetchUrl.indexOf('googleapis.com') !== -1) {
+          fetchUrl += (fetchUrl.indexOf('?') === -1 ? '?' : '&') + 'key=' + encodeURIComponent(cloudConfig.apiKey);
+        }
+        var response = await fetch(fetchUrl, request);
         if (response.status === 401 || response.status === 403) {
           clearCloudToken();
         }
@@ -4176,6 +4305,7 @@ body.no-transitions * { transition: none !important; }
       async function cloudPullAll() {
         saveCloudConfig();
         if (!cloudConfig.spreadsheetId) throw new Error('Set Spreadsheet ID first.');
+        _updateSyncBadge('syncing', 'Pulling…');
         var response = await cloudFetch(
           'https://sheets.googleapis.com/v4/spreadsheets/' + encodeURIComponent(cloudConfig.spreadsheetId) + '/values:batchGet?ranges=Records!A1:ZZ&ranges=Buckets!A1:ZZ&ranges=Employees!A1:ZZ&ranges=TimeOff!A1:ZZ',
           null,
@@ -4187,21 +4317,44 @@ body.no-transitions * { transition: none !important; }
         var bucketsValues  = ranges[1] && ranges[1].values ? ranges[1].values : [];
         var employeesValues = ranges[2] && ranges[2].values ? ranges[2].values : [];
         var timeOffValues  = ranges[3] && ranges[3].values ? ranges[3].values : [];
-        suppressCloudSync = true;
-        try {
-          rows = rowsFromCloud(recordsValues);
-          buckets = bucketsFromCloud(bucketsValues);
-          if (employeesValues.length) employees = employeesFromCloud(employeesValues);
-          if (timeOffValues.length) timeOffRequests = timeOffFromCloud(timeOffValues);
-          saveData({ skipCloudSync: true });
-          saveBucketData({ skipCloudSync: true });
-          saveEmployees();
-          saveTimeOff();
-        } finally {
-          suppressCloudSync = false;
+
+        // Conflict preview: data rows excluding header
+        var cloudRecCount = Math.max(0, recordsValues.length - 1);
+        var cloudEmpCount = Math.max(0, employeesValues.length - 1);
+        var localRecCount = rows.length;
+        var localEmpCount = employees.length;
+
+        var diff = [];
+        if (cloudRecCount !== localRecCount) diff.push('Records: cloud ' + cloudRecCount + ' vs local ' + localRecCount);
+        if (cloudEmpCount !== localEmpCount) diff.push('Employees: cloud ' + cloudEmpCount + ' vs local ' + localEmpCount);
+
+        var doApply = function() {
+          suppressCloudSync = true;
+          try {
+            rows = rowsFromCloud(recordsValues);
+            buckets = bucketsFromCloud(bucketsValues);
+            if (employeesValues.length) employees = employeesFromCloud(employeesValues);
+            if (timeOffValues.length) timeOffRequests = timeOffFromCloud(timeOffValues);
+            saveData({ skipCloudSync: true });
+            saveBucketData({ skipCloudSync: true });
+            saveEmployees();
+            saveTimeOff();
+          } finally {
+            suppressCloudSync = false;
+          }
+          render();
+          renderCloudStatus('Pulled cloud data into this browser.');
+        };
+
+        if (diff.length && localRecCount > 0) {
+          showConfirm(
+            'Cloud data differs from local:\n' + diff.join('\n') + '\n\nOverwrite local data with cloud?',
+            doApply,
+            { title: 'Confirm Pull', ok: 'Overwrite Local', cancel: 'Cancel', danger: true }
+          );
+        } else {
+          doApply();
         }
-        render();
-        renderCloudStatus('Pulled cloud data into this browser.');
       }
 
       var DRIVE_BACKUP_FILE_KEY = 'attTracker_driveBackupFileId';
@@ -4250,7 +4403,36 @@ body.no-transitions * { transition: none !important; }
         }
       }
 
+      var DRIVE_FOLDER_KEY = 'attTracker_driveFolderId';
+
+      async function ensureDriveFolder() {
+        var folderId = localStorage.getItem(DRIVE_FOLDER_KEY);
+        if (folderId) return folderId;
+        // Search for existing folder first
+        var searchUrl = 'https://www.googleapis.com/drive/v3/files?q=' +
+          encodeURIComponent("mimeType='application/vnd.google-apps.folder' and name='AttendanceTracker' and trashed=false") +
+          '&fields=files(id,name)&pageSize=1';
+        var searchResp = await cloudFetch(searchUrl, {}, { interactive: true });
+        var searchData = await searchResp.json();
+        if (searchData.files && searchData.files.length) {
+          folderId = searchData.files[0].id;
+          localStorage.setItem(DRIVE_FOLDER_KEY, folderId);
+          return folderId;
+        }
+        // Create folder
+        var createResp = await cloudFetch('https://www.googleapis.com/drive/v3/files?fields=id', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name: 'AttendanceTracker', mimeType: 'application/vnd.google-apps.folder' })
+        }, { interactive: true });
+        var created = await createResp.json();
+        folderId = created.id;
+        localStorage.setItem(DRIVE_FOLDER_KEY, folderId);
+        return folderId;
+      }
+
       async function backupToDrive() {
+        _updateSyncBadge('syncing', 'Backing up…');
         var payload = JSON.stringify({
           rows: rows,
           buckets: buckets,
@@ -4267,11 +4449,14 @@ body.no-transitions * { transition: none !important; }
             { method: 'PATCH', body: blob, headers: { 'Content-Type': 'application/json' } },
             { interactive: true }
           );
-          renderCloudStatus('Drive backup updated (file ID: ' + existingId + ').');
+          renderCloudStatus('Drive backup updated.');
         } else {
+          var folderId = await ensureDriveFolder();
           var form = new FormData();
           var name = 'attendance-backup-' + new Date().toISOString().slice(0, 10) + '.json';
-          form.append('metadata', new Blob([JSON.stringify({ name: name, mimeType: 'application/json' })], { type: 'application/json' }));
+          var meta = { name: name, mimeType: 'application/json' };
+          if (folderId) meta.parents = [folderId];
+          form.append('metadata', new Blob([JSON.stringify(meta)], { type: 'application/json' }));
           form.append('file', blob);
           var response = await cloudFetch(
             'https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id,name',
@@ -4280,7 +4465,7 @@ body.no-transitions * { transition: none !important; }
           );
           var data = await response.json();
           localStorage.setItem(DRIVE_BACKUP_FILE_KEY, data.id);
-          renderCloudStatus('Backed up to Drive: ' + data.name);
+          renderCloudStatus('Backed up to Drive: ' + data.name + (folderId ? ' (AttendanceTracker folder)' : ''));
         }
       }
 
@@ -4523,18 +4708,24 @@ body.no-transitions * { transition: none !important; }
       }
 
       async function handleCloudPush() {
+        _updateSyncBadge('syncing', 'Pushing…');
         try {
           await cloudPushAll();
+          _updateSyncBadge('synced', 'Synced');
         } catch (error) {
+          _updateSyncBadge('error', 'Push failed');
           renderCloudStatus('Cloud push failed.');
           alert(error.message || 'Cloud push failed.');
         }
       }
 
       async function handleCloudPull() {
+        _updateSyncBadge('syncing', 'Pulling…');
         try {
           await cloudPullAll();
+          _updateSyncBadge('synced', 'Synced');
         } catch (error) {
+          _updateSyncBadge('error', 'Pull failed');
           renderCloudStatus('Cloud pull failed.');
           alert(error.message || 'Cloud pull failed.');
         }
@@ -9959,6 +10150,12 @@ body.no-transitions * { transition: none !important; }
       els.cloudPushBtn.addEventListener('click', handleCloudPush);
       els.cloudPullBtn.addEventListener('click', handleCloudPull);
 
+      var cloudTestBtn = document.getElementById('cloudTestBtn');
+      if (cloudTestBtn) cloudTestBtn.addEventListener('click', testCloudConnection);
+
+      var cloudDisconnectBtn = document.getElementById('cloudDisconnectBtn');
+      if (cloudDisconnectBtn) cloudDisconnectBtn.addEventListener('click', cloudDisconnect);
+
       var browseDriveBtn = document.getElementById('browseDriveBtn');
       var drivePicker = document.getElementById('drivePicker');
       if (browseDriveBtn) {
@@ -11413,8 +11610,12 @@ body.no-transitions * { transition: none !important; }
       loadCloudToken();
       renderCloudOAuthValues();
       els.cloudClientIdInput.value = cloudConfig.clientId;
+      var _apiKeyEl = document.getElementById('cloudApiKeyInput');
+      if (_apiKeyEl) _apiKeyEl.value = cloudConfig.apiKey || '';
       els.cloudSheetIdInput.value = cloudConfig.spreadsheetId;
       els.cloudAutoSyncToggle.checked = Boolean(cloudConfig.autoSync);
+      _updateSetupGuide();
+      _updateAccountRow();
       var cloudRedirectMessage = consumeCloudRedirectResponse();
       render();
       if (cloudRedirectMessage) renderCloudStatus(cloudRedirectMessage);
