@@ -2131,6 +2131,10 @@ body.no-transitions * { transition: none !important; }
         <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--muted);margin-bottom:12px">This Month vs Last Month</div>
         <div id="periodCompareCards" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px"></div>
       </div>
+      <div id="yoySection" style="margin-bottom:24px">
+        <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--muted);margin-bottom:10px">📈 Year-over-Year</div>
+        <div id="yoyBody"></div>
+      </div>
       <div id="whosOffSection" style="margin-bottom:24px">
         <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--muted);margin-bottom:10px">📅 Who's Off This Week</div>
         <div id="whosOffList"></div>
@@ -2146,6 +2150,18 @@ body.no-transitions * { transition: none !important; }
       <canvas id="monthlyChart" style="width:100%;display:block"></canvas>
       <div id="monthlyChartEmpty" class="empty" style="display:none">No occurrence data yet.</div>
       <div id="dashChartTooltip" style="position:fixed;background:var(--card2);border:1px solid var(--border);border-radius:var(--radius);padding:6px 10px;font-size:12px;pointer-events:none;display:none;z-index:300;box-shadow:var(--shadow)"></div>
+    </div>
+
+    <div class="dash-section">
+      <div id="deptCompareSection" style="margin-bottom:24px">
+        <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--muted);margin-bottom:10px">🏢 Department Comparison (Avg Points/Employee)</div>
+        <canvas id="deptCompareChart" height="0" style="width:100%;display:block"></canvas>
+        <div id="deptCompareEmpty" class="hidden" style="font-size:13px;color:var(--muted);padding:6px 0">No department data available.</div>
+      </div>
+      <div id="scoreDistSection" style="margin-bottom:24px">
+        <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--muted);margin-bottom:10px">📊 Attendance Score Distribution</div>
+        <canvas id="scoreDistChart" height="120" style="width:100%;display:block"></canvas>
+      </div>
     </div>
 
     <div class="dash-section" id="dashLeaderboardSection">
@@ -7289,11 +7305,14 @@ body.no-transitions * { transition: none !important; }
         var periodSection = document.getElementById('periodCompareSection');
         if (periodSection) periodSection.classList.toggle('hidden', appSettings.showDashPeriodCompare === false);
         if (appSettings.showDashPeriodCompare !== false) renderPeriodComparison();
+        renderYoY();
 
         renderWhosOff();
         renderTimeOffStats();
 
         _renderMonthlyChart();
+        renderDeptCompareChart();
+        renderScoreDistChart();
 
         // Leaderboard
         var lboardSection = document.getElementById('dashLeaderboardSection');
@@ -7422,6 +7441,231 @@ body.no-transitions * { transition: none !important; }
             if (tooltip) tooltip.style.display = 'none';
           });
         }
+      }
+
+      function renderDeptCompareChart() {
+        var canvas = document.getElementById('deptCompareChart');
+        var emptyEl = document.getElementById('deptCompareEmpty');
+        if (!canvas) return;
+
+        var dashRows = getDashRows();
+
+        // Build dept -> {totalPts, empSet}
+        var deptMap = {};
+        employees.forEach(function(emp) {
+          if (!emp.department) return;
+          if (!deptMap[emp.department]) deptMap[emp.department] = { totalPts: 0, emps: new Set() };
+          deptMap[emp.department].emps.add(norm(emp.name));
+        });
+        dashRows.forEach(function(r) {
+          var emp = employees.find(function(e) { return norm(e.name) === norm(r.name); });
+          if (!emp || !emp.department) return;
+          if (!deptMap[emp.department]) return;
+          deptMap[emp.department].totalPts += (r.points || 0);
+        });
+
+        var depts = Object.keys(deptMap).filter(function(d) { return deptMap[d].emps.size > 0; });
+        if (!depts.length) {
+          canvas.style.display = 'none';
+          if (emptyEl) emptyEl.classList.remove('hidden');
+          return;
+        }
+        if (emptyEl) emptyEl.classList.add('hidden');
+        canvas.style.display = 'block';
+
+        // Compute avg points per employee per dept
+        var deptData = depts.map(function(d) {
+          return { dept: d, avg: deptMap[d].totalPts / deptMap[d].emps.size, count: deptMap[d].emps.size };
+        }).sort(function(a, b) { return b.avg - a.avg; });
+
+        var barH = 28;
+        var gap = 8;
+        var padL = 120; var padR = 50; var padT = 10; var padB = 10;
+        var W = canvas.offsetWidth || 500;
+        var H = deptData.length * (barH + gap) + padT + padB;
+        canvas.width = W;
+        canvas.height = H;
+        canvas.style.height = H + 'px';
+
+        var ctx = canvas.getContext('2d');
+        ctx.clearRect(0, 0, W, H);
+
+        var cs = getComputedStyle(document.documentElement);
+        var mutedColor = cs.getPropertyValue('--muted').trim() || '#9ca3af';
+        var textColor = cs.getPropertyValue('--text').trim() || '#111';
+        var blueColor = cs.getPropertyValue('--blue').trim() || '#3b82f6';
+        var dangerColor = cs.getPropertyValue('--danger').trim() || '#ef4444';
+        var yellowColor = '#f59e0b';
+
+        var maxAvg = Math.max.apply(null, deptData.map(function(d) { return d.avg; }));
+        var chartW = W - padL - padR;
+        var sevHigh = appSettings.severityHigh !== undefined ? appSettings.severityHigh : 6;
+        var sevMid = appSettings.severityMid !== undefined ? appSettings.severityMid : 2;
+
+        deptData.forEach(function(d, i) {
+          var y = padT + i * (barH + gap);
+          var barW = maxAvg > 0 ? Math.round((d.avg / maxAvg) * chartW) : 0;
+
+          // Bar color based on avg severity
+          var barColor = d.avg >= sevHigh ? dangerColor : d.avg >= sevMid ? yellowColor : blueColor;
+
+          // Bar
+          if (barW > 0) {
+            ctx.fillStyle = barColor;
+            ctx.beginPath();
+            if (ctx.roundRect) { ctx.roundRect(padL, y, barW, barH, 3); } else { ctx.rect(padL, y, barW, barH); }
+            ctx.fill();
+          }
+
+          // Dept label (left)
+          ctx.fillStyle = textColor;
+          ctx.font = '12px system-ui, sans-serif';
+          ctx.textAlign = 'right';
+          ctx.textBaseline = 'middle';
+          var deptLabel = d.dept.length > 15 ? d.dept.slice(0, 13) + '…' : d.dept;
+          ctx.fillText(deptLabel, padL - 8, y + barH / 2);
+
+          // Avg value (right of bar)
+          ctx.textAlign = 'left';
+          ctx.fillStyle = mutedColor;
+          ctx.font = '11px system-ui, sans-serif';
+          ctx.fillText(d.avg.toFixed(1) + ' avg (' + d.count + ')', padL + barW + 6, y + barH / 2);
+        });
+      }
+
+      function renderScoreDistChart() {
+        var canvas = document.getElementById('scoreDistChart');
+        if (!canvas) return;
+
+        var buckets = [
+          { label: '0–20', min: 0, max: 20, count: 0, color: '#ef4444' },
+          { label: '21–40', min: 21, max: 40, count: 0, color: '#f97316' },
+          { label: '41–60', min: 41, max: 60, count: 0, color: '#f59e0b' },
+          { label: '61–80', min: 61, max: 80, count: 0, color: '#3b82f6' },
+          { label: '81–100', min: 81, max: 100, count: 0, color: '#22c55e' },
+        ];
+
+        var dept = document.getElementById('dashDeptFilter') ? document.getElementById('dashDeptFilter').value : '';
+        var activeEmps = employees.filter(function(e) {
+          return e.status !== 'Inactive' && (!dept || e.department === dept);
+        });
+
+        activeEmps.forEach(function(emp) {
+          var score = calcAttendanceScore(emp.name);
+          var bucket = buckets.find(function(b) { return score >= b.min && score <= b.max; });
+          if (bucket) bucket.count++;
+        });
+
+        var W = canvas.offsetWidth || 500;
+        var H = 120;
+        canvas.width = W;
+        canvas.height = H;
+
+        var ctx = canvas.getContext('2d');
+        ctx.clearRect(0, 0, W, H);
+
+        var cs = getComputedStyle(document.documentElement);
+        var mutedColor = cs.getPropertyValue('--muted').trim() || '#9ca3af';
+        var textColor = cs.getPropertyValue('--text').trim() || '#111';
+
+        var maxCount = Math.max(1, Math.max.apply(null, buckets.map(function(b) { return b.count; })));
+        var padL = 8; var padR = 8; var padT = 10; var padB = 28;
+        var chartW = W - padL - padR;
+        var chartH = H - padT - padB;
+        var barW = Math.floor(chartW / buckets.length) - 6;
+
+        buckets.forEach(function(b, i) {
+          var x = padL + i * (chartW / buckets.length) + (chartW / buckets.length - barW) / 2;
+          var bh = b.count > 0 ? Math.round((b.count / maxCount) * chartH) : 2;
+          var y = padT + chartH - bh;
+
+          ctx.fillStyle = b.color;
+          ctx.beginPath();
+          if (ctx.roundRect) { ctx.roundRect(x, y, barW, bh, 3); } else { ctx.rect(x, y, barW, bh); }
+          ctx.fill();
+
+          // Count on top
+          if (b.count > 0) {
+            ctx.fillStyle = textColor;
+            ctx.font = 'bold 11px system-ui, sans-serif';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'alphabetic';
+            ctx.fillText(b.count, x + barW / 2, y - 3);
+          }
+
+          // Label below
+          ctx.fillStyle = mutedColor;
+          ctx.font = '10px system-ui, sans-serif';
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'alphabetic';
+          ctx.fillText(b.label, x + barW / 2, H - 8);
+        });
+
+        // Total label
+        ctx.fillStyle = mutedColor;
+        ctx.font = '10px system-ui, sans-serif';
+        ctx.textAlign = 'right';
+        ctx.textBaseline = 'alphabetic';
+        ctx.fillText(activeEmps.length + ' employees', W - padR, 10);
+      }
+
+      function renderYoY() {
+        var el = document.getElementById('yoyBody');
+        if (!el) return;
+
+        var thisYear = new Date().getFullYear();
+        var lastYear = thisYear - 1;
+
+        function getYearStats(year) {
+          var filtered = rows.filter(function(r) {
+            return r.dateIso && new Date(r.dateIso).getFullYear() === year;
+          });
+          return {
+            incidents: filtered.length,
+            points: filtered.reduce(function(s, r) { return s + (r.points || 0); }, 0),
+            ncns: filtered.filter(function(r) { return r.code === 'NCNS'; }).length,
+          };
+        }
+
+        var thisStats = getYearStats(thisYear);
+        var lastStats = getYearStats(lastYear);
+
+        function delta(curr, prev) {
+          if (prev === 0) return curr > 0 ? '+∞%' : '—';
+          var pct = Math.round(((curr - prev) / prev) * 100);
+          return (pct > 0 ? '+' : '') + pct + '%';
+        }
+        function deltaColor(curr, prev) {
+          // For attendance: lower is better
+          return curr > prev ? 'var(--danger)' : curr < prev ? 'var(--ok)' : 'var(--muted)';
+        }
+
+        var metrics = [
+          { label: 'Total Incidents', curr: thisStats.incidents, prev: lastStats.incidents },
+          { label: 'Total Points', curr: thisStats.points.toFixed(1), prev: lastStats.points.toFixed(1), rawCurr: thisStats.points, rawPrev: lastStats.points },
+          { label: 'NCNS', curr: thisStats.ncns, prev: lastStats.ncns },
+        ];
+
+        el.innerHTML = '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px">' +
+          metrics.map(function(m) {
+            var rawCurr = m.rawCurr !== undefined ? m.rawCurr : m.curr;
+            var rawPrev = m.rawPrev !== undefined ? m.rawPrev : m.prev;
+            var d = delta(rawCurr, rawPrev);
+            var dc = deltaColor(rawCurr, rawPrev);
+            return '<div style="border:1px solid var(--border);border-radius:var(--radius);padding:10px;text-align:center">' +
+              '<div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:6px">' + escapeHtml(m.label) + '</div>' +
+              '<div style="display:flex;justify-content:center;align-items:baseline;gap:8px">' +
+                '<div>' +
+                  '<div style="font-size:18px;font-weight:800">' + m.curr + '</div>' +
+                  '<div style="font-size:10px;color:var(--muted)">' + thisYear + '</div>' +
+                '</div>' +
+                '<div style="font-size:11px;font-weight:700;color:' + dc + '">' + d + '</div>' +
+                '<div style="font-size:14px;color:var(--muted)">' + m.prev + '</div>' +
+              '</div>' +
+              '<div style="font-size:10px;color:var(--muted);margin-top:2px">' + lastYear + ' →</div>' +
+              '</div>';
+          }).join('') +
+          '</div>';
       }
 
       function _renderLeaderboard() {
