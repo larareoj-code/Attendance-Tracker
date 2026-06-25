@@ -1859,6 +1859,34 @@ body.no-transitions * { transition: none !important; }
 
   /* Table: further reduce padding */
   .table-wrap th, .table-wrap td { padding: 5px 5px; font-size: 11px; }
+
+  /* Form actions: full-width stacked buttons */
+  .form-actions { flex-direction: column; }
+  .form-actions button { width: 100%; box-sizing: border-box; }
+
+  /* Filter clear button: full-width on small phones */
+  #clearFiltersBtn { width: 100%; box-sizing: border-box; }
+
+  /* Hero actions: tighter gap on small phones */
+  .hero-actions { gap: 4px !important; }
+  .hero-actions button { font-size: 11px !important; padding: 4px 8px !important; }
+
+  /* Bulk bar: ensure wrap on small phones */
+  .bulk-bar { flex-wrap: wrap !important; gap: 4px; }
+}
+
+/* ── Responsive: medium phones (≤600px) — form & filter touch targets ───── */
+@media (max-width: 600px) {
+  /* Stack form action buttons vertically and make them full-width */
+  .form-actions { flex-direction: column; gap: 6px; }
+  .form-actions button { width: 100%; box-sizing: border-box; min-height: 40px; }
+
+  /* Touch-friendly filter inputs */
+  .filters select,
+  .filters input { min-height: 40px; }
+
+  /* Records card view: tighter padding */
+  #recordsCardsView { padding: 4px !important; }
 }
 
   </style>
@@ -2260,6 +2288,16 @@ body.no-transitions * { transition: none !important; }
           <label for="dateToFilter">To</label>
           <input id="dateToFilter" type="date" title="Filter records on or before this date">
         </div>
+        <div>
+          <label style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;color:var(--muted)">Shift</label>
+          <select id="shiftFilter" style="width:100%;font-size:13px;padding:4px 6px;background:var(--card2);border:1px solid var(--border);border-radius:var(--radius);color:var(--text)">
+            <option value="">All Shifts</option>
+            <option value="AM">AM</option>
+            <option value="PM">PM</option>
+            <option value="Night">Night</option>
+            <option value="Flex">Flex</option>
+          </select>
+        </div>
         <button id="clearFiltersBtn" class="secondary" type="button">Clear</button>
       </div>
       <div style="display:flex;gap:6px;margin-top:10px;flex-wrap:wrap">
@@ -2513,6 +2551,7 @@ body.no-transitions * { transition: none !important; }
           <div style="font-weight:700;font-size:13px;margin-bottom:10px">&#x1F4C5; Monthly Breakdown (Last 12 Months)</div>
           <div id="monthlyBreakdown"></div>
         </div>
+        <div id="shiftBreakdown" class="card" style="margin-top:12px;display:none"></div>
       </div>
 
       <div id="bucketView" class="hidden" role="tabpanel" aria-labelledby="bucketTab">
@@ -2552,6 +2591,16 @@ body.no-transitions * { transition: none !important; }
             <div><label for="empStatus">Status</label><select id="empStatus"><option value="Active">Active</option><option value="On Leave">On Leave</option><option value="Inactive">Inactive</option><option value="Terminated">Terminated</option></select></div>
             <div><label for="empStanding" style="display:block;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--muted);margin-bottom:5px">Standing</label><select id="empStanding" style="width:100%"><option value="good">Good Standing</option><option value="watchlist">Watch List</option><option value="warning">Final Warning</option><option value="onleave">On Leave</option></select></div>
             <div><label for="empHireDate" style="display:block;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--muted);margin-bottom:5px">Hire Date</label><input type="date" id="empHireDate" style="width:100%"></div>
+            <div class="form-group">
+              <label for="empShift">Shift</label>
+              <select id="empShift" style="width:100%">
+                <option value="">— Not assigned —</option>
+                <option value="AM">AM (Morning)</option>
+                <option value="PM">PM (Afternoon)</option>
+                <option value="Night">Night</option>
+                <option value="Flex">Flex / Variable</option>
+              </select>
+            </div>
             <div><label for="empNotes">Notes</label><textarea id="empNotes" placeholder="Optional notes…" rows="2" style="resize:vertical;width:100%"></textarea></div>
             <div class="form-actions"><button class="primary" type="submit">Add Employee</button><button class="secondary" type="reset">Reset</button></div>
           </form>
@@ -2582,6 +2631,7 @@ body.no-transitions * { transition: none !important; }
               <th><button class="sort-button" type="button" data-emp-sort="name">Name <span id="empSortName"></span></button></th>
               <th><button class="sort-button" type="button" data-emp-sort="department">Department <span id="empSortDept"></span></button></th>
               <th><button class="sort-button" type="button" data-emp-sort="role">Role <span id="empSortRole"></span></button></th>
+              <th>Shift</th>
               <th><button class="sort-button" type="button" data-emp-sort="status">Status <span id="empSortStatus"></span></button></th>
               <th>Standing</th>
               <th>Hire Date</th>
@@ -5331,6 +5381,16 @@ body.no-transitions * { transition: none !important; }
         if (!isNaN(ptsMin)) result = result.filter(function(r) { return (r.points || 0) >= ptsMin; });
         if (!isNaN(ptsMax)) result = result.filter(function(r) { return (r.points || 0) <= ptsMax; });
 
+        // Shift filter
+        var shiftFilterEl = document.getElementById('shiftFilter');
+        var shiftFilterVal = shiftFilterEl ? shiftFilterEl.value : '';
+        if (shiftFilterVal) {
+          result = result.filter(function(r) {
+            var emp = employees.find(function(e) { return norm(e.name || e) === norm(r.name); });
+            return emp && emp.shift === shiftFilterVal;
+          });
+        }
+
         return result;
       }
 
@@ -5720,7 +5780,7 @@ body.no-transitions * { transition: none !important; }
         });
       })();
 
-      // ── Wire dept / flag / pts filter events ──────────────────────────────
+      // ── Wire dept / flag / pts / shift filter events ──────────────────────
       (function() {
         var deptFilter = document.getElementById('deptFilter');
         if (deptFilter) deptFilter.addEventListener('change', function() { renderWithPageReset(); });
@@ -5730,6 +5790,8 @@ body.no-transitions * { transition: none !important; }
           var el = document.getElementById(id);
           if (el) el.addEventListener('input', function() { debouncedRenderWithPageReset(); });
         });
+        var shiftFilter = document.getElementById('shiftFilter');
+        if (shiftFilter) shiftFilter.addEventListener('change', function() { renderWithPageReset(); });
       })();
 
       function clearFilters() {
@@ -5752,6 +5814,8 @@ body.no-transitions * { transition: none !important; }
         ['ptsMinFilter','ptsMaxFilter'].forEach(function(id) {
           var el = document.getElementById(id); if (el) el.value = '';
         });
+        var shiftFilter = document.getElementById('shiftFilter');
+        if (shiftFilter) shiftFilter.value = '';
         var searchNotesEl = document.getElementById('searchNotes');
         if (searchNotesEl) searchNotesEl.checked = false;
         render();
@@ -7428,11 +7492,14 @@ body.no-transitions * { transition: none !important; }
           var hireObj = hireStr ? new Date(hireStr + 'T00:00:00') : null;
           var hireYears = hireObj && !isNaN(hireObj) ? Math.floor((new Date() - hireObj) / (365.25 * 86400000)) : 0;
           var milestoneBadge = hireStr ? (hireYears >= 10 ? ' 🏆' : hireYears >= 5 ? ' ⭐' : hireYears >= 3 ? ' 🌟' : '') : '';
+          var shiftColors = { AM: '#3b82f6', PM: '#f59e0b', Night: '#8b5cf6', Flex: '#22c55e' };
+          var shiftHtml = emp.shift ? '<span style="font-size:11px;padding:2px 6px;border-radius:10px;background:' + (shiftColors[emp.shift] || '#6b7280') + '22;color:' + (shiftColors[emp.shift] || '#6b7280') + ';font-weight:600">' + emp.shift + '</span>' : '<span style="color:var(--muted);font-size:12px">—</span>';
           return '<tr class="' + onLeaveClass.trim() + '">' +
             '<td><code class="editable-cell" data-emp-field="id" data-emp-id="' + escapeHtml(emp.id) + '" title="Click to edit ID">' + escapeHtml(emp.id || '—') + '</code></td>' +
             '<td style="display:flex;align-items:center;gap:8px">' + avatar + '<span class="emp-name-link editable-cell" data-emp-field="name" data-emp-id="' + escapeHtml(emp.id) + '" title="Click to edit name" style="font-weight:650;cursor:pointer;text-decoration:underline;text-decoration-style:dotted;text-underline-offset:2px">' + escapeHtml(emp.name) + '</span>' + empRiskBadge(emp.name) + empPatternBadge(emp.name) + empPtsSummary(emp.name) + empNotesBadge(emp.name) + '</td>' +
             '<td><span class="editable-cell" data-emp-field="department" data-emp-id="' + escapeHtml(emp.id) + '" title="Click to edit">' + escapeHtml(emp.department || '—') + '</span></td>' +
             '<td><span class="editable-cell" data-emp-field="role" data-emp-id="' + escapeHtml(emp.id) + '" title="Click to edit">' + escapeHtml(emp.role || '—') + '</span></td>' +
+            '<td>' + shiftHtml + '</td>' +
             '<td><span class="badge ' + tone + '">' + escapeHtml(emp.status) + '</span></td>' +
             '<td>' + empStatusBadge(emp.standing || 'good') + '</td>' +
             '<td style="font-size:12px">' + escapeHtml(emp.hireDate || '—') + milestoneBadge + '</td>' +
@@ -7557,6 +7624,7 @@ body.no-transitions * { transition: none !important; }
             status: document.getElementById('empStatus').value,
             standing: (document.getElementById('empStanding')||{value:'good'}).value || 'good',
             hireDate: (document.getElementById('empHireDate')||{value:''}).value || '',
+            shift: document.getElementById('empShift') ? document.getElementById('empShift').value : '',
             notes: (document.getElementById('empNotes')||{value:''}).value.trim()
           });
           saveEmployees();
