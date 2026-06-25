@@ -1800,6 +1800,7 @@ body.no-transitions * { transition: none !important; }
         <p>Track attendance, manage points, and sync to Google Drive.</p>
       </div>
       <div class="hero-actions">
+        <button type="button" id="globalSearchBtn" class="secondary" title="Global search (Ctrl+K)" onclick="openCmdPalette()" style="font-size:12px">🔍 Search</button>
         <button id="themeToggleBtn" class="secondary" type="button" title="Toggle light/dark theme">☀ Light</button>
         <div style="display:flex;gap:6px;align-items:center">
           <button type="button" id="importFileBtn" class="secondary" title="Import Excel or CSV file (supports .xlsx, .xls, .csv)">📂 Import File</button>
@@ -12826,6 +12827,11 @@ body.no-transitions * { transition: none !important; }
         <button type="button" id="empProfilePrintBtn" class="secondary no-print" style="margin-right:8px">🖨 Print Summary</button>
         <button type="button" id="closeEmpProfileBtn" style="background:none;border:none;color:var(--muted);font-size:24px;cursor:pointer;padding:0 4px;line-height:1">×</button>
       </div>
+    </div>
+    <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap">
+      <button type="button" id="profileEditBtn" class="secondary" style="font-size:12px;padding:4px 10px">✏️ Edit Employee</button>
+      <button type="button" id="profileAddRecordBtn" class="secondary" style="font-size:12px;padding:4px 10px">➕ Add Record</button>
+      <button type="button" id="profileViewRecordsBtn" class="secondary" style="font-size:12px;padding:4px 10px">📋 View Records</button>
     </div>
     <div id="empProfileAlertBanner" style="display:none;padding:10px 14px;border-radius:var(--radius);margin-bottom:14px;font-size:13px;font-weight:600"></div>
     <button type="button" id="empProfileReviewStandingBtn" style="display:none;margin-bottom:10px;padding:6px 14px;font-size:12px;font-weight:700;background:var(--yellow);color:#fff;border:none;border-radius:var(--radius);cursor:pointer"></button>
