@@ -2428,6 +2428,7 @@ body.no-transitions * { transition: none !important; }
           <button type="button" id="bulkAdjustPtsBtn" class="secondary small" style="font-size:12px;padding:3px 8px">Adjust Pts</button>
           <button class="secondary small" type="button" id="bulkDeselectBtn" style="margin-left:auto">✕ Deselect All</button>
         </div>
+        <div id="importBanner" style="display:none;background:rgba(34,197,94,0.1);border:1px solid rgba(34,197,94,0.3);color:#15803d;padding:8px 16px;border-radius:var(--radius);margin-bottom:8px;font-size:13px;align-items:center;gap:8px"></div>
         <div id="recordsTableView">
         <div class="table-wrap">
           <table aria-label="Attendance records">
@@ -10328,6 +10329,27 @@ body.no-transitions * { transition: none !important; }
         });
       }
 
+      function findUnknownEmployees(newRows) {
+        var empNames = new Set(employees.map(function(e) { return norm(e.name || e); }));
+        var unknown = new Set();
+        newRows.forEach(function(r) {
+          if (r.name && !empNames.has(norm(r.name))) unknown.add(r.name);
+        });
+        return Array.from(unknown);
+      }
+
+      function showImportBanner(imported, skipped, dupes, unknowns) {
+        var banner = document.getElementById('importBanner');
+        if (!banner) return;
+        var parts = ['✓ Imported ' + imported + ' records'];
+        if (dupes > 0) parts.push(dupes + ' duplicate' + (dupes !== 1 ? 's' : '') + ' skipped');
+        if (unknowns > 0) parts.push(unknowns + ' unknown employee' + (unknowns > 1 ? 's' : ''));
+        banner.textContent = parts.join(' · ');
+        banner.style.display = 'flex';
+        clearTimeout(banner._timer);
+        banner._timer = setTimeout(function() { banner.style.display = 'none'; }, 10000);
+      }
+
       function commitImportWizard() {
         var mapping = {};
         IMPORT_FIELDS.forEach(function(field) {
@@ -10965,12 +10987,38 @@ body.no-transitions * { transition: none !important; }
         var dupeKeys   = new Set(dupeRows.map(function(r) { return r.id; }));
         var dupeCount  = dupeRows.length;
 
+        // Unknown employee warning
+        var unknownEmps = findUnknownEmployees(_wizParsedRows);
+
+        // Future date warning
+        var today = new Date().toISOString().slice(0, 10);
+        var futureCount = _wizParsedRows.filter(function(r) { return r.dateIso && r.dateIso > today; }).length;
+
         var summary = document.getElementById('importWizPreviewSummary');
         if (summary) {
+          var warningHtml = '';
+          if (dupeCount > 0) {
+            warningHtml += '<div style="margin-top:8px;padding:7px 10px;background:rgba(248,113,113,0.1);border:1px solid rgba(248,113,113,0.35);border-radius:6px;font-size:12px;color:var(--danger)">' +
+              '⚠ ' + dupeCount + ' potential duplicate record' + (dupeCount !== 1 ? 's' : '') + ' detected (same employee, date, and code already exist) — these will be skipped.' +
+              '</div>';
+          }
+          if (unknownEmps.length > 0) {
+            warningHtml += '<div style="margin-top:8px;padding:7px 10px;background:rgba(234,179,8,0.1);border:1px solid rgba(234,179,8,0.35);border-radius:6px;font-size:12px;color:#92400e">' +
+              '⚠ Records for ' + unknownEmps.length + ' employee' + (unknownEmps.length !== 1 ? 's' : '') + ' not in the roster: ' +
+              unknownEmps.map(function(n) { return escapeHtml(n); }).join(', ') +
+              '. Import will add records but these employees won\'t appear in the Employees tab unless added manually.' +
+              '</div>';
+          }
+          if (futureCount > 0) {
+            warningHtml += '<div style="margin-top:8px;padding:7px 10px;background:rgba(59,130,246,0.08);border:1px solid rgba(59,130,246,0.3);border-radius:6px;font-size:12px;color:var(--blue)">' +
+              'ℹ ' + futureCount + ' record' + (futureCount !== 1 ? 's have' : ' has') + ' future dates. These will be imported as Future Requests.' +
+              '</div>';
+          }
           summary.innerHTML =
             '<strong>' + _wizParsedRows.length + '</strong> valid rows &nbsp;·&nbsp; ' +
             '<strong style="color:var(--danger)">' + dupeCount + '</strong> duplicates &nbsp;·&nbsp; ' +
-            '<strong style="color:var(--ok)">' + (_wizParsedRows.length - dupeCount) + '</strong> new';
+            '<strong style="color:var(--ok)">' + (_wizParsedRows.length - dupeCount) + '</strong> new' +
+            warningHtml;
         }
 
         var previewEl = document.getElementById('importWizPreviewRows');
@@ -11082,9 +11130,11 @@ body.no-transitions * { transition: none !important; }
           var hadSavedMapping = !!loadImportMapping(_wizCsvHeaders);
           saveImportMapping(_wizCsvHeaders, Object.assign({}, _wizMapping));
 
+          var unknownCount = findUnknownEmployees(newRows).length;
           doImportBtn.disabled = false;
           doImportBtn.textContent = origLabel;
           closeWizV2();
+          showImportBanner(newRows.length, 0, dupeRows.length, unknownCount);
           showToast('Imported ' + newRows.length + ' record' + (newRows.length !== 1 ? 's' : '') +
             (dupeRows.length ? ' (' + dupeRows.length + ' duplicate' + (dupeRows.length !== 1 ? 's' : '') + ' skipped)' : ''));
           if (!hadSavedMapping) showToast('Mapping saved — auto-applied next time you import this file format');
