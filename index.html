@@ -4080,11 +4080,7 @@ body.no-transitions * { transition: none !important; }
         headers.Authorization = 'Bearer ' + token;
         request.headers = headers;
         // Append API key for quota attribution when configured
-        var fetchUrl = url;
-        if (cloudConfig.apiKey && fetchUrl.indexOf('googleapis.com') !== -1) {
-          fetchUrl += (fetchUrl.indexOf('?') === -1 ? '?' : '&') + 'key=' + encodeURIComponent(cloudConfig.apiKey);
-        }
-        var response = await fetch(fetchUrl, request);
+        var response = await fetch(url, request);
         if (response.status === 401 || response.status === 403) {
           clearCloudToken();
         }
