@@ -7360,6 +7360,10 @@ body.no-transitions * { transition: none !important; }
             lastCell = '<span style="color:' + daysColor + ';font-weight:600">' + escapeHtml(daysLabel) + '</span><br><span style="font-size:11px;color:var(--muted)">' + lastIso + '</span>';
           }
           var empStreak = calcAttendanceStreakCached(emp.name);
+          var hireStr = emp.hireDate || '';
+          var hireObj = hireStr ? new Date(hireStr + 'T00:00:00') : null;
+          var hireYears = hireObj && !isNaN(hireObj) ? Math.floor((new Date() - hireObj) / (365.25 * 86400000)) : 0;
+          var milestoneBadge = hireStr ? (hireYears >= 10 ? ' 🏆' : hireYears >= 5 ? ' ⭐' : hireYears >= 3 ? ' 🌟' : '') : '';
           return '<tr>' +
             '<td><code class="editable-cell" data-emp-field="id" data-emp-id="' + escapeHtml(emp.id) + '" title="Click to edit ID">' + escapeHtml(emp.id || '—') + '</code></td>' +
             '<td style="display:flex;align-items:center;gap:8px">' + avatar + '<span class="emp-name-link editable-cell" data-emp-field="name" data-emp-id="' + escapeHtml(emp.id) + '" title="Click to edit name" style="font-weight:650;cursor:pointer;text-decoration:underline;text-decoration-style:dotted;text-underline-offset:2px">' + escapeHtml(emp.name) + '</span>' + empRiskBadge(emp.name) + empPatternBadge(emp.name) + empPtsSummary(emp.name) + empNotesBadge(emp.name) + '</td>' +
@@ -7367,7 +7371,7 @@ body.no-transitions * { transition: none !important; }
             '<td><span class="editable-cell" data-emp-field="role" data-emp-id="' + escapeHtml(emp.id) + '" title="Click to edit">' + escapeHtml(emp.role || '—') + '</span></td>' +
             '<td><span class="badge ' + tone + '">' + escapeHtml(emp.status) + '</span></td>' +
             '<td>' + empStatusBadge(emp.standing || 'good') + '</td>' +
-            '<td style="font-size:12px">' + escapeHtml(emp.hireDate || '—') + '</td>' +
+            '<td style="font-size:12px">' + escapeHtml(emp.hireDate || '—') + milestoneBadge + '</td>' +
             '<td style="font-size:12px;color:var(--muted)">' + calcTenure(emp.hireDate) + '</td>' +
             '<td>' + recordCount.toLocaleString() + '</td>' +
             '<td>' + lastCell + '</td>' +
@@ -8783,6 +8787,20 @@ body.no-transitions * { transition: none !important; }
         if (typeof pushFiltersToHash === 'function') pushFiltersToHash();
         updateHealthBadge();
       }
+
+      // ── RAF render batching ───────────────────────────────────────────────
+      // Wraps render() so that multiple synchronous calls in the same event
+      // loop tick coalesce into a single rAF-scheduled execution.
+      var _rafPending = false;
+      var _originalRender = render;
+      render = function() {
+        if (_rafPending) return;
+        _rafPending = true;
+        requestAnimationFrame(function() {
+          _rafPending = false;
+          _originalRender();
+        });
+      };
 
       function updateTabBadges(visibleCount) {
         // Records tab — show filtered count when filtered, else total
