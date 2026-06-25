@@ -12038,6 +12038,12 @@ body.no-transitions * { transition: none !important; }
         if (sevMid) sevMid.value = appSettings.severityMid !== undefined ? appSettings.severityMid : 2;
         var acToggle = document.getElementById('autoConsequencesToggle');
         if (acToggle) acToggle.checked = appSettings.autoConsequences !== false;
+        var dfEl = document.getElementById('settingDateFormat');
+        if (dfEl) dfEl.value = appSettings.dateFormat || 'MM/DD/YYYY';
+        var psEl = document.getElementById('settingPageSize');
+        if (psEl) psEl.value = String(appSettings.pageSize !== undefined ? appSettings.pageSize : 50);
+        var abEl = document.getElementById('settingAutoBackup');
+        if (abEl) abEl.value = String(appSettings.autoBackupInterval !== undefined ? appSettings.autoBackupInterval : 0);
         var settingsModalEl = document.getElementById('settingsModal');
         settingsModalEl.classList.remove('hidden');
         trapFocus(settingsModalEl);
@@ -12188,6 +12194,14 @@ body.no-transitions * { transition: none !important; }
           if (!isNaN(sevMidVal) && sevMidVal >= 0) appSettings.severityMid = sevMidVal;
           var acToggle = document.getElementById('autoConsequencesToggle');
           if (acToggle) appSettings.autoConsequences = acToggle.checked;
+          var dtsEl = document.getElementById('defaultTabSetting');
+          if (dtsEl) appSettings.defaultTab = dtsEl.value;
+          var dfEl = document.getElementById('settingDateFormat');
+          if (dfEl) appSettings.dateFormat = dfEl.value;
+          var psEl = document.getElementById('settingPageSize');
+          if (psEl) appSettings.pageSize = parseInt(psEl.value, 10) || 50;
+          var abEl = document.getElementById('settingAutoBackup');
+          if (abEl) appSettings.autoBackupInterval = parseInt(abEl.value, 10) || 0;
           saveSettings(); applySettings();
           closeModal(document.getElementById('settingsModal'));
           showToast('Settings saved');
@@ -12195,7 +12209,7 @@ body.no-transitions * { transition: none !important; }
         });
         var resetBtn = document.getElementById('resetSettingsBtn');
         if (resetBtn) resetBtn.addEventListener('click', function() {
-          appSettings = { rowDensity: 'comfortable', dateFormat: 'MM/DD/YYYY', defaultTab: 'records', accentColor: 'blue', showDashHeatmap: true, showDashClusters: true, showDashPeriodCompare: true, showDashLeaderboard: true, severityHigh: 6, severityMid: 2, autoConsequences: true };
+          appSettings = { rowDensity: 'comfortable', dateFormat: 'MM/DD/YYYY', defaultTab: 'records', accentColor: 'blue', showDashHeatmap: true, showDashClusters: true, showDashPeriodCompare: true, showDashLeaderboard: true, severityHigh: 6, severityMid: 2, autoConsequences: true, pageSize: 50, autoBackupInterval: 0 };
           openSettingsModal();
         });
         document.querySelectorAll('.settings-density-btn').forEach(function(b) {
@@ -13379,6 +13393,10 @@ body.no-transitions * { transition: none !important; }
       <button type="button" id="closeSettingsBtn" aria-label="Close" style="background:none;border:none;color:var(--muted);font-size:22px;cursor:pointer;padding:0 4px;line-height:1">×</button>
     </div>
     <div style="display:flex;flex-direction:column;gap:18px">
+
+      <!-- ── DISPLAY section ───────────────────────────── -->
+      <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;color:var(--muted);padding-bottom:4px;border-bottom:2px solid var(--border)">Display</div>
+
       <div>
         <label style="display:block;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--muted);margin-bottom:8px">Row Density</label>
         <div style="display:flex;gap:8px">
@@ -13403,6 +13421,26 @@ body.no-transitions * { transition: none !important; }
           <option value="records">Records</option>
           <option value="summary">Summary</option>
           <option value="employees">Employees</option>
+          <option value="timeoff">Time Off</option>
+          <option value="calendar">Calendar</option>
+        </select>
+      </div>
+      <div>
+        <label for="settingDateFormat" style="display:block;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--muted);margin-bottom:8px">Date Format</label>
+        <select id="settingDateFormat" style="width:100%">
+          <option value="MM/DD/YYYY">01/15/2026</option>
+          <option value="MMM D, YYYY">Jan 15, 2026</option>
+          <option value="M/D/YYYY">1/15/2026</option>
+          <option value="YYYY-MM-DD">2026-01-15</option>
+        </select>
+      </div>
+      <div>
+        <label for="settingPageSize" style="display:block;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--muted);margin-bottom:8px">Records Per Page</label>
+        <select id="settingPageSize" style="width:100%">
+          <option value="25">25</option>
+          <option value="50">50</option>
+          <option value="100">100</option>
+          <option value="0">All</option>
         </select>
       </div>
       <div>
@@ -13414,7 +13452,11 @@ body.no-transitions * { transition: none !important; }
           <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer"><input type="checkbox" id="dashShowLeaderboard"> Leaderboard</label>
         </div>
       </div>
-      <div style="margin-top:18px">
+
+      <!-- ── DATA section ──────────────────────────────── -->
+      <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;color:var(--muted);padding-bottom:4px;border-bottom:2px solid var(--border);margin-top:6px">Data</div>
+
+      <div style="margin-top:4px">
         <label style="display:block;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--muted);margin-bottom:8px">Auto-Points by Code <span style="font-weight:400;text-transform:none;font-size:11px">(auto-fills when you type a code)</span></label>
         <div id="pointsConfigList" style="display:flex;flex-direction:column;gap:6px;max-height:200px;overflow-y:auto"></div>
         <div style="display:flex;gap:8px;margin-top:8px">
@@ -13447,6 +13489,16 @@ body.no-transitions * { transition: none !important; }
           <span class="toggle-slider"></span>
         </label>
       </div>
+      <div>
+        <label for="settingAutoBackup" style="display:block;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--muted);margin-bottom:8px">Auto-Backup</label>
+        <select id="settingAutoBackup" style="width:100%">
+          <option value="0">Off</option>
+          <option value="5">Every 5 minutes</option>
+          <option value="15">Every 15 minutes</option>
+          <option value="30">Every 30 minutes</option>
+        </select>
+      </div>
+
     </div>
     <div style="margin-top:22px;padding-top:16px;border-top:1px solid var(--border);display:flex;justify-content:flex-end;gap:10px">
       <button class="secondary" type="button" id="resetSettingsBtn">Reset Defaults</button>
