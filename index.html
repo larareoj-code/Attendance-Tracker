@@ -1207,6 +1207,16 @@
     #importWizardModal .mapping-src { font-size: 13px; font-weight: 600; color: var(--text); padding: 6px 10px; background: var(--card); border: 1px solid var(--border); border-radius: 6px; }
     #importWizardModal .mapping-arrow { color: var(--muted); text-align: center; }
 
+    /* Import Wizard V2 — column mapping select feedback */
+    .col-map-select.mapped-required   { border-color: #22c55e !important; box-shadow: 0 0 0 1px #22c55e44; }
+    .col-map-select.mapped-optional   { border-color: var(--border); }
+    .col-map-select.unmapped-required { border-color: #f59e0b !important; box-shadow: 0 0 0 1px #f59e0b44; }
+
+    /* Import Wizard V2 — preview row-level validation */
+    .wiz-row-ok   { border-left: 3px solid #22c55e; }
+    .wiz-row-warn { border-left: 3px solid #f59e0b; }
+    .wiz-row-err  { border-left: 3px solid var(--danger); background: rgba(239,68,68,0.05); }
+
     /* Toast container */
     #toastContainer {
       position: fixed;
@@ -1882,7 +1892,11 @@ body.no-transitions * { transition: none !important; }
         </div>
         <div class="toolbar-divider"></div>
         <button class="secondary" type="button" id="importHistoryBtn" title="View import history">📜 History</button>
-        <button class="secondary" type="button" id="undoBtn" title="Undo last action (Ctrl+Z)" disabled="">↩ Undo</button>
+        <div style="position:relative;display:inline-flex" id="undoBtnWrap">
+          <button class="secondary" type="button" id="undoBtn" title="Undo last action (Ctrl+Z)" disabled="" style="border-radius:var(--radius) 0 0 var(--radius);border-right:none">↩ Undo</button>
+          <button class="secondary" type="button" id="undoHistoryBtn" title="Undo history" style="padding:4px 6px;border-radius:0 var(--radius) var(--radius) 0;border-left:1px solid var(--border)" disabled="">▾</button>
+          <div id="undoHistoryMenu" style="display:none;position:absolute;top:100%;left:0;background:var(--card);border:1px solid var(--border);border-radius:var(--radius);box-shadow:0 4px 12px rgba(0,0,0,0.2);min-width:220px;z-index:300;max-height:240px;overflow-y:auto;margin-top:2px"></div>
+        </div>
         <button class="secondary" type="button" id="colVisBtn" title="Show/hide table columns">⊞ Columns</button>
         <button class="secondary" type="button" id="shortcutsBtn" title="Keyboard shortcuts (?)">⌨ Shortcuts</button>
         <button class="secondary" type="button" id="policyRulesBtn" title="Configure auto-flagging rules">⚖ Rules</button>
@@ -2330,6 +2344,11 @@ body.no-transitions * { transition: none !important; }
       <div id="leaderboardEmpty" class="empty" style="display:none">No data yet.</div>
     </div>
 
+    <div class="dash-section" id="dashStreakSection">
+      <div class="dash-section-title">🔥 Top Attendance Streaks</div>
+      <div id="streakLeaderboard"></div>
+    </div>
+
     <div class="dash-section dash-full">
       <div id="clusterSection" style="margin-bottom:24px">
         <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--muted);margin-bottom:12px">&#9888; Cluster Alerts <span id="clusterBadge" style="display:none;background:var(--danger);color:#fff;border-radius:99px;padding:1px 7px;font-size:10px;margin-left:6px"></span></div>
@@ -2516,6 +2535,7 @@ body.no-transitions * { transition: none !important; }
               <th>Tenure</th>
               <th><button class="sort-button" type="button" data-emp-sort="records">Records <span id="empSortRecords"></span></button></th>
               <th><button class="sort-button" type="button" data-emp-sort="lastdate">Last Occurrence <span id="empSortLastdate"></span></button></th>
+              <th>Streak</th>
               <th>Notes</th>
               <th>Actions</th>
             </tr></thead>
@@ -6282,6 +6302,56 @@ body.no-transitions * { transition: none !important; }
         return (yrs > 0 ? yrs + 'y ' : '') + mos + 'm';
       }
 
+      function calcAttendanceStreak(empName) {
+        // Get all records for this employee, sorted by date desc
+        var empRows = rows.filter(function(r) { return norm(r.name) === norm(empName) && r.dateIso; });
+        if (empRows.length === 0) return { current: 0, longest: 0 };
+
+        // Get set of all dates with occurrences
+        var occDates = {};
+        empRows.forEach(function(r) { occDates[r.dateIso] = true; });
+
+        // Walk backwards from today counting clean weekdays
+        var current = 0;
+        var d = new Date();
+        var checked = 0;
+        while (checked < 365) {
+          var iso = d.toISOString().slice(0, 10);
+          var dow = d.getDay();
+          if (dow !== 0 && dow !== 6) { // skip weekends
+            if (occDates[iso]) break; // streak broken
+            current++;
+          }
+          d.setDate(d.getDate() - 1);
+          checked++;
+        }
+
+        // Calculate longest streak ever
+        var allDates = Object.keys(occDates).sort();
+        var longest = 0;
+        var run = 0;
+        // Walk all workdays in date range
+        if (allDates.length > 0) {
+          var start = new Date(allDates[0] + 'T00:00:00');
+          var end = new Date();
+          var cur = new Date(start);
+          while (cur <= end) {
+            var iso2 = cur.toISOString().slice(0, 10);
+            var dow2 = cur.getDay();
+            if (dow2 !== 0 && dow2 !== 6) {
+              if (occDates[iso2]) { longest = Math.max(longest, run); run = 0; }
+              else { run++; }
+            }
+            cur.setDate(cur.getDate() + 1);
+          }
+          longest = Math.max(longest, run);
+        } else {
+          longest = current;
+        }
+
+        return { current: current, longest: longest };
+      }
+
       function openEmpProfile(name) {
         var emp = employees.find(function(e) { return norm(e.name) === norm(name); }) || { name: name };
         var empRows = rows.filter(function(r) { return norm(r.name) === norm(name); })
@@ -6300,11 +6370,14 @@ body.no-transitions * { transition: none !important; }
 
         var statsEl = document.getElementById('empProfileStats');
         if (statsEl) {
+          var streak = calcAttendanceStreak(name);
           statsEl.innerHTML = [
             { label: 'Occurrences', value: occRows.length, color: occRows.length > 5 ? 'var(--danger)' : 'var(--text)' },
             { label: 'Total Points', value: totalPts.toFixed(1), color: totalPts >= 6 ? 'var(--danger)' : totalPts >= 2 ? 'var(--yellow)' : 'var(--ok)' },
             { label: 'NCNS', value: ncnsCount, color: ncnsCount > 0 ? 'var(--danger)' : 'var(--ok)' },
             { label: 'Future Requests', value: futureRows.length, color: 'var(--blue)' },
+            { label: 'Day Streak', value: streak.current, color: streak.current >= 10 ? 'var(--ok)' : 'var(--text)' },
+            { label: 'Longest Streak', value: streak.longest, color: 'var(--blue)' },
           ].map(function(s) {
             return '<div style="background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:12px;text-align:center">' +
               '<div style="font-size:22px;font-weight:800;color:' + s.color + '">' + s.value + '</div>' +
@@ -7030,6 +7103,7 @@ body.no-transitions * { transition: none !important; }
             var daysColor = daysDiff <= 7 ? 'var(--danger)' : daysDiff <= 30 ? 'var(--yellow)' : 'var(--muted)';
             lastCell = '<span style="color:' + daysColor + ';font-weight:600">' + escapeHtml(daysLabel) + '</span><br><span style="font-size:11px;color:var(--muted)">' + lastIso + '</span>';
           }
+          var empStreak = calcAttendanceStreak(emp.name);
           return '<tr>' +
             '<td><code class="editable-cell" data-emp-field="id" data-emp-id="' + escapeHtml(emp.id) + '" title="Click to edit ID">' + escapeHtml(emp.id || '—') + '</code></td>' +
             '<td style="display:flex;align-items:center;gap:8px">' + avatar + '<span class="emp-name-link editable-cell" data-emp-field="name" data-emp-id="' + escapeHtml(emp.id) + '" title="Click to edit name" style="font-weight:650;cursor:pointer;text-decoration:underline;text-decoration-style:dotted;text-underline-offset:2px">' + escapeHtml(emp.name) + '</span>' + empRiskBadge(emp.name) + empPatternBadge(emp.name) + empPtsSummary(emp.name) + empNotesBadge(emp.name) + '</td>' +
@@ -7041,6 +7115,7 @@ body.no-transitions * { transition: none !important; }
             '<td style="font-size:12px;color:var(--muted)">' + calcTenure(emp.hireDate) + '</td>' +
             '<td>' + recordCount.toLocaleString() + '</td>' +
             '<td>' + lastCell + '</td>' +
+            '<td><span title="Longest: ' + empStreak.longest + ' days">' + empStreak.current + (empStreak.current >= 10 ? ' 🔥' : '') + '</span></td>' +
             '<td style="font-size:12px;color:var(--muted);max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="'+escapeHtml(emp.notes||'')+'">'+escapeHtml((emp.notes||'').slice(0,60))+((emp.notes||'').length>60?'…':'')+'</td>' +
             '<td style="display:flex;gap:6px;flex-wrap:wrap">' +
               '<button class="small secondary" type="button" data-emp-action="profile" data-emp-name="' + escapeHtml(emp.name) + '" title="View profile">Profile</button>' +
@@ -7906,6 +7981,9 @@ body.no-transitions * { transition: none !important; }
         var heatmapSection = document.getElementById('dashHeatmapSection');
         if (heatmapSection) heatmapSection.classList.toggle('hidden', appSettings.showDashHeatmap === false);
         if (appSettings.showDashHeatmap !== false) _renderHeatmap();
+
+        // Streak leaderboard
+        renderStreakLeaderboard();
       }
 
       function _renderDashStats() {
@@ -7935,6 +8013,30 @@ body.no-transitions * { transition: none !important; }
         }).join('');
         var lastUpdEl = document.getElementById('dashLastUpdated');
         if (lastUpdEl) lastUpdEl.textContent = 'Updated ' + new Date().toLocaleTimeString('en-US', {hour:'numeric',minute:'2-digit'});
+      }
+
+      function renderStreakLeaderboard() {
+        var el = document.getElementById('streakLeaderboard');
+        if (!el) return;
+        var streaks = employees.map(function(e) {
+          var name = e.name || e;
+          return { name: name, streak: calcAttendanceStreak(name).current };
+        }).filter(function(x) { return x.streak > 0; })
+          .sort(function(a, b) { return b.streak - a.streak; })
+          .slice(0, 5);
+
+        if (streaks.length === 0) {
+          el.innerHTML = '<div style="color:var(--muted);font-size:13px;padding:8px">No active streaks</div>';
+          return;
+        }
+        el.innerHTML = streaks.map(function(s, i) {
+          var medal = ['🥇','🥈','🥉','4️⃣','5️⃣'][i];
+          return '<div style="display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid var(--border)">' +
+            '<span style="font-size:16px">' + medal + '</span>' +
+            '<span style="flex:1;font-size:13px">' + escapeHtml(s.name) + '</span>' +
+            '<span style="font-weight:700;color:var(--blue)">' + s.streak + ' days</span>' +
+            '</div>';
+        }).join('');
       }
 
       var _dashChartBars = [];
@@ -9726,8 +9828,11 @@ body.no-transitions * { transition: none !important; }
       function updateUndoBtn() {
         var btn = document.getElementById('undoBtn');
         if (!btn) return;
-        btn.disabled = _undoStack.length === 0;
-        btn.title = _undoStack.length ? 'Undo: ' + _undoStack[_undoStack.length-1].label + ' (Ctrl+Z)' : 'Nothing to undo';
+        var empty = _undoStack.length === 0;
+        btn.disabled = empty;
+        btn.title = empty ? 'Nothing to undo' : 'Undo: ' + _undoStack[_undoStack.length-1].label + ' (Ctrl+Z)';
+        var histBtn = document.getElementById('undoHistoryBtn');
+        if (histBtn) histBtn.disabled = empty;
       }
 
       function pushUndo(label, undoFn) {
@@ -9926,6 +10031,43 @@ body.no-transitions * { transition: none !important; }
       var undoBtn = document.getElementById('undoBtn');
       if (undoBtn) undoBtn.addEventListener('click', popUndo);
 
+      // Undo history dropdown
+      (function() {
+        var histBtn = document.getElementById('undoHistoryBtn');
+        var histMenu = document.getElementById('undoHistoryMenu');
+        if (!histBtn || !histMenu) return;
+
+        function closeUndoMenu() { histMenu.style.display = 'none'; }
+
+        function openUndoMenu() {
+          var items = _undoStack.slice().reverse().slice(0, 10);
+          if (items.length === 0) {
+            histMenu.innerHTML = '<div style="padding:10px 14px;color:var(--muted);font-size:13px">No undo history</div>';
+          } else {
+            histMenu.innerHTML = items.map(function(item, i) {
+              return '<div class="undo-history-item" data-idx="' + i + '" style="padding:7px 14px;font-size:13px;cursor:pointer;border-bottom:1px solid var(--border)">' +
+                (item.label || 'Action ' + (i + 1)) + '</div>';
+            }).join('');
+            histMenu.querySelectorAll('.undo-history-item').forEach(function(el) {
+              el.addEventListener('mouseenter', function() { el.style.background = 'rgba(59,130,246,0.1)'; });
+              el.addEventListener('mouseleave', function() { el.style.background = ''; });
+              el.addEventListener('click', function() {
+                var stepsBack = parseInt(el.dataset.idx, 10) + 1;
+                for (var s = 0; s < stepsBack; s++) popUndo();
+                closeUndoMenu();
+              });
+            });
+          }
+          histMenu.style.display = 'block';
+        }
+
+        histBtn.addEventListener('click', function(e) {
+          e.stopPropagation();
+          histMenu.style.display === 'none' ? openUndoMenu() : closeUndoMenu();
+        });
+        document.addEventListener('click', function() { closeUndoMenu(); });
+      })();
+
       // Task 3: Import history button
       (function() {
         var hBtn = document.getElementById('importHistoryBtn');
@@ -10096,16 +10238,42 @@ body.no-transitions * { transition: none !important; }
         else reader.readAsArrayBuffer(file);
       }
 
+      function updateColMapSelectClass(sel, fieldKey) {
+        var field = APP_FIELDS.find(function(f) { return f.key === fieldKey; });
+        var isMapped = !!sel.value;
+        sel.classList.remove('mapped-required', 'mapped-optional', 'unmapped-required');
+        if (field && field.required) {
+          sel.classList.add(isMapped ? 'mapped-required' : 'unmapped-required');
+        } else {
+          sel.classList.add('mapped-optional');
+        }
+      }
+
       function renderMappingGridV2() {
         var grid = document.getElementById('importWizMappingGrid');
         if (!grid) return;
+
+        // Try to pre-fill from saved mapping
+        var savedMapping = loadImportMapping(_wizCsvHeaders);
+        if (savedMapping) {
+          // Merge saved mapping: only use keys that still exist in headers
+          APP_FIELDS.forEach(function(f) {
+            if (savedMapping[f.key] && _wizCsvHeaders.indexOf(savedMapping[f.key]) !== -1) {
+              _wizMapping[f.key] = savedMapping[f.key];
+            }
+          });
+        }
+
         grid.innerHTML = APP_FIELDS.map(function(f) {
           var selected = _wizMapping[f.key] || '';
+          var isMapped = !!selected;
+          var selClass = 'col-map-select ' + (f.required ? (isMapped ? 'mapped-required' : 'unmapped-required') : 'mapped-optional');
           return '<div>' +
             '<label style="font-size:12px;font-weight:700;color:var(--muted);display:block;margin-bottom:3px">' +
               escapeHtml(f.label) + (f.required ? ' <span style="color:var(--danger)">*</span>' : '') +
+              (f.required && isMapped ? ' <span style="color:#22c55e;font-size:11px">✓</span>' : '') +
             '</label>' +
-            '<select data-field="' + f.key + '" style="width:100%;font-size:13px;padding:5px 8px">' +
+            '<select data-field="' + f.key + '" class="' + selClass + '" style="width:100%;font-size:13px;padding:5px 8px">' +
               '<option value="">— skip —</option>' +
               _wizCsvHeaders.map(function(h) {
                 return '<option value="' + escapeHtml(h) + '"' + (h === selected ? ' selected' : '') + '>' + escapeHtml(h) + '</option>';
@@ -10119,6 +10287,21 @@ body.no-transitions * { transition: none !important; }
             var fk = sel.getAttribute('data-field');
             if (sel.value) _wizMapping[fk] = sel.value;
             else delete _wizMapping[fk];
+            updateColMapSelectClass(sel, fk);
+            // Update label checkmark
+            var label = sel.previousElementSibling;
+            if (label) {
+              var field = APP_FIELDS.find(function(f) { return f.key === fk; });
+              if (field && field.required) {
+                var ck = label.querySelector('.map-ck');
+                if (sel.value) {
+                  if (!ck) { ck = document.createElement('span'); ck.className = 'map-ck'; ck.style.cssText = 'color:#22c55e;font-size:11px'; label.appendChild(ck); }
+                  ck.textContent = ' ✓';
+                } else if (ck) {
+                  ck.remove();
+                }
+              }
+            }
           });
         });
       }
