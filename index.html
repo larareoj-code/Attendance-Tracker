@@ -1895,6 +1895,7 @@ body.no-transitions * { transition: none !important; }
         <input type="file" id="restoreJsonInput" accept=".json" style="display:none">
         <div class="toolbar-divider"></div>
         <button class="secondary" type="button" id="settingsBtn" title="App settings">⚙ Settings</button>
+        <button type="button" id="policyBtn" class="secondary" title="Attendance policy reference" onclick="document.getElementById('attendancePolicyModal').style.display='flex'">📋 Policy</button>
         <div id="cloudSyncBadge" title="Google Drive sync status" style="display:none;align-items:center;gap:5px;padding:4px 10px;border-radius:20px;font-size:11px;font-weight:700;background:rgba(34,197,94,0.12);border:1px solid rgba(34,197,94,0.3);color:#16a34a;cursor:default;white-space:nowrap">
           <span id="cloudSyncBadgeIcon">●</span><span id="cloudSyncBadgeText">Synced</span>
         </div>
@@ -2070,7 +2071,7 @@ body.no-transitions * { transition: none !important; }
 
     <section class="panel" aria-label="Add attendance record">
       <div class="panel-title" style="cursor:pointer;user-select:none" id="manualPanelToggle">
-        <h2>Add Record</h2>
+        <h2>Add Record<button type="button" class="secondary" onclick="event.stopPropagation();document.getElementById('attendancePolicyModal').style.display='flex'" style="font-size:11px;padding:2px 6px;margin-left:6px;opacity:0.6" title="View policy reference">?</button></h2>
         <span style="display:flex;align-items:center;gap:10px">
           <span id="manualStatus" class="muted" aria-live="polite"></span>
           <span id="manualPanelChevron" style="font-size:13px;color:var(--muted);transition:transform 0.2s">▼</span>
@@ -2095,16 +2096,16 @@ body.no-transitions * { transition: none !important; }
         </div>
         <div>
           <label for="manualCode">Code</label>
-          <input id="manualCode" type="text" autocomplete="off" title="The attendance code (e.g., A1, T1, NCNS). Determines point value if auto-points are configured.">
+          <input id="manualCode" type="text" autocomplete="off" title="Attendance code (e.g., A1=Occurrence, T1=Tardy, NCNS=No Call No Show). Auto-fills points if code is configured.">
           <div class="field-error" id="err-manualCode" style="display:none;color:var(--danger);font-size:11px;margin-top:3px"></div>
         </div>
         <div>
           <label for="manualPoints">Points</label>
-          <input id="manualPoints" type="number" step="0.5" min="0" value="0" required="" title="Enter the point value for this occurrence. Positive = points added. Negative = points removed (give-back).">
+          <input id="manualPoints" type="number" step="0.5" min="0" value="0" required="" title="Point value added to employee total. Positive = points against employee. Negative = give-back (reduces points).">
         </div>
         <div>
           <label for="manualStatusSelect">Status</label>
-          <select id="manualStatusSelect" style="min-width:120px" title="Occurrence = past attendance issue. Future Request = pre-approved absence. Past Request = retroactive time off request.">
+          <select id="manualStatusSelect" style="min-width:120px" title="Occurrence = unexcused absence. Future Request = pre-approved. Past Request = retroactive.">
             <option value="past">Occurrence</option>
             <option value="future">Future Request</option>
             <option value="pastrequest">Past Request</option>
@@ -2337,6 +2338,7 @@ body.no-transitions * { transition: none !important; }
       <canvas id="monthlyChart" style="width:100%;display:block"></canvas>
       <div id="monthlyChartEmpty" class="empty" style="display:none">No occurrence data yet.</div>
       <div id="dashChartTooltip" style="position:fixed;background:var(--card2);border:1px solid var(--border);border-radius:var(--radius);padding:6px 10px;font-size:12px;pointer-events:none;display:none;z-index:300;box-shadow:var(--shadow)"></div>
+      <div style="margin-top:6px;text-align:right"><a id="monthlyChartExport" href="#" download="monthly-attendance-chart.png" style="display:none;font-size:12px;padding:4px 10px;border-radius:var(--radius);border:1px solid var(--border);text-decoration:none;color:var(--text);align-items:center;gap:4px">&#128229; Save Chart</a></div>
     </div>
 
     <div class="dash-section">
@@ -2520,6 +2522,7 @@ body.no-transitions * { transition: none !important; }
           <span id="bucketFilterInfo" style="font-size:13px;color:var(--muted);margin-left:auto"></span>
         </div>
         <div id="bucketStats"></div>
+        <div id="bucketRangeLabel" style="font-size:12px;color:var(--muted);margin-bottom:6px"></div>
         <div class="table-wrap">
           <table aria-label="Approved time off bucket by employee">
             <thead>
@@ -12754,6 +12757,13 @@ body.no-transitions * { transition: none !important; }
           localStorage.setItem('attTracker_shownShortcutHint', '1');
         }, 3000);
       }
+      // First-run welcome toast for brand-new users
+      if (!localStorage.getItem('attTracker_welcomed') && rows.length === 0 && employees.length === 0) {
+        localStorage.setItem('attTracker_welcomed', '1');
+        setTimeout(function() {
+          showToast('👋 Welcome! Load demo data to explore, or import a file to begin. Press ? for keyboard shortcuts.');
+        }, 1000);
+      }
 
       // ── Daily Summary Notification ───────────────────────────────────────
       function scheduleDailySummary() {
@@ -13578,6 +13588,38 @@ body.no-transitions * { transition: none !important; }
   </script>
 
 
+
+<div id="attendancePolicyModal" class="modal-overlay" style="display:none" role="dialog" aria-modal="true" aria-labelledby="attendancePolicyModalTitle">
+  <div class="modal" style="max-width:520px;max-height:85vh;overflow-y:auto">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+      <h2 id="attendancePolicyModalTitle" style="margin:0;font-size:16px">📋 Attendance Policy Reference</h2>
+      <button type="button" onclick="document.getElementById('attendancePolicyModal').style.display='none'" class="secondary" aria-label="Close" style="padding:4px 10px">✕</button>
+    </div>
+    <section style="margin-bottom:16px">
+      <h3 style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:var(--muted);margin:0 0 8px">Point System</h3>
+      <p style="font-size:13px;margin:0 0 8px">Points accumulate over a rolling 12-month period. Reaching the mid threshold triggers a warning; reaching the high threshold triggers discipline.</p>
+    </section>
+    <section style="margin-bottom:16px">
+      <h3 style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:var(--muted);margin:0 0 8px">Occurrence Types</h3>
+      <table style="width:100%;border-collapse:collapse;font-size:12px">
+        <tr style="background:var(--card2)"><th style="text-align:left;padding:5px 8px">Type</th><th style="text-align:left;padding:5px 8px">Description</th></tr>
+        <tr><td style="padding:4px 8px;border-bottom:1px solid var(--border)">Occurrence</td><td style="padding:4px 8px;border-bottom:1px solid var(--border)">Unexcused absence or late arrival</td></tr>
+        <tr><td style="padding:4px 8px;border-bottom:1px solid var(--border)">NCNS</td><td style="padding:4px 8px;border-bottom:1px solid var(--border)">No call no show — most severe</td></tr>
+        <tr><td style="padding:4px 8px;border-bottom:1px solid var(--border)">Future Request</td><td style="padding:4px 8px;border-bottom:1px solid var(--border)">Pre-approved upcoming absence</td></tr>
+        <tr><td style="padding:4px 8px">Past Request</td><td style="padding:4px 8px">Retroactive time off request</td></tr>
+      </table>
+    </section>
+    <section>
+      <h3 style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:var(--muted);margin:0 0 8px">Flags</h3>
+      <ul style="font-size:13px;padding-left:18px;margin:0">
+        <li><strong>Cluster</strong> — Part of a recurring pattern</li>
+        <li><strong>30-Day Give Back</strong> — Points being returned per policy</li>
+        <li><strong>Policy Drop Off Pending</strong> — Eligible for removal after clean period</li>
+      </ul>
+    </section>
+    <button type="button" onclick="document.getElementById('attendancePolicyModal').style.display='none'" class="secondary" style="width:100%;margin-top:16px">Close</button>
+  </div>
+</div>
 
 <div id="policyModal" class="hidden" role="dialog" aria-modal="true" aria-labelledby="policyModalTitle" style="position:fixed;inset:0;z-index:200;background:rgba(0,0,0,0.55);display:flex;align-items:center;justify-content:center;padding:24px">
   <div style="background:var(--card2);border:1px solid var(--border-light);border-radius:var(--radius);box-shadow:var(--shadow);width:100%;max-width:540px;max-height:82vh;overflow-y:auto;padding:24px">
