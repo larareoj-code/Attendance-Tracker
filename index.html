@@ -6242,6 +6242,7 @@ body.no-transitions * { transition: none !important; }
         renderThisMonthSummary();
         renderDeptBreakdown();
         renderMonthlyBreakdown();
+        renderShiftBreakdown();
       }
 
       function renderMonthlyBreakdown() {
@@ -6340,6 +6341,28 @@ body.no-transitions * { transition: none !important; }
               '</tr>';
           }).join('') +
           '</tbody></table>';
+      }
+
+      function renderShiftBreakdown() {
+        var el = document.getElementById('shiftBreakdown');
+        if (!el) return;
+        var shiftPts = {};
+        rows.forEach(function(r) {
+          var emp = employees.find(function(e) { return norm(e.name || e) === norm(r.name); });
+          var shift = (emp && emp.shift) ? emp.shift : 'Unassigned';
+          shiftPts[shift] = (shiftPts[shift] || 0) + (parseFloat(r.points) || 0);
+        });
+        var shifts = Object.keys(shiftPts).filter(function(s) { return s !== 'Unassigned'; }).sort();
+        if (shifts.length === 0) { el.style.display = 'none'; return; }
+        el.style.display = '';
+        var shiftColors = { AM: '#3b82f6', PM: '#f59e0b', Night: '#8b5cf6', Flex: '#22c55e' };
+        el.innerHTML = '<div style="font-weight:700;font-size:13px;margin-bottom:8px">&#x1F4C5; Breakdown by Shift</div>' +
+          shifts.map(function(s) {
+            var color = shiftColors[s] || '#6b7280';
+            return '<div style="display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:1px solid var(--border);font-size:13px">' +
+              '<span style="display:flex;align-items:center;gap:6px"><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:' + color + '"></span>' + escapeHtml(s) + '</span>' +
+              '<span style="font-weight:600">' + shiftPts[s].toFixed(1) + ' pts</span></div>';
+          }).join('');
       }
 
       function renderRecordCards() {
