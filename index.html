@@ -3951,7 +3951,7 @@ body.no-transitions * { transition: none !important; }
         _updateSyncBadge('syncing', 'Testing');
         try {
           if (!cloudConfig.clientId) throw new Error('Enter OAuth Client ID first.');
-          await ensureCloudToken({ interactive: true });
+          await requestCloudToken('', true);
           var resp = await cloudFetch('https://www.googleapis.com/drive/v3/about?fields=user', { method: 'GET' });
           if (!resp.ok) throw new Error('Drive API returned ' + resp.status);
           var data = await resp.json();
