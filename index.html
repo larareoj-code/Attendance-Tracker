@@ -2259,11 +2259,16 @@ body.no-transitions * { transition: none !important; }
       </div>
       <div style="display:flex;gap:6px;margin-top:10px;flex-wrap:wrap">
         <span style="font-size:11.5px;font-weight:700;color:var(--muted);letter-spacing:0.05em;text-transform:uppercase;align-self:center;margin-right:4px">Quick:</span>
+        <button class="secondary small" type="button" id="presetToday">Today</button>
         <button class="secondary small" type="button" id="presetWeek">This Week</button>
+        <button class="secondary small" type="button" id="preset7">Last 7 Days</button>
         <button class="secondary small" type="button" id="preset30">Last 30 Days</button>
         <button class="secondary small" type="button" id="presetMonth">This Month</button>
         <button class="secondary small" type="button" id="presetLastMonth">Last Month</button>
+        <button class="secondary small" type="button" id="presetQuarter">This Quarter</button>
+        <button class="secondary small" type="button" id="presetYTD">Year to Date</button>
         <button class="secondary small" type="button" id="presetYear">This Year</button>
+        <button class="secondary small" type="button" id="presetClearDates" style="color:var(--danger);border-color:var(--danger)">Clear Dates</button>
       </div>
       </div><!-- /filterPanelBody -->
     </section>
@@ -2354,6 +2359,13 @@ body.no-transitions * { transition: none !important; }
     </div>
 
     <div class="dash-section dash-full">
+      <div class="card" id="anniversaryPanel" style="margin-top:12px;display:none">
+        <div style="font-weight:700;font-size:13px;margin-bottom:8px">🎂 Upcoming Anniversaries</div>
+        <div id="anniversaryList"></div>
+      </div>
+    </div>
+
+    <div class="dash-section dash-full">
       <div id="clusterSection" style="margin-bottom:24px">
         <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--muted);margin-bottom:12px">&#9888; Cluster Alerts <span id="clusterBadge" style="display:none;background:var(--danger);color:#fff;border-radius:99px;padding:1px 7px;font-size:10px;margin-left:6px"></span></div>
         <div id="clusterList"></div>
@@ -2435,6 +2447,7 @@ body.no-transitions * { transition: none !important; }
           </table>
         </div>
         </div>
+        <div id="recordsPagination"></div>
         <div id="recordsCardsView" style="display:none"></div>
         <div id="recordsEmpty" class="empty">
           <div id="recordsEmptyMsg">No records loaded yet. Import an Excel or CSV file to get started.</div>
@@ -2642,10 +2655,11 @@ body.no-transitions * { transition: none !important; }
               <option value="">All Depts</option>
             </select>
             <!-- Legend -->
-            <div style="display:flex;align-items:center;gap:8px;font-size:11px;color:var(--muted)">
-              <span style="display:inline-flex;align-items:center;gap:3px"><span style="width:10px;height:10px;border-radius:50%;background:var(--danger);display:inline-block"></span>Absence</span>
-              <span style="display:inline-flex;align-items:center;gap:3px"><span style="width:10px;height:10px;border-radius:50%;background:var(--yellow);display:inline-block"></span>Late/EO</span>
-              <span style="display:inline-flex;align-items:center;gap:3px"><span style="width:10px;height:10px;border-radius:50%;background:var(--ok);display:inline-block"></span>Time Off</span>
+            <div id="calLegend" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:11px;color:var(--muted)">
+              <span style="display:inline-flex;align-items:center;gap:3px"><span style="width:10px;height:10px;border-radius:50%;background:#ef4444;display:inline-block"></span>Occurrence</span>
+              <span style="display:inline-flex;align-items:center;gap:3px"><span style="width:10px;height:10px;border-radius:50%;background:#3b82f6;display:inline-block"></span>Future Request</span>
+              <span style="display:inline-flex;align-items:center;gap:3px"><span style="width:10px;height:10px;border-radius:50%;background:#8b5cf6;display:inline-block"></span>Past Request</span>
+              <span style="display:inline-flex;align-items:center;gap:3px"><span style="width:10px;height:10px;border-radius:50%;background:#22c55e;display:inline-block"></span>Time Off</span>
             </div>
           </div>
         </div>
@@ -5657,7 +5671,7 @@ body.no-transitions * { transition: none !important; }
         if (flagFilter) flagFilter.addEventListener('change', function() { render(); });
         ['ptsMinFilter','ptsMaxFilter'].forEach(function(id) {
           var el = document.getElementById(id);
-          if (el) el.addEventListener('input', function() { render(); });
+          if (el) el.addEventListener('input', function() { debouncedRender(); });
         });
       })();
 
@@ -5715,13 +5729,42 @@ body.no-transitions * { transition: none !important; }
         if (els.clearFiltersBtn) {
           var df = document.getElementById('dateFromFilter');
           var dt = document.getElementById('dateToFilter');
-          var activeFilters = [els.searchInput.value, els.nameFilter.value, els.codeFilter.value, els.typeFilter.value, els.followUpFilter.value, df && df.value, dt && dt.value].filter(Boolean);
+          var deptF = document.getElementById('deptFilter');
+          var flagF = document.getElementById('flagFilter');
+          var ptsMin = document.getElementById('ptsMinFilter');
+          var ptsMax = document.getElementById('ptsMaxFilter');
+          var activeFilters = [
+            els.searchInput.value,
+            els.nameFilter.value,
+            els.codeFilter.value,
+            els.typeFilter.value,
+            els.followUpFilter.value,
+            df && df.value,
+            dt && dt.value,
+            deptF && deptF.value,
+            flagF && flagF.value,
+            ptsMin && ptsMin.value,
+            ptsMax && ptsMax.value,
+            (typeof _multiEmpFilter !== 'undefined' && _multiEmpFilter && _multiEmpFilter.size > 0) ? 'multi' : ''
+          ].filter(Boolean);
           var anyFilter = activeFilters.length > 0;
+          var activeCount = activeFilters.length;
           els.clearFiltersBtn.classList.toggle('primary', anyFilter);
           els.clearFiltersBtn.classList.toggle('secondary', !anyFilter);
           els.clearFiltersBtn.textContent = anyFilter ? 'Clear ×' : 'Clear';
           var countBadge = document.getElementById('filterActiveCount');
-          if (countBadge) countBadge.textContent = anyFilter ? '(' + activeFilters.length + ' active)' : '';
+          if (countBadge) {
+            if (anyFilter) {
+              var dateLabel = '';
+              if (df && df.value && dt && dt.value) dateLabel = ' · ' + df.value + ' – ' + dt.value;
+              else if (df && df.value) dateLabel = ' · from ' + df.value;
+              else if (dt && dt.value) dateLabel = ' · until ' + dt.value;
+              countBadge.innerHTML = '<span style="background:var(--blue);color:#fff;border-radius:10px;padding:1px 7px;font-size:10px;font-weight:700;margin-left:2px">' + activeCount + '</span>' +
+                (dateLabel ? '<span style="font-size:11px;font-weight:600;color:var(--blue);margin-left:5px">' + dateLabel + '</span>' : '');
+            } else {
+              countBadge.innerHTML = '';
+            }
+          }
         }
         els.exportBtn.disabled = rows.length === 0;
         els.exportBtn.title = rows.length === 0
@@ -6440,6 +6483,47 @@ body.no-transitions * { transition: none !important; }
         var yrs = Math.floor(ms / (1000*60*60*24*365));
         var mos = Math.floor((ms % (1000*60*60*24*365)) / (1000*60*60*24*30));
         return (yrs > 0 ? yrs + 'y ' : '') + mos + 'm';
+      }
+
+      function getUpcomingAnniversaries(daysAhead) {
+        daysAhead = daysAhead || 30;
+        var today = new Date();
+        var results = [];
+        employees.forEach(function(emp) {
+          var hireStr = emp.hireDate || emp.hire_date || emp.startDate;
+          if (!hireStr) return;
+          var hire = new Date(hireStr + 'T00:00:00');
+          if (isNaN(hire)) return;
+          // Check this year's anniversary
+          var anniv = new Date(today.getFullYear(), hire.getMonth(), hire.getDate());
+          if (anniv < today) anniv.setFullYear(today.getFullYear() + 1);
+          var daysUntil = Math.round((anniv - today) / 86400000);
+          if (daysUntil <= daysAhead) {
+            var yearsCompleting = anniv.getFullYear() - hire.getFullYear();
+            results.push({
+              name: emp.name || emp,
+              date: anniv.toISOString().slice(0, 10),
+              years: yearsCompleting,
+              daysUntil: daysUntil
+            });
+          }
+        });
+        return results.sort(function(a, b) { return a.daysUntil - b.daysUntil; });
+      }
+
+      // ── Streak cache ──────────────────────────────────────────────────────
+      var _streakCache = {};
+      var _streakCacheKey = '';
+
+      function getStreakCacheKey() {
+        return rows.length + '_' + (rows[0] && rows[0].dateIso || '') + '_' + (rows[rows.length-1] && rows[rows.length-1].dateIso || '');
+      }
+
+      function calcAttendanceStreakCached(empName) {
+        var key = getStreakCacheKey();
+        if (key !== _streakCacheKey) { _streakCache = {}; _streakCacheKey = key; }
+        if (!_streakCache[empName]) _streakCache[empName] = calcAttendanceStreak(empName);
+        return _streakCache[empName];
       }
 
       function calcAttendanceStreak(empName) {
@@ -7243,7 +7327,7 @@ body.no-transitions * { transition: none !important; }
             var daysColor = daysDiff <= 7 ? 'var(--danger)' : daysDiff <= 30 ? 'var(--yellow)' : 'var(--muted)';
             lastCell = '<span style="color:' + daysColor + ';font-weight:600">' + escapeHtml(daysLabel) + '</span><br><span style="font-size:11px;color:var(--muted)">' + lastIso + '</span>';
           }
-          var empStreak = calcAttendanceStreak(emp.name);
+          var empStreak = calcAttendanceStreakCached(emp.name);
           return '<tr>' +
             '<td><code class="editable-cell" data-emp-field="id" data-emp-id="' + escapeHtml(emp.id) + '" title="Click to edit ID">' + escapeHtml(emp.id || '—') + '</code></td>' +
             '<td style="display:flex;align-items:center;gap:8px">' + avatar + '<span class="emp-name-link editable-cell" data-emp-field="name" data-emp-id="' + escapeHtml(emp.id) + '" title="Click to edit name" style="font-weight:650;cursor:pointer;text-decoration:underline;text-decoration-style:dotted;text-underline-offset:2px">' + escapeHtml(emp.name) + '</span>' + empRiskBadge(emp.name) + empPatternBadge(emp.name) + empPtsSummary(emp.name) + empNotesBadge(emp.name) + '</td>' +
@@ -7763,6 +7847,7 @@ body.no-transitions * { transition: none !important; }
           '</div>';
         }).join('');
       }
+      var renderAtRiskPanel = renderAtRiskSection;
 
       function renderWeekdayPatterns() {
         var el = document.getElementById('weekdayPatternList');
@@ -8151,6 +8236,9 @@ body.no-transitions * { transition: none !important; }
 
         // Streak leaderboard
         renderStreakLeaderboard();
+
+        // Anniversary panel
+        renderAnniversaryPanel();
       }
 
       function _renderDashStats() {
@@ -8187,7 +8275,7 @@ body.no-transitions * { transition: none !important; }
         if (!el) return;
         var streaks = employees.map(function(e) {
           var name = e.name || e;
-          return { name: name, streak: calcAttendanceStreak(name).current };
+          return { name: name, streak: calcAttendanceStreakCached(name).current };
         }).filter(function(x) { return x.streak > 0; })
           .sort(function(a, b) { return b.streak - a.streak; })
           .slice(0, 5);
@@ -8203,6 +8291,27 @@ body.no-transitions * { transition: none !important; }
             '<span style="flex:1;font-size:13px">' + escapeHtml(s.name) + '</span>' +
             '<span style="font-weight:700;color:var(--blue)">' + s.streak + ' days</span>' +
             '</div>';
+        }).join('');
+      }
+
+      function renderAnniversaryPanel() {
+        var panel = document.getElementById('anniversaryPanel');
+        var list = document.getElementById('anniversaryList');
+        if (!panel || !list) return;
+        var upcoming = getUpcomingAnniversaries(30);
+        if (upcoming.length === 0) { panel.style.display = 'none'; return; }
+        panel.style.display = '';
+        list.innerHTML = upcoming.map(function(a) {
+          var label = a.daysUntil === 0 ? 'Today! 🎉' : a.daysUntil === 1 ? 'Tomorrow' : 'In ' + a.daysUntil + ' days';
+          var milestoneIcon = a.years >= 10 ? '🏆' : a.years >= 5 ? '⭐' : '🎂';
+          return '<div style="display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid var(--border)">' +
+            '<span style="font-size:18px">' + milestoneIcon + '</span>' +
+            '<div style="flex:1">' +
+              '<div style="font-size:13px;font-weight:500">' + escapeHtml(a.name) + '</div>' +
+              '<div style="font-size:11px;color:var(--muted)">' + a.years + '-year anniversary · ' + a.date + '</div>' +
+            '</div>' +
+            '<span style="font-size:12px;color:var(--blue);font-weight:600">' + label + '</span>' +
+          '</div>';
         }).join('');
       }
 
@@ -8650,10 +8759,37 @@ body.no-transitions * { transition: none !important; }
           var total = rows.length;
           var filtered = (visibleCount !== undefined) ? visibleCount : filteredRows().length;
           var recBase = 'Records';
+          // Check if any filters are currently active
+          var _dfTab = document.getElementById('dateFromFilter');
+          var _dtTab = document.getElementById('dateToFilter');
+          var _deptTab = document.getElementById('deptFilter');
+          var _flagTab = document.getElementById('flagFilter');
+          var _ptsMinTab = document.getElementById('ptsMinFilter');
+          var _ptsMaxTab = document.getElementById('ptsMaxFilter');
+          var _srchTab = document.getElementById('searchInput');
+          var _nameTab = document.getElementById('nameFilter');
+          var _codeTab = document.getElementById('codeFilter');
+          var _typeTab = document.getElementById('typeFilter');
+          var _fuTab = document.getElementById('followUpFilter');
+          var _filtersActiveTab = [
+            _srchTab && _srchTab.value,
+            _nameTab && _nameTab.value,
+            _codeTab && _codeTab.value,
+            _typeTab && _typeTab.value,
+            _fuTab && _fuTab.value,
+            _dfTab && _dfTab.value,
+            _dtTab && _dtTab.value,
+            _deptTab && _deptTab.value,
+            _flagTab && _flagTab.value,
+            _ptsMinTab && _ptsMinTab.value,
+            _ptsMaxTab && _ptsMaxTab.value,
+            (typeof _multiEmpFilter !== 'undefined' && _multiEmpFilter && _multiEmpFilter.size > 0) ? 'multi' : ''
+          ].filter(Boolean).length > 0;
+          var _filterDot = _filtersActiveTab ? ' ●' : '';
           if (filtered < total && total > 0) {
-            recTab.textContent = recBase + ' (' + filtered.toLocaleString() + ')';
+            recTab.textContent = recBase + ' (' + filtered.toLocaleString() + ')' + _filterDot;
           } else {
-            recTab.textContent = total > 0 ? recBase + ' (' + total.toLocaleString() + ')' : recBase;
+            recTab.textContent = (total > 0 ? recBase + ' (' + total.toLocaleString() + ')' : recBase) + _filterDot;
           }
         }
 
@@ -8697,6 +8833,16 @@ body.no-transitions * { transition: none !important; }
         sel.innerHTML = '<option value="">All Depts</option>' + depts.map(function(d) {
           return '<option value="' + escapeHtml(d) + '"' + (d === prev ? ' selected' : '') + '>' + escapeHtml(d) + '</option>';
         }).join('');
+      }
+
+      function getCalEventColor(type) {
+        var colors = {
+          'past':        '#ef4444', // red - occurrence
+          'future':      '#3b82f6', // blue - future request
+          'pastrequest': '#8b5cf6', // purple - past request
+          'timeoff':     '#22c55e', // green - approved time off
+        };
+        return colors[type] || '#6b7280';
       }
 
       function renderCalendar() {
@@ -8762,11 +8908,19 @@ body.no-transitions * { transition: none !important; }
           var severityMid = (appSettings.severityMid !== undefined) ? appSettings.severityMid : 2;
 
           var dotHtml = '';
-          var highRecs = data.records.filter(function(r) { return r.points >= severityMid; });
-          var lowRecs = data.records.filter(function(r) { return r.points > 0 && r.points < severityMid; });
-          if (highRecs.length) dotHtml += '<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--danger);margin:1px" title="' + highRecs.length + ' absence(s)"></span>';
-          if (lowRecs.length) dotHtml += '<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--yellow);margin:1px" title="' + lowRecs.length + ' late/early out"></span>';
-          if (data.timeOff.length) dotHtml += '<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--ok);margin:1px" title="' + data.timeOff.length + ' on time off"></span>';
+          // Group records by type and render one dot per type
+          var typeGroups = {};
+          data.records.forEach(function(r) {
+            var t = r.type || 'past';
+            typeGroups[t] = (typeGroups[t] || 0) + 1;
+          });
+          Object.keys(typeGroups).forEach(function(t) {
+            var cnt = typeGroups[t];
+            var color = getCalEventColor(t);
+            var label = cnt + ' ' + (t === 'past' ? 'occurrence' : t === 'future' ? 'future request' : t === 'pastrequest' ? 'past request' : t) + (cnt !== 1 ? 's' : '');
+            dotHtml += '<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:' + color + ';margin:1px" title="' + label + '"></span>';
+          });
+          if (data.timeOff.length) dotHtml += '<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:' + getCalEventColor('timeoff') + ';margin:1px" title="' + data.timeOff.length + ' on approved time off"></span>';
 
           var totalCount = data.records.length + data.timeOff.length;
 
@@ -11179,7 +11333,14 @@ body.no-transitions * { transition: none !important; }
         updateBackupNudge();
         setInterval(updateBackupNudge, 5 * 60 * 1000);
       }());
-      els.searchInput.addEventListener('input', render);
+      // ── Debounced render for text inputs ──────────────────────────────────
+      var _renderDebounce;
+      function debouncedRender() {
+        clearTimeout(_renderDebounce);
+        _renderDebounce = setTimeout(render, 150);
+      }
+
+      els.searchInput.addEventListener('input', debouncedRender);
       var searchNotesChk = document.getElementById('searchNotes');
       if (searchNotesChk) searchNotesChk.addEventListener('change', render);
       els.nameFilter.addEventListener('change', render);
@@ -11221,6 +11382,30 @@ body.no-transitions * { transition: none !important; }
         document.getElementById('presetYear').addEventListener('click', function () {
           var y = new Date().getFullYear();
           setDateRange(y + '-01-01', y + '-12-31');
+        });
+        document.getElementById('presetToday').addEventListener('click', function () {
+          var today = isoDate(new Date());
+          setDateRange(today, today);
+        });
+        document.getElementById('preset7').addEventListener('click', function () {
+          var now = new Date(), past = new Date(now);
+          past.setDate(now.getDate() - 6);
+          setDateRange(isoDate(past), isoDate(now));
+        });
+        document.getElementById('presetQuarter').addEventListener('click', function () {
+          var now = new Date(), y = now.getFullYear(), m = now.getMonth();
+          var qStart = Math.floor(m / 3) * 3;
+          setDateRange(y + '-' + pad(qStart + 1) + '-01', isoDate(now));
+        });
+        document.getElementById('presetYTD').addEventListener('click', function () {
+          setDateRange(new Date().getFullYear() + '-01-01', isoDate(new Date()));
+        });
+        document.getElementById('presetClearDates').addEventListener('click', function () {
+          var df = document.getElementById('dateFromFilter');
+          var dt = document.getElementById('dateToFilter');
+          if (df) df.value = '';
+          if (dt) dt.value = '';
+          render();
         });
       }());
 
@@ -12336,6 +12521,13 @@ body.no-transitions * { transition: none !important; }
       if (cloudRedirectMessage) renderCloudStatus(cloudRedirectMessage);
       setView(appSettings.defaultTab || activeView);
       setInterval(function () { if (lastSyncTime) renderCloudStatus(); }, 60000);
+      // Anniversary toast on load
+      setTimeout(function() {
+        var todayAnnivs = getUpcomingAnniversaries(0).filter(function(a) { return a.daysUntil === 0; });
+        todayAnnivs.forEach(function(a) {
+          showToast('🎂 Today is ' + a.name + '\'s ' + a.years + '-year anniversary!');
+        });
+      }, 1500);
       // One-time shortcut discovery hint for new users
       if (!localStorage.getItem('attTracker_shownShortcutHint')) {
         setTimeout(function() {
