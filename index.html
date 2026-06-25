@@ -7192,6 +7192,12 @@ body.no-transitions * { transition: none !important; }
             ctx.fillText(m.pts % 1 === 0 ? m.pts : m.pts.toFixed(1), x + barW / 2, y - 3);
           }
         });
+        // Wire export link
+        var exportLink = document.getElementById('empTrendExport');
+        if (exportLink) {
+          exportLink.href = canvas.toDataURL('image/png');
+          exportLink.style.display = 'inline-flex';
+        }
       }
 
       function getEmpDowData(empName) {
@@ -8440,17 +8446,27 @@ body.no-transitions * { transition: none !important; }
         var canvas = document.getElementById('monthlyChart');
         var emptyEl = document.getElementById('monthlyChartEmpty');
         if (!canvas) return;
-        var occRows = getDashRows().filter(function(r) { return isOccurrence(r.type) && r.dateIso; });
+        var dashRows = getDashRows();
+        var occRows = dashRows.filter(function(r) { return isOccurrence(r.type) && r.dateIso; });
         if (!occRows.length) { canvas.style.display='none'; if(emptyEl) emptyEl.style.display=''; return; }
         canvas.style.display='block'; if(emptyEl) emptyEl.style.display='none';
         var now = new Date(), months = [];
         for (var i=11; i>=0; i--) {
           var d = new Date(now.getFullYear(), now.getMonth()-i, 1);
-          months.push({ y: d.getFullYear(), m: d.getMonth(), count: 0, label: d.toLocaleString('default',{month:'short'}) });
+          var yy = d.getFullYear(), mm = d.getMonth();
+          var moKey = yy + '-' + (mm < 9 ? '0' : '') + (mm + 1);
+          months.push({ y: yy, m: mm, key: moKey, count: 0, pts: 0, emps: new Set(), label: d.toLocaleString('default',{month:'short'}) });
         }
         occRows.forEach(function(r) {
           var d = new Date(r.dateIso);
-          months.forEach(function(mo) { if(mo.y===d.getFullYear()&&mo.m===d.getMonth()) mo.count++; });
+          if (isNaN(d)) return;
+          months.forEach(function(mo) {
+            if (mo.y===d.getFullYear() && mo.m===d.getMonth()) {
+              mo.count++;
+              mo.pts += (r.points || 0);
+              if (r.name) mo.emps.add(r.name);
+            }
+          });
         });
         var W = canvas.parentElement ? canvas.parentElement.offsetWidth-40 : 460;
         if (W < 200) W = 460;
@@ -8469,10 +8485,13 @@ body.no-transitions * { transition: none !important; }
         for(var g=0;g<=4;g++){var y=pT+(cH/4)*g; ctx.fillText(Math.round(maxC*(1-g/4)),pL-4,y+4);}
         var bW = cW/months.length;
         _dashChartBars = [];
+        // Compute attendance rate per month for trend line
+        var empCount = employees.filter(function(e){ return e.status !== 'Inactive'; }).length || 1;
         months.forEach(function(mo,i){
           var bH = (mo.count/maxC)*cH;
           var x=pL+i*bW+bW*0.15, w=bW*0.7, y=pT+cH-bH;
-          _dashChartBars.push({ x: x, y: y, w: w, h: bH > 0 ? bH : 2, label: mo.label, count: mo.count });
+          var rate = Math.round(((empCount - mo.emps.size) / empCount) * 100);
+          _dashChartBars.push({ x: x, y: y, w: w, h: bH > 0 ? bH : 2, label: mo.label, count: mo.count, pts: mo.pts, empAffected: mo.emps.size, rate: rate });
           if(mo.count>0){
             var gr=ctx.createLinearGradient(x,y,x,y+bH);
             gr.addColorStop(0,'rgba(74,144,217,0.9)'); gr.addColorStop(1,'rgba(74,144,217,0.35)');
@@ -8485,6 +8504,43 @@ body.no-transitions * { transition: none !important; }
           ctx.fillStyle='rgba(139,153,171,0.75)'; ctx.font='10px system-ui'; ctx.textAlign='center';
           ctx.fillText(mo.label,x+w/2,H-pB+14);
         });
+        // --- Attendance rate trend line (secondary axis 0-100 mapped to chart height) ---
+        ctx.save();
+        ctx.strokeStyle='rgba(34,197,94,0.85)';
+        ctx.lineWidth=2;
+        ctx.lineJoin='round';
+        ctx.beginPath();
+        var firstPoint = true;
+        _dashChartBars.forEach(function(b) {
+          var cx = b.x + b.w / 2;
+          var cy = pT + cH - (b.rate / 100) * cH;
+          if (firstPoint) { ctx.moveTo(cx, cy); firstPoint = false; } else { ctx.lineTo(cx, cy); }
+        });
+        ctx.stroke();
+        // Dots
+        _dashChartBars.forEach(function(b) {
+          var cx = b.x + b.w / 2;
+          var cy = pT + cH - (b.rate / 100) * cH;
+          ctx.beginPath();
+          ctx.arc(cx, cy, 3, 0, Math.PI * 2);
+          ctx.fillStyle='rgba(34,197,94,0.9)';
+          ctx.fill();
+          ctx.strokeStyle='rgba(255,255,255,0.6)';
+          ctx.lineWidth=1;
+          ctx.stroke();
+        });
+        // Legend label for trend line
+        ctx.fillStyle='rgba(34,197,94,0.85)';
+        ctx.font='9px system-ui';
+        ctx.textAlign='right';
+        ctx.fillText('% no occurrence', W-pR, pT+8);
+        ctx.restore();
+        // --- Export link ---
+        var exportLink = document.getElementById('monthlyChartExport');
+        if (exportLink) {
+          exportLink.href = canvas.toDataURL('image/png');
+          exportLink.style.display = 'inline-flex';
+        }
         // Wire tooltip once
         if (!canvas._tooltipWired) {
           canvas._tooltipWired = true;
@@ -8500,7 +8556,11 @@ body.no-transitions * { transition: none !important; }
               if (mx >= b.x && mx <= b.x + b.w && my >= b.y - 4 && my <= b.y + b.h + 4) { hit = b; break; }
             }
             if (hit) {
-              tooltip.innerHTML = '<strong>' + escapeHtml(hit.label) + '</strong><br>' + hit.count + ' incident' + (hit.count !== 1 ? 's' : '');
+              tooltip.innerHTML = '<strong>' + escapeHtml(hit.label) + '</strong><br>' +
+                hit.count + ' incident' + (hit.count !== 1 ? 's' : '') + '<br>' +
+                hit.empAffected + ' employee' + (hit.empAffected !== 1 ? 's' : '') + ' affected<br>' +
+                (hit.pts % 1 === 0 ? hit.pts : hit.pts.toFixed(1)) + ' pts total<br>' +
+                'Attendance rate: ' + hit.rate + '%';
               tooltip.style.display = 'block';
               tooltip.style.left = (e.clientX + 12) + 'px';
               tooltip.style.top = (e.clientY - 8) + 'px';
@@ -11675,6 +11735,10 @@ body.no-transitions * { transition: none !important; }
             renderDeptCompareChart();
             renderScoreDistChart();
           }
+          var empModal = document.getElementById('empProfileModal');
+          if (empModal && !empModal.classList.contains('hidden') && window._empProfileName) {
+            if (typeof renderEmpTrendChart === 'function') renderEmpTrendChart(window._empProfileName);
+          }
         }, 250);
       });
 
@@ -14111,6 +14175,7 @@ body.no-transitions * { transition: none !important; }
     <div style="margin-top:20px;margin-bottom:20px">
       <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--muted);margin-bottom:10px">6-Month Points Trend</div>
       <canvas id="empTrendCanvas" width="420" height="140" style="width:100%;height:140px;display:block"></canvas>
+      <div style="margin-top:4px;text-align:right"><a id="empTrendExport" href="#" download="employee-trend-chart.png" style="display:none;font-size:12px;padding:4px 10px;border-radius:var(--radius);border:1px solid var(--border);text-decoration:none;color:var(--text);align-items:center;gap:4px">&#128229; Save Chart</a></div>
       <div style="margin-top:16px">
         <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--muted);margin-bottom:8px">Day-of-Week Pattern</div>
         <canvas id="empDowHeatmap" height="70" style="width:100%;display:block"></canvas>
