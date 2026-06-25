@@ -2640,7 +2640,8 @@ body.no-transitions * { transition: none !important; }
         showDashPeriodCompare: true,
         showDashLeaderboard: true,
         severityHigh: 6,
-        severityMid: 2
+        severityMid: 2,
+        autoConsequences: true
       };
       var pointsConfig = {};
       var recordTemplates = [];
@@ -4711,6 +4712,8 @@ body.no-transitions * { transition: none !important; }
         render();
         setView('records');
         showManualStatus('Record added.');
+        // Check consequences for the added employee
+        checkAndPromptConsequence(name);
         els.manualName.focus();
       }
 
@@ -4989,6 +4992,8 @@ body.no-transitions * { transition: none !important; }
         } else {
           showToast('No changes made');
         }
+        // Check consequences for the edited employee
+        if (row && row.name) checkAndPromptConsequence(row.name);
       }
 
       window.openRecordEditModal = openRecordEditModal;
@@ -5926,6 +5931,31 @@ body.no-transitions * { transition: none !important; }
           }
         }
 
+        // Review Standing button
+        var reviewBtn = document.getElementById('empProfileReviewStandingBtn');
+        if (reviewBtn) {
+          var profileAlert = getEmpThresholdAlert(name);
+          var profileConsequence = STANDING_CONSEQUENCES[profileAlert];
+          var standingOrder = ['good', 'watchlist', 'warning', 'onleave'];
+          var currentIdx = standingOrder.indexOf(emp.standing || 'good');
+          var suggestedIdx = profileConsequence ? standingOrder.indexOf(profileConsequence.suggested) : -1;
+          if (profileConsequence && suggestedIdx > currentIdx && emp.standing !== 'onleave') {
+            var standingLabels = { good: 'Good Standing', watchlist: 'Watch List', warning: 'Final Warning', onleave: 'On Leave' };
+            reviewBtn.style.display = 'inline-flex';
+            reviewBtn.textContent = 'Update Standing → ' + (standingLabels[profileConsequence.suggested] || profileConsequence.suggested);
+          } else {
+            reviewBtn.style.display = 'none';
+          }
+          reviewBtn._empName = name;
+          // Re-wire click listener by cloning to avoid duplicates
+          var newReviewBtn = reviewBtn.cloneNode(true);
+          newReviewBtn._empName = name;
+          reviewBtn.parentNode.replaceChild(newReviewBtn, reviewBtn);
+          newReviewBtn.addEventListener('click', function() {
+            checkAndPromptConsequence(newReviewBtn._empName);
+          });
+        }
+
         var patternsEl = document.getElementById('empProfilePatterns');
         if (patternsEl) {
           var patterns = detectWeekdayPatterns(name);
@@ -6742,6 +6772,70 @@ body.no-transitions * { transition: none !important; }
         if (pts >= mid) return 'at-mid';
         if (pts >= mid - 1) return 'approaching-mid';
         return null;
+      }
+
+      // ── Auto-Consequence Map ─────────────────────────────────────────────────
+      var STANDING_CONSEQUENCES = {
+        'at-high':        { suggested: 'warning',   message: 'has reached HIGH severity ({pts} pts ≥ {threshold})' },
+        'approaching-high': { suggested: 'watchlist', message: 'is approaching HIGH severity ({pts} pts, {rem} from {threshold})' },
+        'at-mid':         { suggested: 'watchlist', message: 'has reached MID severity ({pts} pts ≥ {threshold})' },
+      };
+      // approaching-mid: no consequence (too early)
+
+      function checkAndPromptConsequence(empName) {
+        if (!appSettings.autoConsequences) return;
+
+        var emp = employees.find(function(e) { return norm(e.name) === norm(empName); });
+        if (!emp) return;
+
+        var alert = getEmpThresholdAlert(empName);
+        var consequence = STANDING_CONSEQUENCES[alert];
+        if (!consequence) return;
+
+        // Don't prompt if already at or above the suggested standing
+        var standingOrder = ['good', 'watchlist', 'warning', 'onleave'];
+        var currentIdx = standingOrder.indexOf(emp.standing || 'good');
+        var suggestedIdx = standingOrder.indexOf(consequence.suggested);
+        if (currentIdx >= suggestedIdx) return; // already at/above suggested level
+
+        // Don't prompt if standing is onleave (manual HR decision)
+        if (emp.standing === 'onleave') return;
+
+        var pts = getEmpCurrentPoints(empName);
+        var high = appSettings.severityHigh !== undefined ? appSettings.severityHigh : 6;
+        var mid = appSettings.severityMid !== undefined ? appSettings.severityMid : 2;
+        var threshold = alert.indexOf('high') !== -1 ? high : mid;
+        var rem = threshold - pts;
+
+        var standingLabels = { good: 'Good Standing', watchlist: 'Watch List', warning: 'Final Warning', onleave: 'On Leave' };
+        var msgTemplate = consequence.message
+          .replace('{pts}', pts % 1 === 0 ? pts : pts.toFixed(1))
+          .replace('{threshold}', threshold)
+          .replace('{rem}', rem > 0 ? (rem % 1 === 0 ? rem : rem.toFixed(1)) : '0');
+
+        var currentLabel = standingLabels[emp.standing || 'good'] || (emp.standing || 'good');
+        var suggestedLabel = standingLabels[consequence.suggested] || consequence.suggested;
+        var msg = escapeHtml(empName) + ' ' + msgTemplate + '.\n\nUpdate standing from "' + currentLabel + '" to "' + suggestedLabel + '"?';
+
+        // Use setTimeout to avoid blocking the current save operation
+        setTimeout(function() {
+          showConfirm(msg, function() {
+            var prevStanding = emp.standing;
+            emp.standing = consequence.suggested;
+            pushUndo('Update standing: ' + empName + ' → ' + suggestedLabel, function() {
+              emp.standing = prevStanding;
+              saveEmployees();
+              render();
+            });
+            saveEmployees();
+            render();
+            showToast(empName + ' standing updated to ' + suggestedLabel);
+          }, {
+            title: 'Standing Update',
+            ok: 'Update Standing',
+            cancel: 'Keep "' + currentLabel + '"'
+          });
+        }, 300);
       }
 
       function scoreColor(s) {
@@ -10046,6 +10140,8 @@ body.no-transitions * { transition: none !important; }
         var sevMid = document.getElementById('severityMidInput');
         if (sevHigh) sevHigh.value = appSettings.severityHigh !== undefined ? appSettings.severityHigh : 6;
         if (sevMid) sevMid.value = appSettings.severityMid !== undefined ? appSettings.severityMid : 2;
+        var acToggle = document.getElementById('autoConsequencesToggle');
+        if (acToggle) acToggle.checked = appSettings.autoConsequences !== false;
         var settingsModalEl = document.getElementById('settingsModal');
         settingsModalEl.classList.remove('hidden');
         trapFocus(settingsModalEl);
@@ -10194,6 +10290,8 @@ body.no-transitions * { transition: none !important; }
           var sevMidVal = parseFloat((document.getElementById('severityMidInput') || {value:''}).value);
           if (!isNaN(sevHighVal) && sevHighVal > 0) appSettings.severityHigh = sevHighVal;
           if (!isNaN(sevMidVal) && sevMidVal >= 0) appSettings.severityMid = sevMidVal;
+          var acToggle = document.getElementById('autoConsequencesToggle');
+          if (acToggle) appSettings.autoConsequences = acToggle.checked;
           saveSettings(); applySettings();
           closeModal(document.getElementById('settingsModal'));
           showToast('Settings saved');
@@ -10201,7 +10299,7 @@ body.no-transitions * { transition: none !important; }
         });
         var resetBtn = document.getElementById('resetSettingsBtn');
         if (resetBtn) resetBtn.addEventListener('click', function() {
-          appSettings = { rowDensity: 'comfortable', dateFormat: 'MM/DD/YYYY', defaultTab: 'records', accentColor: 'blue', showDashHeatmap: true, showDashClusters: true, showDashPeriodCompare: true, showDashLeaderboard: true, severityHigh: 6, severityMid: 2 };
+          appSettings = { rowDensity: 'comfortable', dateFormat: 'MM/DD/YYYY', defaultTab: 'records', accentColor: 'blue', showDashHeatmap: true, showDashClusters: true, showDashPeriodCompare: true, showDashLeaderboard: true, severityHigh: 6, severityMid: 2, autoConsequences: true };
           openSettingsModal();
         });
         document.querySelectorAll('.settings-density-btn').forEach(function(b) {
@@ -11243,6 +11341,16 @@ body.no-transitions * { transition: none !important; }
         </div>
         <div style="font-size:11px;color:var(--muted);margin-top:4px">Row color coding in Records table</div>
       </div>
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border)">
+        <div>
+          <div style="font-size:13px;font-weight:700">Auto-Consequence Prompts</div>
+          <div style="font-size:11px;color:var(--muted)">Prompt to update employee standing when points cross severity thresholds</div>
+        </div>
+        <label class="toggle-switch">
+          <input type="checkbox" id="autoConsequencesToggle">
+          <span class="toggle-slider"></span>
+        </label>
+      </div>
     </div>
     <div style="margin-top:22px;padding-top:16px;border-top:1px solid var(--border);display:flex;justify-content:flex-end;gap:10px">
       <button class="secondary" type="button" id="resetSettingsBtn">Reset Defaults</button>
@@ -11340,6 +11448,7 @@ body.no-transitions * { transition: none !important; }
       <button type="button" id="closeEmpProfileBtn" style="background:none;border:none;color:var(--muted);font-size:24px;cursor:pointer;padding:0 4px;line-height:1">×</button>
     </div>
     <div id="empProfileAlertBanner" style="display:none;padding:10px 14px;border-radius:var(--radius);margin-bottom:14px;font-size:13px;font-weight:600"></div>
+    <button type="button" id="empProfileReviewStandingBtn" style="display:none;margin-bottom:10px;padding:6px 14px;font-size:12px;font-weight:700;background:var(--yellow);color:#fff;border:none;border-radius:var(--radius);cursor:pointer"></button>
     <div id="empProfilePatterns" style="display:none;margin-bottom:14px"></div>
     <div id="empProfileStats" style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:20px"></div>
     <div id="empProfileStatusRow" style="display:flex;gap:10px;align-items:center;margin-bottom:20px;flex-wrap:wrap"></div>
