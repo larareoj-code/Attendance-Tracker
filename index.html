@@ -2137,6 +2137,11 @@ body.no-transitions * { transition: none !important; }
           <datalist id="manualNameList"></datalist>
           <span id="manualNameWarn" style="display:none;font-size:12px;color:var(--danger,#f87171);margin-top:2px">⚠ This employee is marked Inactive in the roster.</span>
           <span id="manualNameHint" style="display:none;font-size:12px;color:var(--muted);margin-top:2px"></span>
+          <div id="quickAddEmpHint" style="display:none;align-items:center;gap:8px;font-size:12px;color:var(--muted);margin-top:4px;padding:6px 8px;background:rgba(59,130,246,0.07);border-radius:var(--radius);border:1px solid rgba(59,130,246,0.2)">
+            <span>ℹ️ "<span class="quick-add-name"></span>" is not in the roster.</span>
+            <button type="button" class="secondary" id="quickAddEmpBtn" style="font-size:11px;padding:2px 8px;white-space:nowrap">+ Add to Employees</button>
+            <button type="button" id="quickAddEmpDismiss" style="font-size:11px;padding:2px 4px;background:none;border:none;color:var(--muted);cursor:pointer">✕</button>
+          </div>
         </div>
         <div>
           <label for="manualDate">Date</label>
@@ -5193,6 +5198,8 @@ body.no-transitions * { transition: none !important; }
         if (warn) warn.style.display = 'none';
         var hint = document.getElementById('manualNameHint');
         if (hint) hint.style.display = 'none';
+        var quickHint = document.getElementById('quickAddEmpHint');
+        if (quickHint) quickHint.style.display = 'none';
         var dayEl = document.getElementById('manualDateDay');
         if (dayEl) dayEl.textContent = '';
       }
@@ -12260,6 +12267,37 @@ body.no-transitions * { transition: none !important; }
       });
 
       document.getElementById('addEmployeeForm').addEventListener('submit', addEmployee);
+
+      // Quick-add employee from record form
+      document.getElementById('quickAddEmpBtn') && document.getElementById('quickAddEmpBtn').addEventListener('click', function() {
+        var nameInput = document.getElementById('manualName');
+        var name = nameInput ? nameInput.value.trim() : '';
+        if (!name) return;
+        var hint = document.getElementById('quickAddEmpHint');
+        if (hint) hint.style.display = 'none';
+        showConfirm('Add "' + escapeHtml(name) + '" to the employee roster?', function() {
+          employees.push({
+            id: createId(),
+            name: name,
+            department: '',
+            role: '',
+            status: 'Active',
+            standing: 'good',
+            hireDate: '',
+            shift: '',
+            notes: ''
+          });
+          saveEmployees();
+          showToast('✓ ' + name + ' added to the employee roster.');
+          render();
+        });
+      });
+      document.getElementById('quickAddEmpDismiss') && document.getElementById('quickAddEmpDismiss').addEventListener('click', function() {
+        var hint = document.getElementById('quickAddEmpHint');
+        if (hint) hint.style.display = 'none';
+      });
+
+
       document.getElementById('addTimeoffForm').addEventListener('submit', addTimeOffRequest);
       document.getElementById('addTimeoffForm').addEventListener('reset', function () {
         setTimeout(function () {
@@ -12304,6 +12342,28 @@ body.no-transitions * { transition: none !important; }
         if (els.manualDate) els.manualDate.addEventListener('change', updateManualTimeOffWarning);
         if (els.manualName) els.manualName.addEventListener('input', updateManualTimeOffWarning);
         if (els.manualDate) els.manualDate.addEventListener('input', updateManualTimeOffWarning);
+      })();
+
+
+      // Quick-add: wire blur on manualName to detect unknown employees
+      (function() {
+        var nameInput = document.getElementById('manualName');
+        if (nameInput && !nameInput._quickAddWired) {
+          nameInput._quickAddWired = true;
+          nameInput.addEventListener('blur', function() {
+            var val = this.value.trim();
+            var hint = document.getElementById('quickAddEmpHint');
+            if (!hint) return;
+            if (!val) { hint.style.display = 'none'; return; }
+            var exists = employees.some(function(e) { return norm(e.name || e) === norm(val); });
+            if (!exists) {
+              hint.style.display = 'flex';
+              hint.querySelector('.quick-add-name').textContent = val;
+            } else {
+              hint.style.display = 'none';
+            }
+          });
+        }
       })();
 
       document.getElementById('manualName').addEventListener('input', function () {
