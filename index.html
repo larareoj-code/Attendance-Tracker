@@ -7837,6 +7837,54 @@ body.no-transitions * { transition: none !important; }
         _doAddEmployee();
       }
 
+      function parseEmployeeCSV(text) {
+        var lines = text.trim().split(/\r?\n/);
+        if (lines.length < 2) return [];
+        var headers = lines[0].split(',').map(function(h) { return h.trim().replace(/^"|"$/g, '').toLowerCase(); });
+        var nameIdx = headers.findIndex ? headers.findIndex(function(h) { return h === 'name' || h === 'full name' || h === 'employee name' || h === 'employee'; }) : headers.indexOf('name');
+        if (nameIdx < 0) return null; // no name column
+        var deptIdx = headers.indexOf('department');
+        var roleIdx = headers.indexOf('role');
+        var hireDateIdx = headers.findIndex ? headers.findIndex(function(h) { return h === 'hire date' || h === 'hiredate' || h === 'start date'; }) : -1;
+        var statusIdx = headers.indexOf('status');
+        var shiftIdx = headers.indexOf('shift');
+        var result = [];
+        for (var i = 1; i < lines.length; i++) {
+          var cols = lines[i].split(',').map(function(c) { return c.trim().replace(/^"|"$/g, ''); });
+          var name = cols[nameIdx] || '';
+          if (!name) continue;
+          result.push({
+            id: createId(),
+            name: name,
+            department: deptIdx >= 0 ? (cols[deptIdx] || '') : '',
+            role: roleIdx >= 0 ? (cols[roleIdx] || '') : '',
+            hireDate: hireDateIdx >= 0 ? (cols[hireDateIdx] || '') : '',
+            status: statusIdx >= 0 ? (cols[statusIdx] || 'Active') : 'Active',
+            shift: shiftIdx >= 0 ? (cols[shiftIdx] || '') : '',
+            standing: 'Good',
+            notes: ''
+          });
+        }
+        return result;
+      }
+
+      function updateEmpImportPreview() {
+        var fileEl = document.getElementById('empImportFile');
+        var textEl = document.getElementById('empImportText');
+        var preview = document.getElementById('empImportPreview');
+        if (!preview) return;
+        var text = textEl ? textEl.value.trim() : '';
+        if (!text && fileEl && fileEl.files && fileEl.files[0]) {
+          preview.textContent = '📄 File selected: ' + fileEl.files[0].name;
+          return;
+        }
+        if (!text) { preview.textContent = ''; return; }
+        var parsed = parseEmployeeCSV(text);
+        if (parsed === null) { preview.textContent = '⚠️ No "Name" column found in CSV.'; return; }
+        var dupes = parsed.filter(function(e) { return employees.some(function(ex) { return norm(ex.name) === norm(e.name); }); });
+        preview.textContent = '✓ ' + parsed.length + ' employees found' + (dupes.length > 0 ? ' · ' + dupes.length + ' already in roster (will skip)' : '') + '.';
+      }
+
       function addTimeOffRequest(event) {
         event.preventDefault();
         var name = toText(document.getElementById('toEmployee').value);
@@ -12413,6 +12461,48 @@ body.no-transitions * { transition: none !important; }
       });
 
       document.getElementById('addEmployeeForm').addEventListener('submit', addEmployee);
+
+      // Bulk CSV import wiring
+      (function() {
+        var textEl = document.getElementById('empImportText');
+        var fileEl = document.getElementById('empImportFile');
+        if (textEl) textEl.addEventListener('input', updateEmpImportPreview);
+        if (fileEl) fileEl.addEventListener('change', updateEmpImportPreview);
+
+        var importBtn = document.getElementById('empImportDoBtn');
+        if (importBtn) importBtn.addEventListener('click', function() {
+          var fEl = document.getElementById('empImportFile');
+          var tEl = document.getElementById('empImportText');
+          var text = tEl ? tEl.value.trim() : '';
+          function doImport(csvText) {
+            var parsed = parseEmployeeCSV(csvText);
+            if (!parsed || parsed.length === 0) { showToast('No valid employees found in CSV.'); return; }
+            var added = 0;
+            parsed.forEach(function(e) {
+              if (!employees.some(function(ex) { return norm(ex.name) === norm(e.name); })) {
+                employees.push(e);
+                added++;
+              }
+            });
+            saveEmployees();
+            render();
+            document.getElementById('empImportModal').style.display = 'none';
+            showToast('✓ Imported ' + added + ' employee' + (added !== 1 ? 's' : '') + ' (' + (parsed.length - added) + ' duplicates skipped).');
+            if (tEl) tEl.value = '';
+            if (fEl) fEl.value = '';
+            var preview = document.getElementById('empImportPreview');
+            if (preview) preview.textContent = '';
+          }
+          if (text) { doImport(text); return; }
+          if (fEl && fEl.files && fEl.files[0]) {
+            var reader = new FileReader();
+            reader.onload = function(ev) { doImport(ev.target.result); };
+            reader.readAsText(fEl.files[0]);
+            return;
+          }
+          showToast('Paste CSV text or select a file.');
+        });
+      })();
 
       // Quick-add employee from record form
       document.getElementById('quickAddEmpBtn') && document.getElementById('quickAddEmpBtn').addEventListener('click', function() {
