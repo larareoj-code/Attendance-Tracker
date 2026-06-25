@@ -366,6 +366,30 @@
       width: fit-content;
     }
 
+    /* ── Sticky tab bar ── */
+    .tabs.tab-bar-desktop {
+      position: sticky;
+      top: 0;
+      z-index: 400;
+      width: 100%;
+      border-radius: 0;
+      border-left: none;
+      border-right: none;
+      border-top: none;
+      border-bottom: 1px solid var(--border);
+      background: rgba(18,28,45,0.92);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+      padding: 4px 12px;
+      margin-bottom: 0;
+      flex-wrap: wrap;
+    }
+
+    [data-theme="light"] .tabs.tab-bar-desktop {
+      background: rgba(240,244,248,0.92);
+    }
+
     .compact-tabs {
       margin-top: 14px;
     }
@@ -1610,6 +1634,14 @@
 .more-menu-item:hover { background: var(--card); }
 .more-menu-item.danger { color: var(--danger); }
 .more-menu-divider { height: 1px; background: var(--border); margin: 4px 0; }
+.toolbar-divider {
+  width: 1px;
+  height: 28px;
+  background: var(--border);
+  align-self: center;
+  margin: 0 4px;
+  flex-shrink: 0;
+}
 
 /* Hide grouped buttons from the hero-actions bar */
 #dedupeBtn, #clearSavedBtn, #importHistoryBtn, #undoBtn,
@@ -8398,6 +8430,13 @@ body.no-transitions * { transition: none !important; }
         document.querySelectorAll('.mobile-tab-btn').forEach(function(b) {
           b.classList.toggle('active', b.getAttribute('data-view') === view);
         });
+        // Scroll tab content into view (smooth, below the sticky tab bar)
+        var contentEl = document.getElementById(view + 'View');
+        if (contentEl) {
+          setTimeout(function() {
+            contentEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          }, 50);
+        }
       }
 
       function findRow(id) {
