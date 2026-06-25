@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <!-- saved from url=(0106)file:///C:/Users/Joe/Documents/Codex/2026-05-17/create-this-application-perferably-standalone-1/index.html -->
 <html lang="en"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
   
@@ -5764,6 +5764,12 @@ body.no-transitions * { transition: none !important; }
         var nameSearchVal = els.searchInput ? els.searchInput.value.trim() : '';
         var searchNotesActive = document.getElementById('searchNotes') && document.getElementById('searchNotes').checked;
 
+        // Build per-employee cumulative point totals for at-risk row highlight
+        var _recSevHigh = appSettings.severityHigh !== undefined ? appSettings.severityHigh : 6;
+        var _recSevMid = appSettings.severityMid !== undefined ? appSettings.severityMid : 2;
+        var _empCumPts = {};
+        employees.forEach(function(e) { _empCumPts[e.name] = getEmpCurrentPoints(e.name); });
+
         els.recordsBody.innerHTML = visibleRows.map(function (row) {
           var pts = Number(row.points) || 0;
           var ptColor = pts > 0 ? 'color:#fca5a5;font-weight:700' : pts < 0 ? 'color:#6ee7b7;font-weight:700' : '';
@@ -5782,7 +5788,10 @@ body.no-transitions * { transition: none !important; }
           var severityAttr = severity ? ' data-severity="' + severity + '"' : '';
           var titleAttr = row.updatedAt ? ' title="Last edited: ' + new Date(row.updatedAt).toLocaleString() + '"' : '';
 
-          return '<tr' + (row.bucketApplied ? ' class="bucket-row"' : '') + severityAttr + titleAttr + ' data-row-id="' + escapeHtml(row.id) + '">' +
+          var empTotal = _empCumPts[row.name] || 0;
+          var empRiskClass = empTotal >= _recSevHigh ? 'row-emp-risk-high' : empTotal >= _recSevMid ? 'row-emp-risk-warn' : '';
+          var trClass = [row.bucketApplied ? 'bucket-row' : '', empRiskClass].filter(Boolean).join(' ');
+          return '<tr' + (trClass ? ' class="' + trClass + '"' : '') + severityAttr + titleAttr + ' data-row-id="' + escapeHtml(row.id) + '">' +
             '<td style="width:36px;padding:0 8px"><input type="checkbox" class="row-check" data-id="' + row.id + '"' + (selectedIds.has(row.id) ? ' checked' : '') + '></td>' +
             '<td>' + nameButton + '</td>' +
             '<td>' + escapeHtml(row.dateText || formatDate(row.date)) + '</td>' +
