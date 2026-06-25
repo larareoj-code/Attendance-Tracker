@@ -1730,6 +1730,10 @@
   min-width: 140px;
 }
 
+/* ── On Leave employee row highlight ─────────────────────────────────────── */
+tr.emp-on-leave td { background: rgba(245, 158, 11, 0.05); }
+tr.emp-on-leave td:first-child { border-left: 3px solid #f59e0b; }
+
 /* ── Print header (hidden on screen) ─────────────────────────────────────── */
 .print-header {
   display: none;
@@ -2512,8 +2516,10 @@ body.no-transitions * { transition: none !important; }
         <div style="margin-bottom:10px;display:flex;gap:10px;align-items:center;flex-wrap:wrap">
           <input id="bucketSearch" type="search" placeholder="Search employees…" autocomplete="off" style="max-width:200px">
           <button class="secondary" type="button" id="syncBucketFromTimeoffBtn" title="Set each employee's approved days from their approved Time Off requests">Sync Days from Time Off</button>
+          <button type="button" id="bucketExportBtn" class="secondary" style="font-size:12px;padding:4px 10px">📥 Export</button>
           <span id="bucketFilterInfo" style="font-size:13px;color:var(--muted);margin-left:auto"></span>
         </div>
+        <div id="bucketStats"></div>
         <div class="table-wrap">
           <table aria-label="Approved time off bucket by employee">
             <thead>
@@ -2528,7 +2534,7 @@ body.no-transitions * { transition: none !important; }
             <tbody id="bucketBody"></tbody>
           </table>
         </div>
-        <div id="bucketEmpty" class="empty"><div class="empty-state"><div class="empty-state-icon">🗂️</div><div class="empty-state-title">No bucket data</div><div class="empty-state-body">Set approved days for employees in the Employees tab, then assign occurrences here.</div></div></div>
+        <div id="bucketEmpty" class="empty"><div class="empty-state"><div class="empty-state-icon">🪣</div><div class="empty-state-title">No bucket data</div><div class="empty-state-body">Add employees and assign approved days, then use <strong>Manage Occurrences</strong> to draw from each employee's bucket.</div></div></div>
       </div>
 
       <div id="employeesView" class="hidden" role="tabpanel" aria-labelledby="employeesTab">
@@ -2539,7 +2545,7 @@ body.no-transitions * { transition: none !important; }
             <div><label for="empName">Full Name</label><input id="empName" type="text" autocomplete="off" required></div>
             <div><label for="empDept">Department</label><input id="empDept" type="text" autocomplete="off" list="empDeptList"><datalist id="empDeptList"></datalist></div>
             <div><label for="empRole">Role</label><input id="empRole" type="text" autocomplete="off" list="empRoleList"><datalist id="empRoleList"></datalist></div>
-            <div><label for="empStatus">Status</label><select id="empStatus"><option value="Active">Active</option><option value="Inactive">Inactive</option></select></div>
+            <div><label for="empStatus">Status</label><select id="empStatus"><option value="Active">Active</option><option value="On Leave">On Leave</option><option value="Inactive">Inactive</option><option value="Terminated">Terminated</option></select></div>
             <div><label for="empStanding" style="display:block;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--muted);margin-bottom:5px">Standing</label><select id="empStanding" style="width:100%"><option value="good">Good Standing</option><option value="watchlist">Watch List</option><option value="warning">Final Warning</option><option value="onleave">On Leave</option></select></div>
             <div><label for="empHireDate" style="display:block;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--muted);margin-bottom:5px">Hire Date</label><input type="date" id="empHireDate" style="width:100%"></div>
             <div><label for="empNotes">Notes</label><textarea id="empNotes" placeholder="Optional notes…" rows="2" style="resize:vertical;width:100%"></textarea></div>
@@ -2554,7 +2560,9 @@ body.no-transitions * { transition: none !important; }
           <select id="empStatusFilter" style="max-width:140px">
             <option value="">All Statuses</option>
             <option value="Active">Active</option>
+            <option value="On Leave">On Leave</option>
             <option value="Inactive">Inactive</option>
+            <option value="Terminated">Terminated</option>
           </select>
           <button class="secondary" type="button" id="syncEmployeesBtn" style="margin-top:auto" title="Add any attendance record names not already in the roster">Sync from Attendance</button>
           <button class="secondary" type="button" id="importEmployeesBtn" style="margin-top:auto">⬆ Import Roster</button>
@@ -2562,6 +2570,7 @@ body.no-transitions * { transition: none !important; }
           <button type="button" id="exportEmployeesCsvBtn" class="secondary no-print" style="margin-top:auto" title="Export employee roster to CSV">⬇ Export CSV</button>
           <span id="empSummary" style="margin-left:auto;font-size:13px;color:var(--muted)"></span>
         </div>
+        <div id="empStatusSummary" style="font-size:12px;margin-bottom:8px"></div>
         <div class="table-wrap">
           <table aria-label="Employee roster">
             <thead><tr>
@@ -2941,6 +2950,32 @@ body.no-transitions * { transition: none !important; }
         autoBackupInterval: 0
       };
       var pointsConfig = {};
+
+      // ── Browser Notifications ────────────────────────────────────────────
+      var _notifPermission = 'default';
+
+      function requestNotifPermission(cb) {
+        if (!('Notification' in window)) { if (cb) cb(false); return; }
+        if (Notification.permission === 'granted') { _notifPermission = 'granted'; if (cb) cb(true); return; }
+        if (Notification.permission === 'denied') { _notifPermission = 'denied'; if (cb) cb(false); return; }
+        Notification.requestPermission().then(function(result) {
+          _notifPermission = result;
+          if (cb) cb(result === 'granted');
+        });
+      }
+
+      function sendNotif(title, body, icon) {
+        if (!('Notification' in window) || Notification.permission !== 'granted') return;
+        try {
+          new Notification(title, {
+            body: body || '',
+            icon: icon || '',
+            badge: icon || '',
+            tag: 'attendance-tracker-' + Date.now()
+          });
+        } catch(e) {}
+      }
+
       var recordTemplates = [];
       var employees = [];
       var timeOffRequests = [];
@@ -5339,7 +5374,20 @@ body.no-transitions * { transition: none !important; }
           return a.localeCompare(b, undefined, { sensitivity: 'base' });
         });
 
-        replaceOptions(els.nameFilter, 'All names', names, currentName);
+        // Build name options with status hint for non-Active employees
+        (function() {
+          var sel = els.nameFilter;
+          sel.innerHTML = '';
+          sel.appendChild(new Option('All names', ''));
+          names.forEach(function(name) {
+            var emp = employees.find(function(e) { return norm(e.name) === norm(name); });
+            var label = name;
+            if (emp && emp.status && emp.status !== 'Active') label = name + ' (' + emp.status + ')';
+            var opt = new Option(label, name);
+            sel.appendChild(opt);
+          });
+          sel.value = names.indexOf(currentName) !== -1 ? currentName : '';
+        })();
         replaceOptions(els.codeFilter, 'All codes', codes, currentCode);
 
         var deptFilterEl = document.getElementById('deptFilter');
@@ -7349,8 +7397,9 @@ body.no-transitions * { transition: none !important; }
         });
         empBody.innerHTML = filtered.map(function (emp) {
           var recordCount = rows.filter(function (r) { return norm(r.name) === norm(emp.name); }).length;
-          var tone = emp.status === 'Inactive' ? 'pastrequest' : 'future';
-          var avatar = '<span class="emp-avatar" style="background:' + avatarColor(emp.name) + ';opacity:' + (emp.status === 'Inactive' ? '0.45' : '1') + '">' + escapeHtml(avatarInitials(emp.name)) + '</span>';
+          var tone = (emp.status === 'Inactive' || emp.status === 'Terminated') ? 'pastrequest' : (emp.status === 'On Leave' ? 'pastrequest' : 'future');
+          var onLeaveClass = emp.status === 'On Leave' ? ' emp-on-leave' : '';
+          var avatar = '<span class="emp-avatar" style="background:' + avatarColor(emp.name) + ';opacity:' + ((emp.status === 'Inactive' || emp.status === 'Terminated') ? '0.45' : '1') + '">' + escapeHtml(avatarInitials(emp.name)) + '</span>';
           var lastIso = empLastIso(emp);
           var lastCell = '—';
           if (lastIso) {
@@ -7364,7 +7413,7 @@ body.no-transitions * { transition: none !important; }
           var hireObj = hireStr ? new Date(hireStr + 'T00:00:00') : null;
           var hireYears = hireObj && !isNaN(hireObj) ? Math.floor((new Date() - hireObj) / (365.25 * 86400000)) : 0;
           var milestoneBadge = hireStr ? (hireYears >= 10 ? ' 🏆' : hireYears >= 5 ? ' ⭐' : hireYears >= 3 ? ' 🌟' : '') : '';
-          return '<tr>' +
+          return '<tr class="' + onLeaveClass.trim() + '">' +
             '<td><code class="editable-cell" data-emp-field="id" data-emp-id="' + escapeHtml(emp.id) + '" title="Click to edit ID">' + escapeHtml(emp.id || '—') + '</code></td>' +
             '<td style="display:flex;align-items:center;gap:8px">' + avatar + '<span class="emp-name-link editable-cell" data-emp-field="name" data-emp-id="' + escapeHtml(emp.id) + '" title="Click to edit name" style="font-weight:650;cursor:pointer;text-decoration:underline;text-decoration-style:dotted;text-underline-offset:2px">' + escapeHtml(emp.name) + '</span>' + empRiskBadge(emp.name) + empPatternBadge(emp.name) + empPtsSummary(emp.name) + empNotesBadge(emp.name) + '</td>' +
             '<td><span class="editable-cell" data-emp-field="department" data-emp-id="' + escapeHtml(emp.id) + '" title="Click to edit">' + escapeHtml(emp.department || '—') + '</span></td>' +
@@ -7395,6 +7444,24 @@ body.no-transitions * { transition: none !important; }
         var empTab = document.getElementById('employeesTab');
         if (empTab) empTab.textContent = employees.length > 0 ? 'Employees (' + employees.length + ')' : 'Employees';
         updateEmployeeDatalist();
+        renderEmpStatusSummary();
+      }
+
+      function renderEmpStatusSummary() {
+        var el = document.getElementById('empStatusSummary');
+        if (!el) return;
+        var counts = { Active: 0, 'On Leave': 0, Inactive: 0, Terminated: 0, Other: 0 };
+        employees.forEach(function(e) {
+          var s = e.status || 'Active';
+          if (counts[s] !== undefined) counts[s]++;
+          else counts.Other++;
+        });
+        var parts = [];
+        if (counts.Active) parts.push('<span style="color:#22c55e;font-weight:600">' + counts.Active + ' Active</span>');
+        if (counts['On Leave']) parts.push('<span style="color:#f59e0b;font-weight:600">' + counts['On Leave'] + ' On Leave</span>');
+        if (counts.Inactive) parts.push('<span style="color:var(--muted)">' + counts.Inactive + ' Inactive</span>');
+        if (counts.Terminated) parts.push('<span style="color:#ef4444">' + counts.Terminated + ' Terminated</span>');
+        el.innerHTML = parts.join(' · ');
       }
 
       function renderTimeOff() {
@@ -12349,6 +12416,21 @@ body.no-transitions * { transition: none !important; }
         var settingsModalEl = document.getElementById('settingsModal');
         settingsModalEl.classList.remove('hidden');
         trapFocus(settingsModalEl);
+        // Sync notifications button state
+        var enableNotifsBtn = document.getElementById('enableNotifsBtn');
+        var notifStatusEl = document.getElementById('notifStatusText');
+        if (enableNotifsBtn && ('Notification' in window)) {
+          if (Notification.permission === 'granted') {
+            enableNotifsBtn.textContent = 'Enabled ✓'; enableNotifsBtn.disabled = true;
+            if (notifStatusEl) notifStatusEl.textContent = '✓ Notifications enabled';
+          } else if (Notification.permission === 'denied') {
+            enableNotifsBtn.textContent = 'Blocked';  enableNotifsBtn.disabled = true;
+            if (notifStatusEl) notifStatusEl.textContent = 'Blocked — enable in browser settings';
+          } else {
+            enableNotifsBtn.textContent = 'Enable'; enableNotifsBtn.disabled = false;
+            if (notifStatusEl) notifStatusEl.textContent = '';
+          }
+        }
       }
 
       // ── Points Engine ────────────────────────────────────────────────────
@@ -12535,6 +12617,22 @@ body.no-transitions * { transition: none !important; }
         });
         var settingsModal = document.getElementById('settingsModal');
         if (settingsModal) settingsModal.addEventListener('click', function(e) { if (e.target === this) this.classList.add('hidden'); });
+
+        // Browser Notifications enable button
+        var enableNotifsBtn = document.getElementById('enableNotifsBtn');
+        if (enableNotifsBtn) enableNotifsBtn.addEventListener('click', function() {
+          requestNotifPermission(function(granted) {
+            var statusEl = document.getElementById('notifStatusText');
+            if (granted) {
+              if (statusEl) statusEl.textContent = '✓ Notifications enabled';
+              enableNotifsBtn.textContent = 'Enabled ✓';
+              enableNotifsBtn.disabled = true;
+              sendNotif('Attendance Tracker', 'Notifications are now enabled! You'll be alerted for important events.');
+            } else {
+              if (statusEl) statusEl.textContent = 'Permission denied. Enable in browser settings.';
+            }
+          });
+        });
 
         // Points config add button
         var addPtsBtn = document.getElementById('addPointsConfigBtn');
@@ -13807,6 +13905,15 @@ body.no-transitions * { transition: none !important; }
           <option value="30">Every 30 minutes</option>
         </select>
       </div>
+
+      <!-- ── NOTIFICATIONS section ─────────────────────── -->
+      <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;color:var(--muted);padding-bottom:4px;border-bottom:2px solid var(--border);margin-top:6px">Notifications</div>
+
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+        <label style="font-weight:500;font-size:13px">Browser Notifications</label>
+        <button type="button" id="enableNotifsBtn" class="secondary" style="font-size:12px;padding:4px 10px">Enable</button>
+      </div>
+      <div id="notifStatusText" style="font-size:11px;color:var(--muted);margin-top:-8px;margin-bottom:12px"></div>
 
     </div>
     <div style="margin-top:22px;padding-top:16px;border-top:1px solid var(--border);display:flex;justify-content:flex-end;gap:10px">
