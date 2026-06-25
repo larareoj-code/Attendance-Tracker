@@ -1138,6 +1138,10 @@
     tbody tr[data-severity="mid"] td:first-child { border-left: 2px solid var(--yellow); }
     tbody tr[data-severity="low"] td:first-child { border-left: 2px solid var(--ok); }
 
+    /* Cumulative at-risk row highlight (based on employee total points, not per-record) */
+    tbody tr.row-emp-risk-high td:first-child { border-left: 3px solid #ef4444 !important; }
+    tbody tr.row-emp-risk-warn td:first-child { border-left: 3px solid #f59e0b !important; }
+
     /* Sticky table headers */
     thead th {
       position: sticky;
@@ -2395,6 +2399,15 @@ body.no-transitions * { transition: none !important; }
           <button class="secondary small" type="button" id="bulkDeleteBtn">🗑 Delete Selected</button>
           <button class="secondary small" type="button" id="bulkExportBtn">⬆ Export Selected</button>
           <button class="primary small" type="button" id="bulkEditBtn">✏ Edit Selected (<span id="bulkEditCount">0</span>)</button>
+          <select id="bulkStatusSelect" style="font-size:12px;padding:3px 6px;border-radius:var(--radius);background:var(--card2);border:1px solid var(--border);color:var(--text)">
+            <option value="">Set Status…</option>
+            <option value="past">Occurrence</option>
+            <option value="future">Future Request</option>
+            <option value="pastrequest">Past Request</option>
+          </select>
+          <button type="button" id="bulkSetStatusBtn" class="secondary small" style="font-size:12px;padding:3px 8px">Apply Status</button>
+          <input type="number" id="bulkPointsInput" step="0.5" placeholder="±pts" style="width:60px;font-size:12px;padding:3px 6px;border-radius:var(--radius);background:var(--card2);border:1px solid var(--border);color:var(--text)">
+          <button type="button" id="bulkAdjustPtsBtn" class="secondary small" style="font-size:12px;padding:3px 8px">Adjust Pts</button>
           <button class="secondary small" type="button" id="bulkDeselectBtn" style="margin-left:auto">✕ Deselect All</button>
         </div>
         <div id="recordsTableView">
@@ -2466,6 +2479,20 @@ body.no-transitions * { transition: none !important; }
         </div>
         <div id="summaryCardsView" style="display:none"></div>
         <div id="summaryEmpty" class="empty"><div class="empty-state"><div class="empty-state-icon">📊</div><div class="empty-state-title">No summary data</div><div class="empty-state-body">Import attendance records to see the point summary by agent.</div></div></div>
+        <div style="display:flex;gap:16px;flex-wrap:wrap;margin-top:4px">
+          <div class="card" style="flex:1;min-width:220px;margin-top:12px">
+            <div style="font-weight:700;font-size:13px;margin-bottom:8px">&#x1F4CA; This Month &mdash; Top by Points</div>
+            <div id="thisMonthSummary"></div>
+          </div>
+          <div class="card" id="deptBreakdownCard" style="flex:1;min-width:220px;margin-top:12px">
+            <div style="font-weight:700;font-size:13px;margin-bottom:8px">&#x1F3E2; Points by Department</div>
+            <div id="deptBreakdown"></div>
+          </div>
+        </div>
+        <div class="card" style="margin-top:16px">
+          <div style="font-weight:700;font-size:13px;margin-bottom:10px">&#x1F4C5; Monthly Breakdown (Last 12 Months)</div>
+          <div id="monthlyBreakdown"></div>
+        </div>
       </div>
 
       <div id="bucketView" class="hidden" role="tabpanel" aria-labelledby="bucketTab">
@@ -2895,7 +2922,9 @@ body.no-transitions * { transition: none !important; }
         showDashLeaderboard: true,
         severityHigh: 6,
         severityMid: 2,
-        autoConsequences: true
+        autoConsequences: true,
+        pageSize: 50,
+        autoBackupInterval: 0
       };
       var pointsConfig = {};
       var recordTemplates = [];
@@ -7566,35 +7595,62 @@ body.no-transitions * { transition: none !important; }
       }
 
       function renderAtRiskSection() {
+        var section = document.getElementById('atRiskSection');
         var el = document.getElementById('atRiskList');
         if (!el) return;
         var high = appSettings.severityHigh !== undefined ? appSettings.severityHigh : 6;
+        var mid = appSettings.severityMid !== undefined ? appSettings.severityMid : 2;
 
         var atRisk = employees
           .filter(function(e) { return e.status !== 'Inactive'; })
           .map(function(e) {
             return { name: e.name, pts: getEmpCurrentPoints(e.name), alert: getEmpThresholdAlert(e.name) };
           })
-          .filter(function(e) { return e.alert === 'at-high' || e.alert === 'approaching-high'; })
+          .filter(function(e) { return e.alert === 'at-high' || e.alert === 'approaching-high' || e.pts >= mid; })
           .sort(function(a, b) { return b.pts - a.pts; });
 
         if (!atRisk.length) {
-          el.innerHTML = '<div style="font-size:13px;color:var(--muted);padding:6px 0">No employees currently at risk.</div>';
+          if (section) section.style.display = 'none';
+          el.innerHTML = '';
           return;
+        }
+
+        if (section) section.style.display = '';
+
+        // Update count badge in section header
+        var headerEl = section ? section.querySelector('div:first-child') : null;
+        if (headerEl) {
+          var existingBadge = headerEl.querySelector('.at-risk-count-badge');
+          if (!existingBadge) {
+            var badge = document.createElement('span');
+            badge.className = 'at-risk-count-badge';
+            badge.style.cssText = 'font-size:10px;background:var(--danger);color:#fff;border-radius:99px;padding:1px 7px;margin-left:6px;font-weight:700';
+            headerEl.appendChild(badge);
+            existingBadge = badge;
+          }
+          existingBadge.textContent = atRisk.length;
         }
 
         el.innerHTML = atRisk.map(function(e) {
           var isHigh = e.alert === 'at-high';
-          return '<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 10px;margin-bottom:6px;border-radius:var(--radius);background:' +
+          var pct = Math.min(100, Math.round((e.pts / high) * 100));
+          var barColor = isHigh ? '#ef4444' : '#f59e0b';
+          var ptLabel = e.pts.toFixed(e.pts % 1 === 0 ? 0 : 1);
+          return '<div style="padding:8px 10px;margin-bottom:6px;border-radius:var(--radius);background:' +
             (isHigh ? 'rgba(239,68,68,0.08)' : 'rgba(245,158,11,0.08)') + ';border:1px solid ' +
             (isHigh ? 'rgba(239,68,68,0.25)' : 'rgba(245,158,11,0.25)') + ';cursor:pointer" ' +
             'onclick="openEmpProfile(' + JSON.stringify(e.name) + ')">' +
-            '<span style="font-weight:700;font-size:13px">' + escapeHtml(e.name) + '</span>' +
-            '<span style="font-size:12px;font-weight:700;color:' + (isHigh ? 'var(--danger)' : '#b45309') + '">' +
-              e.pts.toFixed(e.pts % 1 === 0 ? 0 : 1) + ' pts' +
-              (isHigh ? '' : ' (' + (high - e.pts).toFixed((high - e.pts) % 1 === 0 ? 0 : 1) + ' from HIGH)') +
-            '</span>' +
-            '</div>';
+            '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">' +
+              '<span style="font-weight:700;font-size:13px">' + escapeHtml(e.name) + '</span>' +
+              '<span style="font-size:12px;font-weight:700;color:' + barColor + '">' +
+                ptLabel + ' pts' +
+                (isHigh ? '' : ' <span style="font-weight:400;color:var(--muted);font-size:11px">(' + (high - e.pts).toFixed((high - e.pts) % 1 === 0 ? 0 : 1) + ' from HIGH)</span>') +
+              '</span>' +
+            '</div>' +
+            '<div style="height:4px;background:var(--border);border-radius:2px">' +
+              '<div style="height:4px;background:' + barColor + ';border-radius:2px;width:' + pct + '%"></div>' +
+            '</div>' +
+          '</div>';
         }).join('');
       }
 
@@ -8504,6 +8560,20 @@ body.no-transitions * { transition: none !important; }
         if (empTab) {
           var empBase = 'Employees';
           empTab.textContent = employees.length > 0 ? empBase + ' (' + employees.length + ')' : empBase;
+        }
+
+        // Dashboard tab — show at-risk count badge when employees are at or near high threshold
+        var dashTab = document.getElementById('dashboardTab');
+        if (dashTab) {
+          var _sevHighBadge = appSettings.severityHigh !== undefined ? appSettings.severityHigh : 6;
+          var _sevMidBadge = appSettings.severityMid !== undefined ? appSettings.severityMid : 2;
+          var atRiskBadgeCount = employees.filter(function(e) {
+            if (e.status === 'Inactive') return false;
+            var alert = getEmpThresholdAlert(e.name);
+            return alert === 'at-high' || alert === 'approaching-high';
+          }).length;
+          var dashBase = 'Dashboard';
+          dashTab.textContent = atRiskBadgeCount > 0 ? dashBase + ' ⚠️ ' + atRiskBadgeCount : dashBase;
         }
       }
 
@@ -12429,6 +12499,78 @@ body.no-transitions * { transition: none !important; }
         var bdsb = document.getElementById('bulkDeselectBtn');
         if (bdsb) {
           bdsb.addEventListener('click', function() { selectedIds.clear(); renderRecords(); });
+        }
+
+        // ── Bulk Set Status ──────────────────────────────────────────────────
+        var bulkSetStatusBtn = document.getElementById('bulkSetStatusBtn');
+        if (bulkSetStatusBtn) {
+          bulkSetStatusBtn.addEventListener('click', function() {
+            var sel = document.getElementById('bulkStatusSelect');
+            if (!sel || !sel.value) { showToast('Choose a status first'); return; }
+            var newStatus = sel.value;
+            var snapshots = {};
+            selectedIds.forEach(function(id) {
+              var row = rows.find(function(r) { return r.id === id; });
+              if (row) snapshots[id] = Object.assign({}, row);
+            });
+            var count = 0;
+            selectedIds.forEach(function(id) {
+              var row = rows.find(function(r) { return r.id === id; });
+              if (row) { row.type = newStatus; count++; }
+            });
+            if (count > 0) {
+              pushUndo('Bulk status: ' + newStatus + ' (' + count + ')', function() {
+                Object.keys(snapshots).forEach(function(id) {
+                  var row = rows.find(function(r) { return r.id === id; });
+                  if (row) Object.assign(row, snapshots[id]);
+                });
+                saveData(); render();
+              });
+              saveData();
+              render();
+              showToast('Updated ' + count + ' record' + (count === 1 ? '' : 's') + ' to ' + newStatus);
+            }
+            sel.value = '';
+          });
+        }
+
+        // ── Bulk Adjust Points ───────────────────────────────────────────────
+        var bulkAdjustPtsBtn = document.getElementById('bulkAdjustPtsBtn');
+        if (bulkAdjustPtsBtn) {
+          bulkAdjustPtsBtn.addEventListener('click', function() {
+            var inp = document.getElementById('bulkPointsInput');
+            if (!inp || inp.value === '') { showToast('Enter a points value first'); return; }
+            var delta = parseFloat(inp.value);
+            if (isNaN(delta)) { showToast('Invalid points value'); return; }
+            if (!selectedIds.size) { showToast('No records selected'); return; }
+            var snapshots = {};
+            selectedIds.forEach(function(id) {
+              var row = rows.find(function(r) { return r.id === id; });
+              if (row) snapshots[id] = Object.assign({}, row);
+            });
+            var count = 0;
+            selectedIds.forEach(function(id) {
+              var row = rows.find(function(r) { return r.id === id; });
+              if (row) {
+                row.points = Math.round(((parseFloat(row.points) || 0) + delta) * 100) / 100;
+                row.editedPoints = true;
+                count++;
+              }
+            });
+            if (count > 0) {
+              pushUndo('Bulk adjust pts ' + (delta >= 0 ? '+' : '') + delta + ' (' + count + ')', function() {
+                Object.keys(snapshots).forEach(function(id) {
+                  var row = rows.find(function(r) { return r.id === id; });
+                  if (row) Object.assign(row, snapshots[id]);
+                });
+                saveData(); render();
+              });
+              saveData();
+              render();
+              showToast((delta >= 0 ? 'Added ' + delta : 'Subtracted ' + Math.abs(delta)) + ' pts to ' + count + ' record' + (count === 1 ? '' : 's'));
+            }
+            inp.value = '';
+          });
         }
       })();
 
