@@ -7965,8 +7965,8 @@ body.no-transitions * { transition: none !important; }
           canvas.addEventListener('mousemove', function(e) {
             if (!tooltip) return;
             var rect = canvas.getBoundingClientRect();
-            var mx = (e.clientX - rect.left) * (canvas.width / rect.width);
-            var my = (e.clientY - rect.top) * (canvas.height / rect.height);
+            var mx = (e.clientX - rect.left);
+            var my = (e.clientY - rect.top);
             var hit = null;
             for (var i = 0; i < _dashChartBars.length; i++) {
               var b = _dashChartBars[i];
