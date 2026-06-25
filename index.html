@@ -6100,7 +6100,11 @@ body.no-transitions * { transition: none !important; }
         empModal.classList.remove('hidden');
         trapFocus(empModal);
         window._empProfileName = name;
-        setTimeout(function() { renderEmpTrendChart(name); }, 30);
+        setTimeout(function() {
+          renderEmpTrendChart(name);
+          renderEmpDowHeatmap(name);
+          renderEmpDowSummary(name);
+        }, 30);
 
         // Notes log setup
         var noteInput = document.getElementById('empProfileNoteInput');
@@ -6400,6 +6404,115 @@ body.no-transitions * { transition: none !important; }
             ctx.fillText(m.pts % 1 === 0 ? m.pts : m.pts.toFixed(1), x + barW / 2, y - 3);
           }
         });
+      }
+
+      function getEmpDowData(empName) {
+        // Returns array of 7 objects (Sun–Sat): {day, label, count, pts}
+        var dow = [0,1,2,3,4,5,6].map(function(d) {
+          return { day: d, label: DAY_NAMES[d].slice(0, 3), count: 0, pts: 0 };
+        });
+        rows.forEach(function(r) {
+          if (norm(r.name) !== norm(empName)) return;
+          if (!r.dateIso || !r.points) return;
+          var d = new Date(r.dateIso);
+          if (isNaN(d)) return;
+          dow[d.getDay()].count++;
+          dow[d.getDay()].pts += (r.points || 0);
+        });
+        return dow;
+      }
+
+      function renderEmpDowHeatmap(empName) {
+        var canvas = document.getElementById('empDowHeatmap');
+        if (!canvas) return;
+
+        var ctx = canvas.getContext('2d');
+        var dowData = getEmpDowData(empName);
+        var maxPts = Math.max(1, Math.max.apply(null, dowData.map(function(d) { return d.pts; })));
+
+        var W = canvas.offsetWidth || 420;
+        var H = 70;
+        canvas.width = W;
+        canvas.height = H;
+        ctx.clearRect(0, 0, W, H);
+
+        var cs = getComputedStyle(document.documentElement);
+        var mutedColor = cs.getPropertyValue('--muted').trim() || '#9ca3af';
+        var textColor = cs.getPropertyValue('--text').trim() || '#111';
+        var blueColor = cs.getPropertyValue('--blue').trim() || '#3b82f6';
+        var dangerColor = cs.getPropertyValue('--danger').trim() || '#ef4444';
+        var cardBg = cs.getPropertyValue('--card2').trim() || '#f3f4f6';
+
+        var padB = 20; // space for day labels
+        var cellW = Math.floor(W / 7);
+        var heatH = H - padB;
+
+        dowData.forEach(function(d, i) {
+          var x = i * cellW;
+          var intensity = maxPts > 0 ? d.pts / maxPts : 0;
+          var sevHigh = appSettings.severityHigh !== undefined ? appSettings.severityHigh : 6;
+          var sevMid = appSettings.severityMid !== undefined ? appSettings.severityMid : 2;
+
+          // Background cell
+          ctx.fillStyle = cardBg;
+          ctx.fillRect(x + 1, 0, cellW - 2, heatH);
+
+          // Heat fill (bottom-up)
+          if (d.pts > 0) {
+            var fillH = Math.max(4, Math.round(intensity * heatH));
+            var heatColor = d.pts >= sevHigh ? dangerColor : d.pts >= sevMid ? '#f59e0b' : blueColor;
+            // Create gradient for visual appeal
+            var grad = ctx.createLinearGradient(0, heatH - fillH, 0, heatH);
+            grad.addColorStop(0, heatColor + '80'); // 50% opacity at top
+            grad.addColorStop(1, heatColor);         // full at bottom
+            ctx.fillStyle = grad;
+            ctx.fillRect(x + 1, heatH - fillH, cellW - 2, fillH);
+          }
+
+          // Count label in center of cell (if any)
+          if (d.count > 0) {
+            ctx.fillStyle = d.pts >= sevMid ? '#fff' : textColor;
+            ctx.font = 'bold 11px system-ui, sans-serif';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(d.count, x + cellW / 2, heatH / 2);
+          }
+
+          // Day label below
+          ctx.fillStyle = mutedColor;
+          ctx.font = '10px system-ui, sans-serif';
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'top';
+          ctx.fillText(d.label, x + cellW / 2, heatH + 4);
+        });
+
+        // Worst day highlight (outline on max)
+        var maxDay = dowData.reduce(function(best, d) { return d.pts > best.pts ? d : best; }, dowData[0]);
+        if (maxDay.pts > 0) {
+          var xi = maxDay.day * cellW;
+          ctx.strokeStyle = dangerColor;
+          ctx.lineWidth = 2;
+          ctx.strokeRect(xi + 1, 0, cellW - 2, heatH);
+        }
+      }
+
+      function renderEmpDowSummary(empName) {
+        var summaryEl = document.getElementById('empDowSummary');
+        if (!summaryEl) return;
+        var dowData = getEmpDowData(empName);
+        var maxDay = dowData.reduce(function(best, d) { return d.pts > best.pts ? d : best; }, dowData[0]);
+
+        if (maxDay.pts === 0) {
+          summaryEl.textContent = 'No incidents recorded.';
+          return;
+        }
+
+        var sevHigh = appSettings.severityHigh !== undefined ? appSettings.severityHigh : 6;
+        var color = maxDay.pts >= sevHigh ? 'var(--danger)' : '#f59e0b';
+
+        summaryEl.innerHTML = 'Most incidents: <strong style="color:' + color + '">' +
+          DAY_NAMES[maxDay.day] + '</strong> — ' + maxDay.count + ' incident' + (maxDay.count !== 1 ? 's' : '') +
+          ', ' + maxDay.pts.toFixed(maxDay.pts % 1 === 0 ? 0 : 1) + ' pts';
       }
 
       function renderEmpNotesFeed(emp) {
@@ -12352,6 +12465,11 @@ body.no-transitions * { transition: none !important; }
     <div style="margin-top:20px;margin-bottom:20px">
       <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--muted);margin-bottom:10px">6-Month Points Trend</div>
       <canvas id="empTrendCanvas" width="420" height="140" style="width:100%;height:140px;display:block"></canvas>
+      <div style="margin-top:16px">
+        <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--muted);margin-bottom:8px">Day-of-Week Pattern</div>
+        <canvas id="empDowHeatmap" height="70" style="width:100%;display:block"></canvas>
+        <div id="empDowSummary" style="font-size:12px;color:var(--muted);margin-top:4px;text-align:center"></div>
+      </div>
     </div>
     <div>
       <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--muted);margin-bottom:8px">Time Off Requests</div>
