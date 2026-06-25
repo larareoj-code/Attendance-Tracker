@@ -2112,12 +2112,14 @@ body.no-transitions * { transition: none !important; }
       <div id="dashDateRangeBar" style="display:flex;align-items:center;gap:8px;margin-bottom:16px;flex-wrap:wrap">
         <span style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--muted)">Show:</span>
         <div style="display:flex;gap:4px;flex-wrap:wrap" id="dashRangeBtns">
+
           <button type="button" class="dash-range-btn active" data-range="30">This Month</button>
           <button type="button" class="dash-range-btn" data-range="90">Last 3 Mo</button>
           <button type="button" class="dash-range-btn" data-range="180">Last 6 Mo</button>
           <button type="button" class="dash-range-btn" data-range="365">YTD</button>
           <button type="button" class="dash-range-btn" data-range="all">All Time</button>
         </div>
+        <button type="button" id="exportDashReportBtn" class="secondary small no-print" style="margin-left:auto" title="Export dashboard summary as HTML report">⬇ Export Report</button>
       </div>
       <div id="dashDeptFilterBar" style="display:flex;align-items:center;gap:10px;margin-bottom:16px;flex-wrap:wrap">
         <label style="font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.06em">Department:</label>
@@ -2341,6 +2343,7 @@ body.no-transitions * { transition: none !important; }
           <button class="secondary" type="button" id="syncEmployeesBtn" style="margin-top:auto" title="Add any attendance record names not already in the roster">Sync from Attendance</button>
           <button class="secondary" type="button" id="importEmployeesBtn" style="margin-top:auto">⬆ Import Roster</button>
           <input type="file" id="importEmployeesInput" accept=".csv,.xlsx,.xls" style="display:none">
+          <button type="button" id="exportEmployeesCsvBtn" class="secondary no-print" style="margin-top:auto" title="Export employee roster to CSV">⬇ Export CSV</button>
           <span id="empSummary" style="margin-left:auto;font-size:13px;color:var(--muted)"></span>
         </div>
         <div class="table-wrap">
@@ -2395,6 +2398,7 @@ body.no-transitions * { transition: none !important; }
           </select>
           <button class="secondary" type="button" id="clearToFiltersBtn">Clear Filters</button>
           <button class="secondary small" type="button" id="exportTimeOffBtn" title="Export visible time-off requests to Excel" style="margin-left:auto">Export Time Off</button>
+          <button type="button" id="exportTimeOffCsvBtn" class="secondary small no-print" title="Export time-off requests to CSV">⬇ Export CSV</button>
           <span id="toSummary" style="font-size:13px;color:var(--muted)"></span>
         </div>
         <div id="toBulkBar" class="hidden" style="display:flex;align-items:center;gap:10px;padding:8px 12px;background:var(--card);border:1px solid var(--border);border-radius:var(--radius);margin-bottom:8px;flex-wrap:wrap">
@@ -8833,6 +8837,123 @@ body.no-transitions * { transition: none !important; }
         showToast('Exported ' + data.length + ' records as CSV');
       }
 
+      // ── Download helper ──────────────────────────────────────────────────────
+      function downloadTextFile(content, filename, mimeType) {
+        var blob = new Blob([content], { type: (mimeType || 'text/plain') + ';charset=utf-8;' });
+        var url = URL.createObjectURL(blob);
+        var a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        setTimeout(function() { document.body.removeChild(a); URL.revokeObjectURL(url); }, 100);
+      }
+
+      // ── Employee Roster CSV Export ───────────────────────────────────────────
+      function exportEmployeesCsv() {
+        var COLS = [
+          { key: 'name', label: 'Name' },
+          { key: 'department', label: 'Department' },
+          { key: 'role', label: 'Role' },
+          { key: 'employeeId', label: 'Employee ID' },
+          { key: 'standing', label: 'Standing' },
+          { key: 'status', label: 'Status' },
+          { key: 'hireDate', label: 'Hire Date' },
+          { key: 'notes', label: 'Notes' },
+        ];
+        function csvCell(val) {
+          var s = String(val === null || val === undefined ? '' : val);
+          if (s.includes(',') || s.includes('"') || s.includes('\n')) {
+            return '"' + s.replace(/"/g, '""') + '"';
+          }
+          return s;
+        }
+        var lines = [COLS.map(function(c) { return csvCell(c.label); }).join(',')];
+        employees.forEach(function(emp) {
+          lines.push(COLS.map(function(c) { return csvCell(emp[c.key] || ''); }).join(','));
+        });
+        var csv = lines.join('\r\n');
+        downloadTextFile(csv, 'employees-' + new Date().toISOString().slice(0,10) + '.csv', 'text/csv');
+        showToast('Exported ' + employees.length + ' employees');
+      }
+
+      // ── Time-Off Requests CSV Export ─────────────────────────────────────────
+      function exportTimeOffCsv() {
+        var COLS = [
+          { key: 'employeeName', label: 'Employee' },
+          { key: 'type', label: 'Type' },
+          { key: 'startDate', label: 'Start Date' },
+          { key: 'endDate', label: 'End Date' },
+          { key: 'status', label: 'Status' },
+          { key: 'notes', label: 'Notes' },
+        ];
+        function csvCell(val) {
+          var s = String(val === null || val === undefined ? '' : val);
+          if (s.includes(',') || s.includes('"') || s.includes('\n')) {
+            return '"' + s.replace(/"/g, '""') + '"';
+          }
+          return s;
+        }
+        var statusFilter = document.getElementById('toFilterStatus');
+        var statusVal = statusFilter ? statusFilter.value : '';
+        var toExport = statusVal
+          ? timeOffRequests.filter(function(r) { return r.status === statusVal; })
+          : timeOffRequests;
+        var lines = [COLS.map(function(c) { return csvCell(c.label); }).join(',')];
+        toExport.forEach(function(req) {
+          lines.push(COLS.map(function(c) { return csvCell(req[c.key] || ''); }).join(','));
+        });
+        var csv = lines.join('\r\n');
+        var filename = 'time-off' + (statusVal ? '-' + statusVal.toLowerCase() : '') + '-' + new Date().toISOString().slice(0,10) + '.csv';
+        downloadTextFile(csv, filename, 'text/csv');
+        showToast('Exported ' + toExport.length + ' time-off requests');
+      }
+
+      // ── Dashboard HTML Report Export ─────────────────────────────────────────
+      function exportDashReport() {
+        var now = new Date();
+        var dateStr = now.toLocaleDateString(undefined, {year:'numeric',month:'long',day:'numeric'});
+        var dashRows = getDashRows ? getDashRows() : rows;
+        var totalIncidents = dashRows.length;
+        var totalPts = dashRows.reduce(function(s,r){ return s+(parseFloat(r.points)||0); }, 0);
+        var empSet = new Set(dashRows.map(function(r){ return r.name; }));
+        var empPts = {};
+        dashRows.forEach(function(r){ empPts[r.name] = (empPts[r.name]||0)+(parseFloat(r.points)||0); });
+        var top5 = Object.keys(empPts).sort(function(a,b){ return empPts[b]-empPts[a]; }).slice(0,5);
+        var atRiskCount = employees.filter(function(e){
+          return e.status !== 'Inactive' && getEmpThresholdAlert(e.name) === 'at-high';
+        }).length;
+        var activeRangeBtn = document.querySelector('#dashRangeBtns .dash-range-btn.active');
+        var rangeLabel = activeRangeBtn ? activeRangeBtn.textContent.trim() : 'All Time';
+        var html = '<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><title>Attendance Dashboard Report</title>' +
+          '<style>body{font-family:system-ui,sans-serif;max-width:800px;margin:40px auto;color:#111;padding:0 20px}' +
+          'table{width:100%;border-collapse:collapse}th,td{padding:8px 10px;border:1px solid #e5e7eb;text-align:left}th{background:#f3f4f6}' +
+          '.stat-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin:16px 0}' +
+          '.stat-card{border:1px solid #e5e7eb;border-radius:8px;padding:12px;text-align:center}' +
+          '.stat-val{font-size:22px;font-weight:800}.stat-label{font-size:11px;color:#6b7280;text-transform:uppercase}' +
+          'h1{font-size:22px;border-bottom:2px solid #000;padding-bottom:8px}h2{font-size:14px;color:#374151;margin-top:20px}' +
+          '.footer{margin-top:30px;font-size:10px;color:#9ca3af;border-top:1px solid #e5e7eb;padding-top:8px}' +
+          '</style></head><body>' +
+          '<h1>Attendance Dashboard Report</h1>' +
+          '<p style="color:#6b7280;font-size:13px">Generated: ' + dateStr + ' · Period: ' + escapeHtml(rangeLabel) + ' · ' + empSet.size + ' employees with incidents</p>' +
+          '<div class="stat-grid">' +
+            '<div class="stat-card"><div class="stat-val">' + totalIncidents + '</div><div class="stat-label">Total Incidents</div></div>' +
+            '<div class="stat-card"><div class="stat-val">' + totalPts.toFixed(1) + '</div><div class="stat-label">Total Points</div></div>' +
+            '<div class="stat-card"><div class="stat-val" style="color:#dc2626">' + atRiskCount + '</div><div class="stat-label">At High Risk</div></div>' +
+            '<div class="stat-card"><div class="stat-val">' + employees.length + '</div><div class="stat-label">Total Employees</div></div>' +
+          '</div>' +
+          '<h2>Top 5 Employees by Points</h2>' +
+          '<table><thead><tr><th>#</th><th>Employee</th><th>Points</th></tr></thead><tbody>' +
+          top5.map(function(n,i){
+            return '<tr><td>'+(i+1)+'</td><td>'+escapeHtml(n)+'</td><td>'+empPts[n].toFixed(1)+'</td></tr>';
+          }).join('') +
+          '</tbody></table>' +
+          '<div class="footer">Attendance Tracker · Confidential · ' + dateStr + '</div>' +
+          '</body></html>';
+        downloadTextFile(html, 'dashboard-report-' + now.toISOString().slice(0,10) + '.html', 'text/html');
+        showToast('Dashboard report exported');
+      }
+
       // ── Task 3: Import History ───────────────────────────────────────────────
       var IMPORT_HISTORY_KEY = 'attTracker_importHistory';
 
@@ -10591,6 +10712,16 @@ body.no-transitions * { transition: none !important; }
       document.getElementById('syncBucketFromTimeoffBtn').addEventListener('click', syncBucketFromTimeoff);
       document.getElementById('bucketSearch').addEventListener('input', renderBucket);
       document.getElementById('exportTimeOffBtn').addEventListener('click', exportTimeOff);
+
+      var exportEmpCsvBtn = document.getElementById('exportEmployeesCsvBtn');
+      if (exportEmpCsvBtn) exportEmpCsvBtn.addEventListener('click', exportEmployeesCsv);
+
+      var exportToCsvBtn = document.getElementById('exportTimeOffCsvBtn');
+      if (exportToCsvBtn) exportToCsvBtn.addEventListener('click', exportTimeOffCsv);
+
+      var exportDashBtn = document.getElementById('exportDashReportBtn');
+      if (exportDashBtn) exportDashBtn.addEventListener('click', exportDashReport);
+
       document.getElementById('statTimeoffCard').addEventListener('click', function () {
         setView('timeoff');
         var sel = document.getElementById('toFilterStatus');
