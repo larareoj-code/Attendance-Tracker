@@ -3843,6 +3843,7 @@ body.no-transitions * { transition: none !important; }
       }
 
       function saveData(options) {
+        rows.forEach(function(r) { delete r._patternsChecked; delete r._patterns; });
         evaluatePolicyRules();
         var serializable = rows.map(function (row) {
           return {
@@ -6008,6 +6009,15 @@ body.no-transitions * { transition: none !important; }
           var nameText = highlightMatch(row.name, nameSearchVal) + (row.editedEmployee ? ' <span class="edited">*</span>' : '');
           var followUpText = followUpBadge(row.flags, row.followUpMonth) || '<span class="muted">None</span>';
           if (row.bucketApplied) followUpText += ' <span class="badge bucket">Bucket</span>';
+          // Pattern detection badge
+          if (!row._patternsChecked) {
+            row._patterns = detectOccurrencePatterns(row.name).slice(0, 2);
+            row._patternsChecked = true;
+          }
+          var patternBadges = (row._patterns || []).map(function(p) {
+            return '<span title="' + escapeHtml(p) + '" style="font-size:10px;padding:1px 5px;border-radius:8px;background:rgba(139,92,246,0.12);color:#7c3aed;font-weight:600;white-space:nowrap">📊 ' + escapeHtml(p) + '</span>';
+          }).join(' ');
+          if (patternBadges) followUpText += ' ' + patternBadges;
           var nameButton = '<button class="name-button emp-name-link" type="button" data-action="view-employee" data-id="' + escapeHtml(row.id) + '" style="text-decoration:underline;text-decoration-style:dotted;text-underline-offset:2px">' + nameText + '</button>';
           var resetName = row.editedEmployee ? '<button class="small secondary" type="button" data-action="reset-name" data-id="' + escapeHtml(row.id) + '">Reset Name</button>' : '';
           var resetPoints = row.editedPoints ? '<button class="small secondary" type="button" data-action="reset-points" data-id="' + escapeHtml(row.id) + '">Reset Points</button>' : '';
@@ -7043,6 +7053,19 @@ body.no-transitions * { transition: none !important; }
           } else {
             patternsEl.style.display = 'none';
           }
+
+          // Occurrence patterns (day-of-week + frequency)
+          var occPatterns = detectOccurrencePatterns(name);
+          var patternSection = occPatterns.length > 0
+            ? '<div style="margin-top:12px;padding:10px;background:rgba(139,92,246,0.07);border-radius:var(--radius);border-left:3px solid #7c3aed">' +
+                '<div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:#7c3aed;margin-bottom:6px">📊 Detected Patterns</div>' +
+                occPatterns.map(function(p) { return '<div style="font-size:12px;padding:2px 0">• ' + escapeHtml(p) + '</div>'; }).join('') +
+              '</div>'
+            : '';
+          if (patternSection) {
+            patternsEl.style.display = 'block';
+            patternsEl.innerHTML += patternSection;
+          }
         }
 
         var profilePrintBtn = document.getElementById('empProfilePrintBtn');
@@ -8076,6 +8099,50 @@ body.no-transitions * { transition: none !important; }
         return result;
       }
 
+      function detectOccurrencePatterns(empName) {
+        var empRows = rows.filter(function(r) {
+          return norm(r.name) === norm(empName) && r.dateIso;
+        }).sort(function(a, b) { return a.dateIso < b.dateIso ? -1 : 1; });
+
+        var patterns = [];
+
+        // Day-of-week pattern: 3+ occurrences on the same weekday
+        var dowCounts = [0,0,0,0,0,0,0]; // Sun-Sat
+        empRows.forEach(function(r) {
+          var d = new Date(r.dateIso + 'T12:00:00');
+          dowCounts[d.getDay()]++;
+        });
+        var dowNames = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+        dowCounts.forEach(function(cnt, dow) {
+          if (cnt >= 3) patterns.push(dow + ' pattern (' + cnt + 'x ' + dowNames[dow] + ')');
+        });
+
+        // Monday after weekend: 3+ Monday occurrences
+        var monCount = empRows.filter(function(r) {
+          return new Date(r.dateIso + 'T12:00:00').getDay() === 1;
+        }).length;
+        if (monCount >= 3 && !patterns.some(function(p) { return p.indexOf('Monday') > -1; })) {
+          patterns.push('Monday pattern');
+        }
+
+        // Frequency pattern: 3+ occurrences in any rolling 30-day window
+        for (var i = 0; i < empRows.length; i++) {
+          var windowEnd = new Date(empRows[i].dateIso + 'T12:00:00');
+          var windowStart = new Date(windowEnd);
+          windowStart.setDate(windowStart.getDate() - 30);
+          var windowStartStr = windowStart.toISOString().slice(0, 10);
+          var windowCount = empRows.filter(function(r) {
+            return r.dateIso >= windowStartStr && r.dateIso <= empRows[i].dateIso;
+          }).length;
+          if (windowCount >= 3) {
+            patterns.push('Frequent (3+ in 30 days)');
+            break;
+          }
+        }
+
+        return patterns;
+      }
+
       function detectClusters() {
         var results = [];
         var byEmployee = {};
@@ -8185,12 +8252,14 @@ body.no-transitions * { transition: none !important; }
           var pct = Math.min(100, Math.round((e.pts / high) * 100));
           var barColor = isHigh ? '#ef4444' : '#f59e0b';
           var ptLabel = e.pts.toFixed(e.pts % 1 === 0 ? 0 : 1);
+          var pats = detectOccurrencePatterns(e.name);
+          var patNote = pats.length > 0 ? ' <span title="' + escapeHtml(pats.join(', ')) + '" style="font-size:10px;cursor:help;color:#7c3aed">📊</span>' : '';
           return '<div style="padding:8px 10px;margin-bottom:6px;border-radius:var(--radius);background:' +
             (isHigh ? 'rgba(239,68,68,0.08)' : 'rgba(245,158,11,0.08)') + ';border:1px solid ' +
             (isHigh ? 'rgba(239,68,68,0.25)' : 'rgba(245,158,11,0.25)') + ';cursor:pointer" ' +
             'onclick="openEmpProfile(' + JSON.stringify(e.name) + ')">' +
             '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">' +
-              '<span style="font-weight:700;font-size:13px">' + escapeHtml(e.name) + '</span>' +
+              '<span style="font-weight:700;font-size:13px">' + escapeHtml(e.name) + patNote + '</span>' +
               '<span style="font-size:12px;font-weight:700;color:' + barColor + '">' +
                 ptLabel + ' pts' +
                 (isHigh ? '' : ' <span style="font-weight:400;color:var(--muted);font-size:11px">(' + (high - e.pts).toFixed((high - e.pts) % 1 === 0 ? 0 : 1) + ' from HIGH)</span>') +
