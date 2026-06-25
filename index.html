@@ -2095,22 +2095,22 @@ body.no-transitions * { transition: none !important; }
         </div>
         <div>
           <label for="manualCode">Code</label>
-          <input id="manualCode" type="text" autocomplete="off">
+          <input id="manualCode" type="text" autocomplete="off" title="The attendance code (e.g., A1, T1, NCNS). Determines point value if auto-points are configured.">
           <div class="field-error" id="err-manualCode" style="display:none;color:var(--danger);font-size:11px;margin-top:3px"></div>
         </div>
         <div>
           <label for="manualPoints">Points</label>
-          <input id="manualPoints" type="number" step="0.5" min="0" value="0" required="">
+          <input id="manualPoints" type="number" step="0.5" min="0" value="0" required="" title="Enter the point value for this occurrence. Positive = points added. Negative = points removed (give-back).">
         </div>
         <div>
           <label for="manualStatusSelect">Status</label>
-          <select id="manualStatusSelect" style="min-width:120px">
+          <select id="manualStatusSelect" style="min-width:120px" title="Occurrence = past attendance issue. Future Request = pre-approved absence. Past Request = retroactive time off request.">
             <option value="past">Occurrence</option>
             <option value="future">Future Request</option>
             <option value="pastrequest">Past Request</option>
           </select>
         </div>
-        <fieldset class="flag-field">
+        <fieldset class="flag-field" title="Flags mark this record for special tracking: Cluster = part of a pattern, Give-Back = points being returned, Policy Drop = eligible for policy removal">
           <legend>Flag</legend>
           <div class="flag-options">
             <label class="check-option">
@@ -2975,6 +2975,9 @@ body.no-transitions * { transition: none !important; }
           });
         } catch(e) {}
       }
+
+      // Track previously notified at-risk employees to avoid repeat alerts
+      var _notifiedAtRisk = {};
 
       var recordTemplates = [];
       var employees = [];
@@ -4932,6 +4935,7 @@ body.no-transitions * { transition: none !important; }
         try {
           await cloudPushAll();
           _updateSyncBadge('synced', 'Synced');
+          sendNotif('☁️ Attendance Tracker', 'Data synced to Google Drive successfully.');
         } catch (error) {
           _updateSyncBadge('error', 'Push failed');
           renderCloudStatus('Cloud push failed.');
@@ -4944,6 +4948,7 @@ body.no-transitions * { transition: none !important; }
         try {
           await cloudPullAll();
           _updateSyncBadge('synced', 'Synced');
+          sendNotif('☁️ Attendance Tracker', 'Data pulled from Google Drive.');
         } catch (error) {
           _updateSyncBadge('error', 'Pull failed');
           renderCloudStatus('Cloud pull failed.');
@@ -7905,6 +7910,14 @@ body.no-transitions * { transition: none !important; }
           })
           .filter(function(e) { return e.alert === 'at-high' || e.alert === 'approaching-high' || e.pts >= mid; })
           .sort(function(a, b) { return b.pts - a.pts; });
+
+        // Browser notifications for newly-at-risk employees
+        atRisk.forEach(function(e) {
+          if (e.pts >= high && !_notifiedAtRisk[e.name + '_high']) {
+            _notifiedAtRisk[e.name + '_high'] = true;
+            sendNotif('⚠️ Employee At Risk', e.name + ' has reached ' + e.pts.toFixed(1) + ' points (threshold: ' + high + ')');
+          }
+        });
 
         if (!atRisk.length) {
           if (section) section.style.display = 'none';
@@ -12741,6 +12754,27 @@ body.no-transitions * { transition: none !important; }
           localStorage.setItem('attTracker_shownShortcutHint', '1');
         }, 3000);
       }
+
+      // ── Daily Summary Notification ───────────────────────────────────────
+      function scheduleDailySummary() {
+        var now = new Date();
+        var next = new Date();
+        next.setHours(9, 0, 0, 0); // 9 AM
+        if (next <= now) next.setDate(next.getDate() + 1);
+        var msUntil = next - now;
+        setTimeout(function() {
+          var atRiskCount = 0;
+          var empPoints = {};
+          rows.forEach(function(r) { empPoints[r.name] = (empPoints[r.name] || 0) + (parseFloat(r.points) || 0); });
+          var highThresh = (appSettings && appSettings.severityHigh) ? parseFloat(appSettings.severityHigh) : 10;
+          atRiskCount = Object.keys(empPoints).filter(function(n) { return empPoints[n] >= highThresh; }).length;
+          if (atRiskCount > 0) {
+            sendNotif('📊 Daily Summary', atRiskCount + ' employee' + (atRiskCount > 1 ? 's are' : ' is') + ' at or above the point threshold.');
+          }
+          scheduleDailySummary(); // reschedule for next day
+        }, msUntil);
+      }
+      scheduleDailySummary();
 
       // Theme toggle (Item 3)
       var THEME_KEY = 'attTracker_theme';
