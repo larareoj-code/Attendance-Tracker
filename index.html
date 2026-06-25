@@ -1653,6 +1653,19 @@
 #recordsBody tr.kb-focused td { outline: 2px solid var(--blue); outline-offset: -2px; }
 #recordsBody tr.kb-focused { background: var(--card) !important; }
 
+/* ── Row hover & alternating colors ─────────────────────────────────────── */
+#recordsBody tr:hover td, #employeesBody tr:hover td {
+  background: rgba(59,130,246,0.05);
+}
+#recordsBody tr:nth-child(even) td {
+  background: rgba(255,255,255,0.02);
+}
+
+/* ── Employee form status dropdown min-width ─────────────────────────────── */
+#empStatus {
+  min-width: 140px;
+}
+
 /* ── Print header (hidden on screen) ─────────────────────────────────────── */
 .print-header {
   display: none;
@@ -1793,21 +1806,26 @@ body.no-transitions * { transition: none !important; }
           <input id="fileInput" type="file" accept=".xlsx,.xls,.csv" multiple="" style="display:none">
         </div>
         <button id="importWizardV2Btn" class="secondary" type="button" title="Drag-and-drop import with column mapping wizard">📂 Import Wizard</button>
+        <div class="toolbar-divider"></div>
         <button id="templateBtn" class="yellow" type="button">Template</button>
         <button id="focusManualBtn" class="primary" type="button">Add Record</button>
+        <div class="toolbar-divider"></div>
         <button id="exportBtn" class="primary" type="button" disabled="" title="Export all records to Excel (import data first)">Export Excel</button>
         <button id="exportFilteredBtn" class="secondary" type="button" disabled="" title="Export filtered records (import data first)">Export Filtered</button>
         <button class="secondary" type="button" id="exportCsvBtn" title="Export all records as CSV" disabled="">CSV ↓</button>
+        <div class="toolbar-divider"></div>
         <button class="secondary" type="button" id="printBtn" title="Print current view">🖨 Print</button>
         <button id="dedupeBtn" class="secondary" type="button" disabled="">Remove Duplicates</button>
         <button id="clearSavedBtn" class="danger" type="button">Clear Saved Data</button>
         <button class="secondary" type="button" id="backupJsonBtn" title="Download a full backup of all your data as JSON">⬇ Backup</button>
         <button class="secondary" type="button" id="restoreJsonBtn" title="Restore data from a JSON backup file">⬆ Restore</button>
         <input type="file" id="restoreJsonInput" accept=".json" style="display:none">
+        <div class="toolbar-divider"></div>
         <button class="secondary" type="button" id="settingsBtn" title="App settings">⚙ Settings</button>
         <div id="cloudSyncBadge" title="Google Drive sync status" style="display:none;align-items:center;gap:5px;padding:4px 10px;border-radius:20px;font-size:11px;font-weight:700;background:rgba(34,197,94,0.12);border:1px solid rgba(34,197,94,0.3);color:#16a34a;cursor:default;white-space:nowrap">
           <span id="cloudSyncBadgeIcon">●</span><span id="cloudSyncBadgeText">Synced</span>
         </div>
+        <div class="toolbar-divider"></div>
         <button class="secondary" type="button" id="importHistoryBtn" title="View import history">📜 History</button>
         <button class="secondary" type="button" id="undoBtn" title="Nothing to undo" disabled="">↩ Undo</button>
         <button class="secondary" type="button" id="colVisBtn" title="Show/hide table columns">⊞ Columns</button>
@@ -9726,6 +9744,10 @@ body.no-transitions * { transition: none !important; }
       }
 
       els.fileInput.addEventListener('change', handleFileImport);
+      var importFileBtn = document.getElementById('importFileBtn');
+      if (importFileBtn) importFileBtn.addEventListener('click', function() {
+        document.getElementById('fileInput').click();
+      });
       els.templateBtn.addEventListener('click', downloadTemplate);
       els.focusManualBtn.addEventListener('click', focusManualForm);
       els.exportBtn.addEventListener('click', exportExcel);
