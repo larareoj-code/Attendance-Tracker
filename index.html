@@ -1735,6 +1735,7 @@ body.no-transitions * { transition: none !important; }
           <label for="fileInput">Import Excel or CSV</label>
           <input id="fileInput" type="file" accept=".xlsx,.xls,.csv" multiple="">
         </div>
+        <button id="importWizardV2Btn" class="secondary" type="button" title="Drag-and-drop import with column mapping wizard">📂 Import Wizard</button>
         <button id="templateBtn" class="yellow" type="button">Template</button>
         <button id="focusManualBtn" class="primary" type="button">Add Record</button>
         <button id="exportBtn" class="primary" type="button" disabled="" title="Export all data (Records, Summary, Time Off, Employees)">Export Excel</button>
@@ -8475,6 +8476,399 @@ body.no-transitions * { transition: none !important; }
         if (commitBtn) commitBtn.addEventListener('click', commitImportWizard);
         if (modal) modal.addEventListener('click', function(e) { if (e.target === this) this.classList.add('hidden'); });
       })();
+
+      // ── Import Wizard V2 — Drag-drop + 3-step column mapping ─────────────────
+
+      // State
+      var _wizCsvHeaders = [];
+      var _wizCsvData = [];
+      var _wizMapping = {};
+      var _wizParsedRows = [];
+
+      var APP_FIELDS = [
+        { key: 'name',      label: 'Employee Name', required: true  },
+        { key: 'dateIso',   label: 'Date',          required: true  },
+        { key: 'code',      label: 'Code',          required: true  },
+        { key: 'type',      label: 'Type',          required: false },
+        { key: 'points',    label: 'Points',        required: false },
+        { key: 'reason',    label: 'Reason',        required: false },
+        { key: 'startTime', label: 'Start Time',    required: false },
+        { key: 'endTime',   label: 'End Time',      required: false },
+      ];
+
+      var _WIZ_HINTS = {
+        name:      ['name', 'employee', 'emp', 'person', 'staff', 'agent', 'worker'],
+        dateIso:   ['date', 'day', 'when', 'occurrence', 'abs date', 'absence date'],
+        code:      ['code', 'type code', 'att code', 'attendance code', 'absence code'],
+        type:      ['type', 'category', 'absence type', 'status'],
+        points:    ['points', 'pts', 'point', 'value'],
+        reason:    ['reason', 'notes', 'note', 'comment', 'remarks'],
+        startTime: ['start', 'start time', 'time in'],
+        endTime:   ['end', 'end time', 'time out'],
+      };
+
+      function autoDetectMappingV2(headers) {
+        var mapping = {};
+        APP_FIELDS.forEach(function(f) {
+          var hints = _WIZ_HINTS[f.key] || [f.key];
+          var match = headers.find(function(h) {
+            var hn = h.toLowerCase().trim();
+            return hints.some(function(hint) { return hn === hint || hn.indexOf(hint) !== -1; });
+          });
+          if (match) mapping[f.key] = match;
+        });
+        return mapping;
+      }
+
+      function parseCSVText(text) {
+        var lines = text.split(/\r?\n/);
+        var headers = [];
+        var data = [];
+        lines.forEach(function(line, li) {
+          if (!line.trim()) return;
+          var cells = [];
+          var cur = '';
+          var inQ = false;
+          for (var i = 0; i < line.length; i++) {
+            var ch = line[i];
+            if (ch === '"') { inQ = !inQ; }
+            else if (ch === ',' && !inQ) { cells.push(cur.trim()); cur = ''; }
+            else { cur += ch; }
+          }
+          cells.push(cur.trim());
+          if (li === 0) { headers = cells; }
+          else {
+            var obj = {};
+            headers.forEach(function(h, idx) { obj[h] = cells[idx] || ''; });
+            data.push(obj);
+          }
+        });
+        return { headers: headers, data: data };
+      }
+
+      function setImportWizStep(n) {
+        // step 0 = drop zone
+        var step0 = document.getElementById('importWizStep0');
+        if (step0) step0.classList.toggle('hidden', n !== 0);
+        [1, 2, 3].forEach(function(i) {
+          var ind   = document.getElementById('importWizStep' + i + 'Ind');
+          var panel = document.getElementById('importWizStep' + i);
+          if (ind) {
+            ind.style.background = i === n ? 'var(--blue)' : 'transparent';
+            ind.style.color = i === n ? '#fff' : (i < n ? 'var(--ok)' : 'var(--muted)');
+          }
+          if (panel) panel.classList.toggle('hidden', i !== n);
+        });
+      }
+
+      function openImportWizardV2(file) {
+        var modal = document.getElementById('importWizardV2Modal');
+        if (!modal) return;
+
+        var ext = (file.name.split('.').pop() || '').toLowerCase();
+        var reader = new FileReader();
+
+        reader.onload = function(e) {
+          var headers, data;
+          try {
+            if (ext === 'csv') {
+              var parsed = parseCSVText(e.target.result);
+              headers = parsed.headers;
+              data    = parsed.data;
+            } else if (window.XLSX) {
+              var wb     = XLSX.read(e.target.result, { type: 'array' });
+              var ws     = wb.Sheets[wb.SheetNames[0]];
+              var jdata  = XLSX.utils.sheet_to_json(ws, { raw: false, defval: '' });
+              headers = jdata.length ? Object.keys(jdata[0]) : [];
+              data    = jdata;
+            } else {
+              showToast('Excel library not loaded — please use a CSV file'); return;
+            }
+          } catch(err) {
+            showToast('Could not read file: ' + err.message); return;
+          }
+
+          if (!headers.length) { showToast('Could not read file headers'); return; }
+
+          _wizCsvHeaders = headers;
+          _wizCsvData    = data;
+          _wizMapping    = autoDetectMappingV2(headers);
+
+          // Populate Step 1
+          var info = document.getElementById('importWizFileInfo');
+          if (info) info.innerHTML =
+            '<strong>' + escapeHtml(file.name) + '</strong> &middot; ' +
+            data.length + ' data rows &middot; ' + headers.length + ' columns';
+
+          var previewTable = document.getElementById('importWizPreviewTable');
+          if (previewTable) {
+            var previewRows = data.slice(0, 5);
+            previewTable.innerHTML =
+              '<table style="width:100%;font-size:12px;border-collapse:collapse">' +
+              '<thead><tr>' + headers.map(function(h) {
+                return '<th style="padding:4px 8px;background:var(--card2);border:1px solid var(--border);white-space:nowrap">' + escapeHtml(h) + '</th>';
+              }).join('') + '</tr></thead>' +
+              '<tbody>' + previewRows.map(function(row) {
+                return '<tr>' + headers.map(function(h) {
+                  return '<td style="padding:4px 8px;border:1px solid var(--border);max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + escapeHtml(String(row[h] || '')) + '</td>';
+                }).join('') + '</tr>';
+              }).join('') + '</tbody></table>' +
+              (data.length > 5 ? '<div style="font-size:11px;color:var(--muted);margin-top:4px">Showing 5 of ' + data.length + ' rows</div>' : '');
+          }
+
+          setImportWizStep(1);
+          modal.classList.remove('hidden');
+          trapFocus(modal);
+        };
+
+        if (ext === 'csv') reader.readAsText(file);
+        else reader.readAsArrayBuffer(file);
+      }
+
+      function renderMappingGridV2() {
+        var grid = document.getElementById('importWizMappingGrid');
+        if (!grid) return;
+        grid.innerHTML = APP_FIELDS.map(function(f) {
+          var selected = _wizMapping[f.key] || '';
+          return '<div>' +
+            '<label style="font-size:12px;font-weight:700;color:var(--muted);display:block;margin-bottom:3px">' +
+              escapeHtml(f.label) + (f.required ? ' <span style="color:var(--danger)">*</span>' : '') +
+            '</label>' +
+            '<select data-field="' + f.key + '" style="width:100%;font-size:13px;padding:5px 8px">' +
+              '<option value="">— skip —</option>' +
+              _wizCsvHeaders.map(function(h) {
+                return '<option value="' + escapeHtml(h) + '"' + (h === selected ? ' selected' : '') + '>' + escapeHtml(h) + '</option>';
+              }).join('') +
+            '</select>' +
+            '</div>';
+        }).join('');
+
+        grid.querySelectorAll('select').forEach(function(sel) {
+          sel.addEventListener('change', function() {
+            var fk = sel.getAttribute('data-field');
+            if (sel.value) _wizMapping[fk] = sel.value;
+            else delete _wizMapping[fk];
+          });
+        });
+      }
+
+      function buildWizardRowsV2() {
+        _wizParsedRows = [];
+        _wizCsvData.forEach(function(csvRow) {
+          var r = {
+            id:        'r_wiz_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7),
+            name:      (_wizMapping.name      ? String(csvRow[_wizMapping.name]      || '') : '').trim(),
+            dateIso:   '',
+            dateText:  '',
+            code:      (_wizMapping.code      ? String(csvRow[_wizMapping.code]      || '') : '').trim(),
+            type:      (_wizMapping.type      ? String(csvRow[_wizMapping.type]      || '') : '').trim(),
+            points:    parseFloat(_wizMapping.points ? csvRow[_wizMapping.points] : '') || 0,
+            reason:    (_wizMapping.reason    ? String(csvRow[_wizMapping.reason]    || '') : '').trim(),
+            startTime: (_wizMapping.startTime ? String(csvRow[_wizMapping.startTime] || '') : '').trim(),
+            endTime:   (_wizMapping.endTime   ? String(csvRow[_wizMapping.endTime]   || '') : '').trim(),
+            flag:      '',
+            originalName: '',
+            displayName:  '',
+            originalPoints: 0,
+            sourceFile: 'wizard',
+            editedPoints: false,
+            editedEmployee: false,
+            statusOverride: false,
+            flags: [],
+            followUp: '',
+            followUpMonth: '',
+            bucketApplied: false
+          };
+          r.originalName  = r.name;
+          r.displayName   = r.name;
+          r.originalPoints = r.points;
+
+          if (_wizMapping.dateIso) {
+            var rawDate = String(csvRow[_wizMapping.dateIso] || '').trim();
+            var d = new Date(rawDate);
+            if (!isNaN(d.getTime())) {
+              r.dateIso  = d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+              r.dateText = rawDate;
+            } else {
+              r.dateIso  = rawDate;
+              r.dateText = rawDate;
+            }
+          }
+
+          if (r.name && r.dateIso && r.code) {
+            _wizParsedRows.push(r);
+          }
+        });
+        return _wizParsedRows;
+      }
+
+      function renderImportPreviewV2() {
+        buildWizardRowsV2();
+        // findImportDuplicates returns the DUPLICATE rows (not all rows with a flag)
+        var dupeRows   = findImportDuplicates(_wizParsedRows);
+        var dupeKeys   = new Set(dupeRows.map(function(r) { return r.id; }));
+        var dupeCount  = dupeRows.length;
+
+        var summary = document.getElementById('importWizPreviewSummary');
+        if (summary) {
+          summary.innerHTML =
+            '<strong>' + _wizParsedRows.length + '</strong> valid rows &nbsp;·&nbsp; ' +
+            '<strong style="color:var(--danger)">' + dupeCount + '</strong> duplicates &nbsp;·&nbsp; ' +
+            '<strong style="color:var(--ok)">' + (_wizParsedRows.length - dupeCount) + '</strong> new';
+        }
+
+        var previewEl = document.getElementById('importWizPreviewRows');
+        if (previewEl) {
+          var preview = _wizParsedRows.slice(0, 10);
+          previewEl.innerHTML =
+            '<table style="width:100%;font-size:12px;border-collapse:collapse">' +
+            '<thead><tr>' +
+              '<th style="padding:4px 8px;background:var(--card2);border:1px solid var(--border)">Name</th>' +
+              '<th style="padding:4px 8px;background:var(--card2);border:1px solid var(--border)">Date</th>' +
+              '<th style="padding:4px 8px;background:var(--card2);border:1px solid var(--border)">Code</th>' +
+              '<th style="padding:4px 8px;background:var(--card2);border:1px solid var(--border)">Type</th>' +
+              '<th style="padding:4px 8px;background:var(--card2);border:1px solid var(--border)">Pts</th>' +
+              '<th style="padding:4px 8px;background:var(--card2);border:1px solid var(--border)">Status</th>' +
+            '</tr></thead>' +
+            '<tbody>' + preview.map(function(r) {
+              var isDup = dupeKeys.has(r.id);
+              return '<tr style="' + (isDup ? 'opacity:0.6' : '') + '">' +
+                '<td style="padding:4px 8px;border:1px solid var(--border)">'  + escapeHtml(r.name)    + '</td>' +
+                '<td style="padding:4px 8px;border:1px solid var(--border)">'  + escapeHtml(r.dateIso) + '</td>' +
+                '<td style="padding:4px 8px;border:1px solid var(--border)">'  + escapeHtml(r.code)    + '</td>' +
+                '<td style="padding:4px 8px;border:1px solid var(--border)">'  + escapeHtml(r.type)    + '</td>' +
+                '<td style="padding:4px 8px;border:1px solid var(--border)">'  + r.points              + '</td>' +
+                '<td style="padding:4px 8px;border:1px solid var(--border);color:' +
+                  (isDup ? 'var(--danger)' : 'var(--ok)') + '">' + (isDup ? 'Duplicate' : 'New') + '</td>' +
+                '</tr>';
+            }).join('') +
+            '</tbody></table>' +
+            (_wizParsedRows.length > 10 ? '<div style="font-size:11px;color:var(--muted);margin-top:4px">Showing 10 of ' + _wizParsedRows.length + ' rows</div>' : '');
+        }
+      }
+
+      // Wire the V2 wizard
+      (function() {
+        var modal = document.getElementById('importWizardV2Modal');
+        if (!modal) return;
+
+        function closeWizV2() {
+          modal.classList.add('hidden');
+          releaseFocus(modal);
+          setImportWizStep(0); // reset to drop zone for next open
+        }
+
+        // Close on backdrop click
+        modal.addEventListener('click', function(e) { if (e.target === modal) closeWizV2(); });
+
+        // Close buttons
+        var closeBtn  = document.getElementById('importWizV2Close');
+        var close0Btn = document.getElementById('importWizV2Close0');
+        var close1Btn = document.getElementById('importWizV2Close1');
+        if (closeBtn)  closeBtn.addEventListener('click',  closeWizV2);
+        if (close0Btn) close0Btn.addEventListener('click', closeWizV2);
+        if (close1Btn) close1Btn.addEventListener('click', closeWizV2);
+
+        // Step nav
+        var next2Btn    = document.getElementById('importWizNextStep2');
+        var back1Btn    = document.getElementById('importWizBackStep1');
+        var next3Btn    = document.getElementById('importWizNextStep3');
+        var back2Btn    = document.getElementById('importWizBackStep2');
+        var doImportBtn = document.getElementById('importWizDoImport');
+
+        if (next2Btn) next2Btn.addEventListener('click', function() {
+          renderMappingGridV2();
+          setImportWizStep(2);
+        });
+
+        if (back1Btn) back1Btn.addEventListener('click', function() { setImportWizStep(1); });
+
+        if (next3Btn) next3Btn.addEventListener('click', function() {
+          var errEl   = document.getElementById('importWizMappingError');
+          var missing = ['name', 'dateIso', 'code'].filter(function(f) { return !_wizMapping[f]; });
+          if (missing.length) {
+            var labels = { name: 'Employee Name', dateIso: 'Date', code: 'Code' };
+            if (errEl) errEl.textContent = 'Required fields not mapped: ' + missing.map(function(f) { return labels[f]; }).join(', ');
+            return;
+          }
+          if (errEl) errEl.textContent = '';
+          renderImportPreviewV2();
+          setImportWizStep(3);
+        });
+
+        if (back2Btn) back2Btn.addEventListener('click', function() { setImportWizStep(2); });
+
+        if (doImportBtn) doImportBtn.addEventListener('click', function() {
+          var dupeRows  = findImportDuplicates(_wizParsedRows);
+          var dupeKeys  = new Set(dupeRows.map(function(r) { return r.id; }));
+          var newRows   = _wizParsedRows.filter(function(r) { return !dupeKeys.has(r.id); });
+
+          if (!newRows.length) {
+            showToast('No new rows to import (all are duplicates)');
+            return;
+          }
+
+          var snapshot = rows.slice();
+          newRows.forEach(function(r) { rows.push(r); });
+          pushUndo('Import ' + newRows.length + ' record' + (newRows.length !== 1 ? 's' : ''), function() {
+            rows.length = 0;
+            snapshot.forEach(function(r) { rows.push(r); });
+            saveData(); render();
+          });
+          saveData(); render();
+          closeWizV2();
+          showToast('Imported ' + newRows.length + ' record' + (newRows.length !== 1 ? 's' : '') +
+            (dupeRows.length ? ' (' + dupeRows.length + ' duplicate' + (dupeRows.length !== 1 ? 's' : '') + ' skipped)' : ''));
+        });
+
+        // Drop zone wiring
+        var zone  = document.getElementById('csvDropZone');
+        var input = document.getElementById('csvDropInput');
+
+        if (zone && input) {
+          zone.addEventListener('dragover', function(e) {
+            e.preventDefault();
+            zone.style.borderColor = 'var(--blue)';
+            zone.style.background  = 'rgba(59,130,246,0.06)';
+          });
+          zone.addEventListener('dragleave', function() {
+            zone.style.borderColor = '';
+            zone.style.background  = '';
+          });
+          zone.addEventListener('drop', function(e) {
+            e.preventDefault();
+            zone.style.borderColor = '';
+            zone.style.background  = '';
+            var file = e.dataTransfer.files[0];
+            if (file) openImportWizardV2(file);
+          });
+          zone.addEventListener('click', function(e) {
+            if (e.target !== input && !e.target.closest('label')) input.click();
+          });
+          input.addEventListener('change', function() {
+            if (input.files[0]) openImportWizardV2(input.files[0]);
+            input.value = '';
+          });
+        }
+
+        // Trigger button in hero bar
+        var triggerBtn = document.getElementById('importWizardV2Btn');
+        if (triggerBtn) {
+          triggerBtn.addEventListener('click', function() {
+            setImportWizStep(0);
+            modal.classList.remove('hidden');
+            trapFocus(modal);
+          });
+        }
+
+        // ESC key closes
+        modal.addEventListener('keydown', function(e) {
+          if (e.key === 'Escape') closeWizV2();
+        });
+
+        // Initialize: show drop zone first
+        setImportWizStep(0);
+      })();
       document.getElementById('shortcutsBtn').addEventListener('click', function () {
         alert([
           'Keyboard Shortcuts',
@@ -10738,6 +11132,68 @@ body.no-transitions * { transition: none !important; }
     <div style="display:flex;gap:10px;margin-top:18px;justify-content:flex-end">
       <button class="secondary" type="button" id="cancelImportWizardBtn">Cancel</button>
       <button class="primary" type="button" id="commitImportBtn">Import Rows</button>
+    </div>
+  </div>
+</div>
+
+<div id="importWizardV2Modal" class="modal-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="importWizV2Title" style="position:fixed;inset:0;z-index:450;background:rgba(0,0,0,0.65);display:flex;align-items:center;justify-content:center;padding:20px">
+  <div class="modal-content" style="background:var(--card2);border:1px solid var(--border-light);border-radius:var(--radius);box-shadow:var(--shadow);max-width:680px;width:95vw;max-height:85vh;overflow-y:auto;padding:24px">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+      <h3 id="importWizV2Title" style="margin:0;font-size:16px;font-weight:800">Import Wizard</h3>
+      <button type="button" id="importWizV2Close" class="icon-btn" aria-label="Close" style="background:none;border:none;color:var(--muted);font-size:22px;cursor:pointer;padding:0 4px;line-height:1">✕</button>
+    </div>
+
+    <!-- Step indicator -->
+    <div id="importWizSteps" style="display:flex;gap:4px;margin-bottom:16px;font-size:12px;color:var(--muted);align-items:center">
+      <span id="importWizStep1Ind" style="padding:3px 10px;border-radius:99px;font-weight:700">1. File</span>
+      <span style="color:var(--muted)">›</span>
+      <span id="importWizStep2Ind" style="padding:3px 10px;border-radius:99px;font-weight:700">2. Map Columns</span>
+      <span style="color:var(--muted)">›</span>
+      <span id="importWizStep3Ind" style="padding:3px 10px;border-radius:99px;font-weight:700">3. Preview &amp; Import</span>
+    </div>
+
+    <!-- Step 0: Drop zone (shown before a file is loaded) -->
+    <div id="importWizStep0">
+      <div id="csvDropZone" style="border:2px dashed var(--border);border-radius:var(--radius);padding:28px 20px;text-align:center;color:var(--muted);font-size:13px;cursor:pointer;transition:border-color 0.2s,background 0.2s;margin-bottom:4px">
+        <div style="font-size:28px;margin-bottom:6px">📂</div>
+        <div>Drop a CSV or Excel file here, or <label for="csvDropInput" style="color:var(--blue);cursor:pointer;text-decoration:underline">browse</label></div>
+        <input type="file" id="csvDropInput" accept=".csv,.xlsx,.xls" style="display:none">
+        <div style="font-size:11px;color:var(--muted);margin-top:6px">CSV or Excel · Launches column mapping wizard</div>
+      </div>
+      <div style="display:flex;justify-content:flex-end;margin-top:10px">
+        <button type="button" id="importWizV2Close0" class="secondary">Cancel</button>
+      </div>
+    </div>
+
+    <!-- Step 1: File info -->
+    <div id="importWizStep1" class="hidden">
+      <div id="importWizFileInfo" style="padding:12px;background:var(--card2);border:1px solid var(--border);border-radius:var(--radius);margin-bottom:12px;font-size:13px"></div>
+      <div id="importWizPreviewTable" style="overflow-x:auto;max-height:200px;overflow-y:auto;margin-bottom:12px"></div>
+      <div style="display:flex;justify-content:flex-end;gap:8px">
+        <button type="button" id="importWizV2Close1" class="secondary">Cancel</button>
+        <button type="button" id="importWizNextStep2" class="primary">Next: Map Columns →</button>
+      </div>
+    </div>
+
+    <!-- Step 2: Column mapping -->
+    <div id="importWizStep2" class="hidden">
+      <p style="font-size:13px;color:var(--muted);margin-bottom:12px">Map your CSV columns to the attendance record fields. Required: Name, Date, Code.</p>
+      <div id="importWizMappingGrid" style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:16px"></div>
+      <div id="importWizMappingError" style="color:var(--danger);font-size:12px;min-height:18px"></div>
+      <div style="display:flex;justify-content:space-between;gap:8px;margin-top:8px">
+        <button type="button" id="importWizBackStep1" class="secondary">← Back</button>
+        <button type="button" id="importWizNextStep3" class="primary">Next: Preview →</button>
+      </div>
+    </div>
+
+    <!-- Step 3: Preview -->
+    <div id="importWizStep3" class="hidden">
+      <div id="importWizPreviewSummary" style="padding:10px;background:var(--card2);border:1px solid var(--border);border-radius:var(--radius);margin-bottom:10px;font-size:13px"></div>
+      <div id="importWizPreviewRows" style="overflow-x:auto;max-height:250px;overflow-y:auto;margin-bottom:12px"></div>
+      <div style="display:flex;justify-content:space-between;gap:8px">
+        <button type="button" id="importWizBackStep2" class="secondary">← Back</button>
+        <button type="button" id="importWizDoImport" class="primary">Import Records</button>
+      </div>
     </div>
   </div>
 </div>
