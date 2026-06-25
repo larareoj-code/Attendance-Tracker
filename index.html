@@ -1125,6 +1125,19 @@
     [data-theme="light"] tbody tr:nth-child(even) td {
       background: rgba(0,0,0,0.02);
     }
+    [data-theme="light"] .secondary {
+      background: linear-gradient(180deg, #f3f4f6, #e9ecef);
+      border-color: var(--border);
+      color: var(--text);
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    }
+    [data-theme="light"] .secondary:hover {
+      background: linear-gradient(180deg, #e9ecef, #dde1e7);
+      border-color: var(--border-light);
+    }
+    [data-theme="light"] .secondary:active {
+      background: linear-gradient(180deg, #dde1e7, #d0d6de);
+    }
 
     /* Row density overrides */
     .density-compact tr td, .density-compact tr th { padding: 4px 8px !important; font-size: 12px; }
@@ -1750,8 +1763,8 @@ body.no-transitions * { transition: none !important; }
         <button id="importWizardV2Btn" class="secondary" type="button" title="Drag-and-drop import with column mapping wizard">📂 Import Wizard</button>
         <button id="templateBtn" class="yellow" type="button">Template</button>
         <button id="focusManualBtn" class="primary" type="button">Add Record</button>
-        <button id="exportBtn" class="primary" type="button" disabled="" title="Export all data (Records, Summary, Time Off, Employees)">Export Excel</button>
-        <button id="exportFilteredBtn" class="secondary" type="button" disabled="" title="Export only the currently filtered/visible attendance records">Export Filtered</button>
+        <button id="exportBtn" class="primary" type="button" disabled="" title="Export all records to Excel (import data first)">Export Excel</button>
+        <button id="exportFilteredBtn" class="secondary" type="button" disabled="" title="Export filtered records (import data first)">Export Filtered</button>
         <button class="secondary" type="button" id="exportCsvBtn" title="Export all records as CSV" disabled="">CSV ↓</button>
         <button class="secondary" type="button" id="printBtn" title="Print current view">🖨 Print</button>
         <button id="dedupeBtn" class="secondary" type="button" disabled="">Remove Duplicates</button>
@@ -1867,29 +1880,34 @@ body.no-transitions * { transition: none !important; }
         <button class="secondary small" type="button" id="driveBackupBtn" title="Save a JSON backup of all data to Google Drive">⬆ Backup to Drive</button>
         <button class="secondary small" type="button" id="driveRestoreBtn" title="Restore data from a Google Drive JSON backup">⬇ Restore from Drive</button>
       </div>
-      <div class="cloud-setup">
-        <div>
-          <label for="cloudOriginValue">Authorized JavaScript origin</label>
-          <div class="cloud-readonly">
-            <input id="cloudOriginValue" type="text" readonly="">
-            <button id="copyCloudOriginBtn" class="secondary small" type="button">Copy</button>
+      <details id="cloudAdvancedToggle" style="margin-top:8px">
+        <summary style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--muted);cursor:pointer;user-select:none;padding:4px 0">
+          ▶ Advanced / OAuth Setup
+        </summary>
+        <div class="cloud-setup" style="margin-top:8px">
+          <div>
+            <label for="cloudOriginValue">Authorized JavaScript origin</label>
+            <div class="cloud-readonly">
+              <input id="cloudOriginValue" type="text" readonly="">
+              <button id="copyCloudOriginBtn" class="secondary small" type="button">Copy</button>
+            </div>
+          </div>
+          <div>
+            <label for="cloudRedirectValue">Authorized redirect URI</label>
+            <div class="cloud-readonly">
+              <input id="cloudRedirectValue" type="text" readonly="">
+              <button id="copyCloudRedirectBtn" class="secondary small" type="button">Copy</button>
+            </div>
+          </div>
+          <div>
+            <label for="cloudAuthUrlValue">Generated Google auth URL</label>
+            <div class="cloud-readonly">
+              <input id="cloudAuthUrlValue" type="text" readonly="">
+              <button id="copyCloudAuthUrlBtn" class="secondary small" type="button">Copy</button>
+            </div>
           </div>
         </div>
-        <div>
-          <label for="cloudRedirectValue">Authorized redirect URI</label>
-          <div class="cloud-readonly">
-            <input id="cloudRedirectValue" type="text" readonly="">
-            <button id="copyCloudRedirectBtn" class="secondary small" type="button">Copy</button>
-          </div>
-        </div>
-        <div>
-          <label for="cloudAuthUrlValue">Generated Google auth URL</label>
-          <div class="cloud-readonly">
-            <input id="cloudAuthUrlValue" type="text" readonly="">
-            <button id="copyCloudAuthUrlBtn" class="secondary small" type="button">Copy</button>
-          </div>
-        </div>
-      </div>
+      </details>
       <div id="cloudAccountRow" style="display:none;align-items:center;gap:8px;padding:6px 10px;background:rgba(34,197,94,0.07);border:1px solid rgba(34,197,94,0.2);border-radius:var(--radius);margin-bottom:6px;font-size:12px">
         <span style="font-size:16px">✓</span>
         <span>Connected as <strong id="cloudAccountEmail">—</strong></span>
@@ -2235,9 +2253,9 @@ body.no-transitions * { transition: none !important; }
     <div class="dash-section dash-full">
       <div class="dash-section-title" style="display:flex;align-items:center;gap:12px">
         <span>Attendance Calendar</span>
-        <button class="secondary small" type="button" id="calPrevBtn">&#9666;</button>
+        <button class="secondary small" type="button" id="calPrevBtn" aria-label="Previous month" title="Previous month">&#9666;</button>
         <span id="calMonthLabel" style="font-weight:700;font-size:14px;min-width:130px;text-align:center"></span>
-        <button class="secondary small" type="button" id="calNextBtn">&#9656;</button>
+        <button class="secondary small" type="button" id="calNextBtn" aria-label="Next month" title="Next month">&#9656;</button>
         <span style="font-size:12px;color:var(--muted);margin-left:auto">Click a day to filter Records</span>
       </div>
       <div id="attendanceCalendar" style="margin-top:12px"></div>
@@ -2462,9 +2480,9 @@ body.no-transitions * { transition: none !important; }
         <!-- Controls bar -->
         <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:16px">
           <div style="display:flex;align-items:center;gap:8px">
-            <button type="button" id="calPrevBtn" class="secondary" style="padding:6px 12px;font-size:16px" aria-label="Previous month">‹</button>
+            <button type="button" id="calPrevBtn" class="secondary" style="padding:6px 12px;font-size:16px" aria-label="Previous month" title="Previous month">‹</button>
             <h2 id="calMonthLabel" style="margin:0;font-size:18px;font-weight:800;min-width:160px;text-align:center"></h2>
-            <button type="button" id="calNextBtn" class="secondary" style="padding:6px 12px;font-size:16px" aria-label="Next month">›</button>
+            <button type="button" id="calNextBtn" class="secondary" style="padding:6px 12px;font-size:16px" aria-label="Next month" title="Next month">›</button>
           </div>
           <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
             <button type="button" id="calTodayBtn" class="secondary" style="font-size:12px;padding:5px 10px">Today</button>
@@ -3893,7 +3911,7 @@ body.no-transitions * { transition: none !important; }
 
       function _updateSetupGuide() {
         var guide = document.getElementById('cloudSetupGuide');
-        if (guide) guide.style.display = cloudConfig.clientId ? 'none' : 'block';
+        if (guide) guide.style.display = (cloudConfig.clientId && cloudConfig.clientId !== '') ? 'none' : 'block';
       }
 
       function renderCloudStatus(message) {
@@ -3916,13 +3934,13 @@ body.no-transitions * { transition: none !important; }
         var tokenActive = Boolean(cloudAccessToken) && Date.now() < (cloudTokenExpiresAt - 30000);
 
         if (!cloudConfig.clientId) {
-          els.cloudStatus.textContent = 'Add OAuth Client ID to enable Google Sheets cloud storage.';
+          els.cloudStatus.textContent = 'Configure Google OAuth to enable cloud sync.';
           _updateSyncBadge(null);
           return;
         }
 
         if (!cloudConfig.spreadsheetId) {
-          els.cloudStatus.textContent = 'Connected config ready. Create a sheet or paste a Spreadsheet ID.';
+          els.cloudStatus.textContent = 'Client ID ready. Click Connect then Create Sheet to enable cloud sync.';
           _updateSyncBadge(tokenActive ? 'pending' : null, tokenActive ? 'No Sheet' : null);
           return;
         }
@@ -4553,8 +4571,9 @@ body.no-transitions * { transition: none !important; }
 
         function row(name, daysBack, type, code, reason, pts, flag) {
           var d = daysAgo(daysBack);
+          var dateObj = new Date(today); dateObj.setDate(dateObj.getDate() - daysBack);
           return { id: 'demo_' + Math.random().toString(36).slice(2), name: name,
-            dateIso: d, dateText: d, type: type || 'past', code: code || '',
+            date: dateObj, dateIso: d, dateText: d, type: type || 'past', code: code || '',
             reason: reason || '', points: pts != null ? pts : 1, flag: flag || '',
             startTime: '', endTime: '', sourceFile: 'Demo Data',
             editedPoints: false, editedEmployee: false, statusOverride: false };
@@ -5539,9 +5558,15 @@ body.no-transitions * { transition: none !important; }
           if (countBadge) countBadge.textContent = anyFilter ? '(' + activeFilters.length + ' active)' : '';
         }
         els.exportBtn.disabled = rows.length === 0;
+        els.exportBtn.title = rows.length === 0
+          ? 'Export all records to Excel (import data first)'
+          : 'Export all data (Records, Summary, Time Off, Employees)';
         var exportFilteredBtn = document.getElementById('exportFilteredBtn');
         if (exportFilteredBtn) {
           exportFilteredBtn.disabled = rows.length === 0;
+          exportFilteredBtn.title = rows.length === 0
+            ? 'Export filtered records (import data first)'
+            : 'Export only the currently filtered/visible attendance records';
           exportFilteredBtn.textContent = filteredCount < rows.length
             ? 'Export Filtered (' + filteredCount.toLocaleString() + ')'
             : 'Export Filtered';
@@ -10477,12 +10502,13 @@ body.no-transitions * { transition: none !important; }
       })();
 
       (function () {
-        function makeCollapsible(toggleId, bodyId, chevronId, storageKey) {
+        function makeCollapsible(toggleId, bodyId, chevronId, storageKey, defaultCollapsed) {
           var toggle = document.getElementById(toggleId);
           var body = document.getElementById(bodyId);
           var chevron = document.getElementById(chevronId);
           if (!toggle || !body) return;
-          var collapsed = localStorage.getItem(storageKey) === '1';
+          var stored = localStorage.getItem(storageKey);
+          var collapsed = stored !== null ? stored === '1' : (defaultCollapsed === true);
           function apply(anim) {
             body.style.display = collapsed ? 'none' : '';
             if (chevron) chevron.style.transform = collapsed ? 'rotate(-90deg)' : '';
@@ -10495,9 +10521,9 @@ body.no-transitions * { transition: none !important; }
             apply(true);
           });
         }
-        makeCollapsible('cloudPanelToggle', 'cloudPanelBody', 'cloudPanelChevron', 'attTracker_cloudCollapsed');
+        makeCollapsible('cloudPanelToggle', 'cloudPanelBody', 'cloudPanelChevron', 'attTracker_cloudCollapsed', true);
         makeCollapsible('manualPanelToggle', 'manualPanelBody', 'manualPanelChevron', 'attTracker_manualCollapsed');
-        makeCollapsible('filterPanelToggle', 'filterPanelBody', 'filterPanelChevron', 'attTracker_filterCollapsed');
+        makeCollapsible('filterPanelToggle', 'filterPanelBody', 'filterPanelChevron', 'attTracker_filterCollapsed', true);
       }());
 
       (function () {
