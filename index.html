@@ -2003,8 +2003,15 @@ body.no-transitions * { transition: none !important; }
       </div>
       <div class="filter-preset-bar" id="filterPresetBar">
         <span style="font-size:12px;color:var(--muted);font-weight:600;white-space:nowrap">Presets:</span>
-        <div id="filterPresetChips" style="display:flex;gap:6px;flex-wrap:wrap;align-items:center"></div>
-        <button class="secondary small" type="button" id="saveFilterPresetBtn" title="Save current filters as a preset">+ Save</button>
+        <div id="filterPresetWrap" style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+          <select id="filterPresetSelect" style="font-size:12px;padding:4px 8px;min-width:130px;border:1px solid var(--border);border-radius:var(--radius);background:var(--bg);color:var(--text)" title="Load a saved filter preset">
+            <option value="">— Presets —</option>
+          </select>
+          <button type="button" id="loadPresetBtn" class="secondary small" style="font-size:11px;padding:3px 8px" title="Apply selected preset">Load</button>
+          <button type="button" id="saveNewPresetBtn" class="secondary small" style="font-size:11px;padding:3px 8px" title="Save current filters as new preset">+ Save</button>
+          <button type="button" id="deletePresetBtn" class="secondary small" style="font-size:11px;padding:3px 8px;color:var(--danger)" title="Delete selected preset">&#x1F5D1; Del</button>
+          <button type="button" id="copyFilterLinkBtn" class="secondary small no-print" style="font-size:11px;padding:3px 8px" title="Copy URL with current filters to clipboard">&#x1F517; Link</button>
+        </div>
       </div>
       <div class="filters">
         <div>
@@ -7951,6 +7958,8 @@ body.no-transitions * { transition: none !important; }
           var fCount = visibleCount;
           csvExportBtn.title = 'Export ' + fCount + ' row' + (fCount !== 1 ? 's' : '') + ' to CSV' + (fCount < rows.length ? ' (filtered)' : '');
         }
+        // Sync active filters into the URL hash for bookmarking/sharing
+        if (typeof pushFiltersToHash === 'function') pushFiltersToHash();
       }
 
       function updateTabBadges(visibleCount) {
@@ -11714,56 +11723,125 @@ body.no-transitions * { transition: none !important; }
         render();
       }
 
-      function renderFilterPresetChips() {
-        var container = document.getElementById('filterPresetChips');
-        if (!container) return;
+      function populatePresetDropdown() {
+        var sel = document.getElementById('filterPresetSelect');
+        if (!sel) return;
         var presets = _loadPresets();
-        if (!presets.length) {
-          container.innerHTML = '<span style="font-size:12px;color:var(--muted);font-style:italic">None saved</span>';
-          return;
+        sel.innerHTML = '<option value="">— Presets —</option>' +
+          presets.map(function(p, i) {
+            return '<option value="' + i + '">' + escapeHtml(p.name) + '</option>';
+          }).join('');
+      }
+
+      // ── URL Hash Filter State ────────────────────────────────────────────
+      function pushFiltersToHash() {
+        var state = captureFilterState();
+        var hasFilter = Object.keys(state).some(function(k) {
+          var v = state[k];
+          return v !== undefined && v !== null && v !== '';
+        });
+        if (hasFilter) {
+          try {
+            var encoded = btoa(unescape(encodeURIComponent(JSON.stringify(state))));
+            history.replaceState(null, '', '#filters=' + encoded);
+          } catch(e) {}
+        } else {
+          history.replaceState(null, '', window.location.pathname + window.location.search);
         }
-        container.innerHTML = presets.map(function(p) {
-          return '<span class="preset-chip" data-preset="' + escapeHtml(p.name) + '">' +
-            escapeHtml(p.name) +
-            '<button class="preset-chip-del" type="button" data-del-preset="' + escapeHtml(p.name) + '" title="Delete">\xd7</button>' +
-            '</span>';
-        }).join('');
+      }
+
+      function applyFiltersFromHash() {
+        var hash = window.location.hash;
+        if (!hash || hash.indexOf('#filters=') !== 0) return;
+        try {
+          var encoded = hash.slice('#filters='.length);
+          var state = JSON.parse(decodeURIComponent(escape(atob(encoded))));
+          applyFilterState(state);
+          showToast('Filters loaded from URL');
+        } catch(e) {
+          // Ignore invalid hash
+        }
+      }
+
+      // Apply hash filters on page load (after render() has already run once)
+      if (window.location.hash && window.location.hash.indexOf('#filters=') === 0) {
+        applyFiltersFromHash();
       }
 
       (function() {
-        var saveBtn = document.getElementById('saveFilterPresetBtn');
-        var chipsEl = document.getElementById('filterPresetChips');
-        if (saveBtn) {
-          saveBtn.addEventListener('click', function() {
-            var name = prompt('Name this filter preset:');
-            if (!name || !name.trim()) return;
-            var presets = _loadPresets().filter(function(p) { return p.name !== name.trim(); });
-            presets.unshift({ name: name.trim(), state: captureFilterState() });
-            if (presets.length > 10) presets = presets.slice(0, 10);
+        var sel = document.getElementById('filterPresetSelect');
+        var loadBtn = document.getElementById('loadPresetBtn');
+        var saveBtn = document.getElementById('saveNewPresetBtn');
+        var delBtn = document.getElementById('deletePresetBtn');
+        var copyLinkBtn = document.getElementById('copyFilterLinkBtn');
+
+        if (loadBtn) loadBtn.addEventListener('click', function() {
+          if (!sel || !sel.value) { showToast('Select a preset first'); return; }
+          var presets = _loadPresets();
+          var preset = presets[parseInt(sel.value, 10)];
+          if (preset) { applyFilterState(preset.state); showToast('Loaded: ' + preset.name); }
+        });
+
+        if (saveBtn) saveBtn.addEventListener('click', function() {
+          var name = prompt('Preset name:');
+          if (!name || !name.trim()) return;
+          var presets = _loadPresets();
+          var existing = -1;
+          for (var i = 0; i < presets.length; i++) {
+            if (norm(presets[i].name) === norm(name.trim())) { existing = i; break; }
+          }
+          var state = captureFilterState();
+          if (existing >= 0) {
+            presets[existing] = { name: name.trim(), state: state };
+            showToast('Updated: ' + name.trim());
+          } else {
+            presets.push({ name: name.trim(), state: state });
+            showToast('Saved: ' + name.trim());
+          }
+          _savePresets(presets);
+          populatePresetDropdown();
+        });
+
+        if (delBtn) delBtn.addEventListener('click', function() {
+          if (!sel || !sel.value) { showToast('Select a preset first'); return; }
+          var presets = _loadPresets();
+          var idx = parseInt(sel.value, 10);
+          var pname = presets[idx] ? presets[idx].name : '?';
+          showConfirm('Delete preset "' + escapeHtml(pname) + '"?', function() {
+            presets.splice(idx, 1);
             _savePresets(presets);
-            renderFilterPresetChips();
-            showToast('Preset "' + name.trim() + '" saved');
-          });
-        }
-        if (chipsEl) {
-          chipsEl.addEventListener('click', function(e) {
-            var delBtn = e.target.closest('[data-del-preset]');
-            if (delBtn) {
-              var n = delBtn.getAttribute('data-del-preset');
-              _savePresets(_loadPresets().filter(function(p) { return p.name !== n; }));
-              renderFilterPresetChips();
-              e.stopPropagation();
-              return;
-            }
-            var chip = e.target.closest('[data-preset]');
-            if (chip) {
-              var presets = _loadPresets();
-              var preset = presets.find(function(p) { return p.name === chip.getAttribute('data-preset'); });
-              if (preset) { applyFilterState(preset.state); showToast('Preset "' + preset.name + '" applied'); }
-            }
-          });
-        }
-        renderFilterPresetChips();
+            populatePresetDropdown();
+            showToast('Deleted: ' + pname);
+          }, { title: 'Delete Preset', ok: 'Delete', danger: true });
+        });
+
+        if (copyLinkBtn) copyLinkBtn.addEventListener('click', function() {
+          pushFiltersToHash();
+          var url = window.location.href;
+          if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(url).then(function() {
+              showToast('Filter link copied to clipboard');
+            }).catch(function() {
+              var ta = document.createElement('textarea');
+              ta.value = url;
+              document.body.appendChild(ta);
+              ta.select();
+              document.execCommand('copy');
+              document.body.removeChild(ta);
+              showToast('Filter link copied');
+            });
+          } else {
+            var ta = document.createElement('textarea');
+            ta.value = url;
+            document.body.appendChild(ta);
+            ta.select();
+            document.execCommand('copy');
+            document.body.removeChild(ta);
+            showToast('Filter link copied');
+          }
+        });
+
+        populatePresetDropdown();
       })();
 
       // ── More menu wiring ──────────────────────────────────────────────────
