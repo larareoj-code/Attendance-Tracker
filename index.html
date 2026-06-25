@@ -2570,8 +2570,7 @@ body.no-transitions * { transition: none !important; }
               <th><input type="checkbox" id="toSelectAll" title="Select all"></th>
               <th><button class="sort-button" type="button" data-to-sort="employeeName">Employee <span id="toSortEmployee"></span></button></th>
               <th><button class="sort-button" type="button" data-to-sort="type">Type <span id="toSortType"></span></button></th>
-              <th><button class="sort-button" type="button" data-to-sort="startDate">Start <span id="toSortStart"></span></button></th>
-              <th><button class="sort-button" type="button" data-to-sort="endDate">End <span id="toSortEnd"></span></button></th>
+              <th colspan="2"><button class="sort-button" type="button" data-to-sort="startDate">Date Range <span id="toSortStart"></span></button></th>
               <th><button class="sort-button" type="button" data-to-sort="days">Days <span id="toSortDays"></span></button></th>
               <th><button class="sort-button" type="button" data-to-sort="status">Status <span id="toSortStatus"></span></button></th>
               <th>Notes</th><th>Actions</th>
@@ -6175,6 +6174,26 @@ body.no-transitions * { transition: none !important; }
         return 'pastrequest';
       }
 
+      function timeOffStatusBadge(status) {
+        var colors = {
+          'Pending':   { bg: 'rgba(245,158,11,0.15)',  color: '#b45309', border: 'rgba(245,158,11,0.4)'  },
+          'Approved':  { bg: 'rgba(34,197,94,0.15)',   color: '#15803d', border: 'rgba(34,197,94,0.4)'   },
+          'Denied':    { bg: 'rgba(239,68,68,0.15)',   color: '#b91c1c', border: 'rgba(239,68,68,0.4)'   },
+          'Cancelled': { bg: 'rgba(148,163,184,0.15)', color: '#64748b', border: 'rgba(148,163,184,0.4)' },
+        };
+        var c = colors[status] || colors['Pending'];
+        return '<span style="display:inline-flex;align-items:center;padding:2px 8px;border-radius:20px;font-size:11px;font-weight:600;background:' + c.bg + ';color:' + c.color + ';border:1px solid ' + c.border + '">' + escapeHtml(status || 'Pending') + '</span>';
+      }
+
+      function fmtDateRange(start, end) {
+        var s = new Date(start + 'T00:00:00');
+        var e = new Date(end + 'T00:00:00');
+        var days = Math.round((e - s) / 86400000) + 1;
+        var opts = { month: 'short', day: 'numeric' };
+        if (s.getFullYear() !== e.getFullYear()) opts.year = 'numeric';
+        return s.toLocaleDateString('en-US', opts) + ' – ' + e.toLocaleDateString('en-US', opts) + ' <span style="color:var(--muted);font-size:11px">(' + days + ' day' + (days === 1 ? '' : 's') + ')</span>';
+      }
+
       function updateEmployeeDatalist() {
         var opts = employees
           .filter(function (e) { return e.status !== 'Inactive'; })
@@ -7050,7 +7069,7 @@ body.no-transitions * { transition: none !important; }
         if (!toBody) return;
         var nameFilter = norm((document.getElementById('toFilterName') || {}).value || '');
         var statusFilter = ((document.getElementById('toFilterStatus') || {}).value || '');
-        var TO_SORT_IDS = { employeeName: 'toSortEmployee', type: 'toSortType', startDate: 'toSortStart', endDate: 'toSortEnd', days: 'toSortDays', status: 'toSortStatus' };
+        var TO_SORT_IDS = { employeeName: 'toSortEmployee', type: 'toSortType', startDate: 'toSortStart', days: 'toSortDays', status: 'toSortStatus' };
         var sorted = timeOffRequests.slice().sort(function (a, b) {
           var key = timeOffSort.key;
           var dir = timeOffSort.dir;
@@ -7075,10 +7094,9 @@ body.no-transitions * { transition: none !important; }
             '<td><input type="checkbox" class="to-select-cb" data-to-id="' + escapeHtml(req.id) + '"' + (selectedToIds.has(req.id) ? ' checked' : '') + '></td>' +
             '<td><button class="name-button" type="button" data-summary-action="view-employee" data-name="' + escapeHtml(req.employeeName) + '">' + escapeHtml(req.employeeName) + '</button></td>' +
             '<td>' + escapeHtml(req.type) + '</td>' +
-            '<td>' + escapeHtml(req.startDate) + '</td>' +
-            '<td>' + escapeHtml(req.endDate) + '</td>' +
+            '<td colspan="2">' + fmtDateRange(req.startDate, req.endDate) + '</td>' +
             '<td>' + days + '</td>' +
-            '<td><span class="badge ' + tone + '">' + escapeHtml(req.status) + '</span></td>' +
+            '<td>' + timeOffStatusBadge(req.status) + '</td>' +
             '<td><span class="editable-cell" data-to-notes-id="' + escapeHtml(req.id) + '" title="Click to edit notes">' + escapeHtml(req.notes || '—') + '</span></td>' +
             '<td><div style="display:flex;gap:6px;flex-wrap:wrap">' +
               (req.status === 'Pending' ?
