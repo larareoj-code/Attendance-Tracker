@@ -1920,6 +1920,7 @@ body.no-transitions * { transition: none !important; }
           <input id="manualDate" type="date" required="">
           <div class="field-error" id="err-manualDate" style="display:none;color:var(--danger);font-size:11px;margin-top:3px"></div>
           <span id="manualDateDay" style="font-size:12px;color:var(--muted);margin-top:2px;display:block"></span>
+          <div id="manualTimeOffWarning" style="display:none;padding:6px 10px;background:rgba(245,158,11,0.1);border:1px solid rgba(245,158,11,0.4);border-radius:var(--radius);font-size:12px;color:#92400e;margin-top:4px"></div>
         </div>
         <div>
           <label for="manualCode">Code</label>
@@ -4757,7 +4758,7 @@ body.no-transitions * { transition: none !important; }
           return;
         }
 
-        rows.push({
+        var newRecord = {
           id: createId(),
           sourceFile: 'Manual Entry',
           sourceSheet: 'Manual',
@@ -4781,16 +4782,33 @@ body.no-transitions * { transition: none !important; }
           followUpMonth: followUpMonth,
           bucketApplied: false,
           type: statusOverride || classify(date)
-        });
+        };
 
-        saveData();
-        resetManualForm();
-        render();
-        setView('records');
-        showManualStatus('Record added.');
-        // Check consequences for the added employee
-        checkAndPromptConsequence(name);
-        els.manualName.focus();
+        function _doAddRecord(record) {
+          rows.push(record);
+          saveData();
+          resetManualForm();
+          render();
+          setView('records');
+          showManualStatus('Record added.');
+          // Check consequences for the added employee
+          checkAndPromptConsequence(record.name);
+          els.manualName.focus();
+        }
+
+        // Check for time-off conflict before saving
+        var conflictDateIso = els.manualDate.value;
+        var conflictReq = checkTimeOffConflict(name, conflictDateIso);
+        if (conflictReq) {
+          var conflictMsg = escapeHtml(name) + ' has approved ' + escapeHtml(conflictReq.type) + ' on ' + escapeHtml(conflictDateIso) +
+            ' (' + escapeHtml(conflictReq.startDate) + (conflictReq.endDate !== conflictReq.startDate ? ' – ' + escapeHtml(conflictReq.endDate) : '') + ').\n\nAdd this attendance record anyway?';
+          showConfirm(conflictMsg, function() {
+            _doAddRecord(newRecord);
+          }, { title: 'Time-Off Conflict', ok: 'Add Anyway', cancel: 'Cancel', danger: true });
+          return; // Wait for confirm response
+        }
+        // No conflict — save immediately
+        _doAddRecord(newRecord);
       }
 
       function focusManualForm() {
@@ -4990,8 +5008,25 @@ body.no-transitions * { transition: none !important; }
           startTime: row.startTime || '',
           endTime: row.endTime || '',
         };
+        updateEditTimeOffWarning();
         document.getElementById('recordEditModal').classList.remove('hidden');
         trapFocus(document.getElementById('recordEditModal'));
+      }
+
+      function updateEditTimeOffWarning() {
+        var warnEl = document.getElementById('editTimeOffWarning');
+        if (!warnEl) return;
+        var nameEl = document.getElementById('reEditName');
+        var dateEl = document.getElementById('reEditDate');
+        var name = nameEl ? nameEl.value.trim() : '';
+        var dateIso = dateEl ? dateEl.value : '';
+        var conflict = checkTimeOffConflict(name, dateIso);
+        if (conflict) {
+          warnEl.textContent = '⚠ On approved ' + conflict.type + ' (' + conflict.startDate + (conflict.endDate !== conflict.startDate ? '–' + conflict.endDate : '') + ')';
+          warnEl.style.display = 'block';
+        } else {
+          warnEl.style.display = 'none';
+        }
       }
 
       function closeRecordEditModal() {
@@ -6686,6 +6721,20 @@ body.no-transitions * { transition: none !important; }
             renderEmployees();
           });
         }
+      }
+
+      function checkTimeOffConflict(empName, dateIso) {
+        // Returns the conflicting time-off request, or null
+        if (!empName || !dateIso) return null;
+        var checkDate = new Date(dateIso);
+        if (isNaN(checkDate)) return null;
+        return timeOffRequests.find(function(req) {
+          if (req.status !== 'Approved') return false;
+          if (norm(req.employeeName) !== norm(empName)) return false;
+          var start = new Date(req.startDate);
+          var end = new Date(req.endDate || req.startDate);
+          return checkDate >= start && checkDate <= end;
+        }) || null;
       }
 
       function detectTimeOffConflicts(req) {
@@ -10395,6 +10444,41 @@ body.no-transitions * { transition: none !important; }
           if (w) w.style.display = 'none';
         }, 0);
       });
+      // Wire edit modal time-off warning (one-time setup)
+      (function() {
+        var reEditDateEl = document.getElementById('reEditDate');
+        var reEditNameEl = document.getElementById('reEditName');
+        if (reEditDateEl) {
+          reEditDateEl.addEventListener('change', updateEditTimeOffWarning);
+          reEditDateEl.addEventListener('input', updateEditTimeOffWarning);
+        }
+        if (reEditNameEl) {
+          reEditNameEl.addEventListener('change', updateEditTimeOffWarning);
+          reEditNameEl.addEventListener('input', updateEditTimeOffWarning);
+        }
+      })();
+
+      function updateManualTimeOffWarning() {
+        var warnEl = document.getElementById('manualTimeOffWarning');
+        if (!warnEl) return;
+        var name = els.manualName ? els.manualName.value.trim() : '';
+        var dateIso = els.manualDate ? els.manualDate.value : '';
+        if (!name || !dateIso) { warnEl.style.display = 'none'; return; }
+        var conflict = checkTimeOffConflict(name, dateIso);
+        if (conflict) {
+          warnEl.textContent = '⚠ ' + name + ' has approved ' + conflict.type + ' on this date (' + conflict.startDate + (conflict.endDate !== conflict.startDate ? '–' + conflict.endDate : '') + ')';
+          warnEl.style.display = 'block';
+        } else {
+          warnEl.style.display = 'none';
+        }
+      }
+      (function() {
+        if (els.manualName) els.manualName.addEventListener('change', updateManualTimeOffWarning);
+        if (els.manualDate) els.manualDate.addEventListener('change', updateManualTimeOffWarning);
+        if (els.manualName) els.manualName.addEventListener('input', updateManualTimeOffWarning);
+        if (els.manualDate) els.manualDate.addEventListener('input', updateManualTimeOffWarning);
+      })();
+
       document.getElementById('manualName').addEventListener('input', function () {
         var val = norm(this.value);
         var emp = val && employees.find(function (e) { return norm(e.name) === val; });
@@ -11808,6 +11892,7 @@ body.no-transitions * { transition: none !important; }
       <div>
         <label style="font-size:12px;color:var(--muted);font-weight:700;display:block;margin-bottom:5px;text-transform:uppercase;letter-spacing:0.05em">Date</label>
         <input type="date" id="reEditDate" style="width:100%">
+        <div id="editTimeOffWarning" style="display:none;padding:5px 8px;background:rgba(245,158,11,0.1);border:1px solid rgba(245,158,11,0.4);border-radius:var(--radius);font-size:11px;color:#92400e;margin-top:3px"></div>
       </div>
       <div>
         <label style="font-size:12px;color:var(--muted);font-weight:700;display:block;margin-bottom:5px;text-transform:uppercase;letter-spacing:0.05em">Status / Type</label>
