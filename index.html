@@ -184,6 +184,18 @@
       box-shadow: 0 8px 24px rgba(0,0,0,0.4);
     }
 
+    .stat-card:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 16px rgba(0,0,0,0.15);
+      transition: transform 0.15s, box-shadow 0.15s;
+    }
+
+    .dash-stat:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 16px rgba(0,0,0,0.15);
+      transition: transform 0.15s, box-shadow 0.15s;
+    }
+
     .stat-card span {
       display: block;
       color: var(--muted);
@@ -2261,6 +2273,7 @@ body.no-transitions * { transition: none !important; }
         <span id="dashDeptCount" style="font-size:12px;color:var(--muted)"></span>
       </div>
       <div class="dash-section-title">Overview</div>
+      <div id="dashLastUpdated" style="font-size:11px;color:var(--muted);text-align:right;margin-bottom:8px"></div>
       <div id="dashStats" class="dash-stats-row"></div>
       <div id="periodCompareSection" style="margin-bottom:24px;margin-top:20px">
         <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--muted);margin-bottom:12px">This Month vs Last Month</div>
@@ -7890,6 +7903,8 @@ body.no-transitions * { transition: none !important; }
         el.innerHTML = stats.map(function(s) {
           return '<div class="dash-stat"><div class="dash-stat-label">'+escapeHtml(s.label)+'</div><div class="dash-stat-value" data-target="'+s.rawValue+'" style="color:'+s.color+'">0</div></div>';
         }).join('');
+        var lastUpdEl = document.getElementById('dashLastUpdated');
+        if (lastUpdEl) lastUpdEl.textContent = 'Updated ' + new Date().toLocaleTimeString('en-US', {hour:'numeric',minute:'2-digit'});
       }
 
       var _dashChartBars = [];
@@ -7913,8 +7928,11 @@ body.no-transitions * { transition: none !important; }
         var W = canvas.parentElement ? canvas.parentElement.offsetWidth-40 : 460;
         if (W < 200) W = 460;
         var H = 200;
-        canvas.width = W; canvas.height = H;
+        var dpr = window.devicePixelRatio || 1;
+        canvas.width = W * dpr; canvas.height = H * dpr;
+        canvas.style.width = W + 'px'; canvas.style.height = H + 'px';
         var ctx = canvas.getContext('2d');
+        ctx.scale(dpr, dpr);
         ctx.clearRect(0,0,W,H);
         var pL=36,pR=10,pT=18,pB=40, cW=W-pL-pR, cH=H-pT-pB;
         var maxC = Math.max(1, Math.max.apply(null, months.map(function(m){return m.count;})));
@@ -8010,11 +8028,14 @@ body.no-transitions * { transition: none !important; }
         var padL = 120; var padR = 50; var padT = 10; var padB = 10;
         var W = canvas.offsetWidth || 500;
         var H = deptData.length * (barH + gap) + padT + padB;
-        canvas.width = W;
-        canvas.height = H;
+        var dpr = window.devicePixelRatio || 1;
+        canvas.width = W * dpr;
+        canvas.height = H * dpr;
+        canvas.style.width = W + 'px';
         canvas.style.height = H + 'px';
 
         var ctx = canvas.getContext('2d');
+        ctx.scale(dpr, dpr);
         ctx.clearRect(0, 0, W, H);
 
         var cs = getComputedStyle(document.documentElement);
@@ -8083,12 +8104,16 @@ body.no-transitions * { transition: none !important; }
           if (bucket) bucket.count++;
         });
 
+        var dpr = window.devicePixelRatio || 1;
         var W = canvas.offsetWidth || 500;
         var H = 120;
-        canvas.width = W;
-        canvas.height = H;
+        canvas.width = W * dpr;
+        canvas.height = H * dpr;
+        canvas.style.width = W + 'px';
+        canvas.style.height = H + 'px';
 
         var ctx = canvas.getContext('2d');
+        ctx.scale(dpr, dpr);
         ctx.clearRect(0, 0, W, H);
 
         var cs = getComputedStyle(document.documentElement);
@@ -10804,6 +10829,20 @@ body.no-transitions * { transition: none !important; }
         if (stv) stv.style.display = isMobile ? 'none' : '';
         if (scv) scv.style.display = isMobile ? 'block' : 'none';
         if (isMobile) { renderRecordCards(); renderSummaryCards(); }
+      });
+
+      // Resize handler: re-render dashboard charts when window resizes
+      var _dashResizeTimer;
+      window.addEventListener('resize', function() {
+        clearTimeout(_dashResizeTimer);
+        _dashResizeTimer = setTimeout(function() {
+          var dashView = document.getElementById('dashboardView');
+          if (dashView && !dashView.classList.contains('hidden')) {
+            _renderMonthlyChart();
+            renderDeptCompareChart();
+            renderScoreDistChart();
+          }
+        }, 250);
       });
 
       // Run once on load to set correct initial display
