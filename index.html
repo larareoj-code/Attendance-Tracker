@@ -2154,6 +2154,13 @@ body.no-transitions * { transition: none !important; }
       </div>
     </div>
 
+    <div class="dash-section dash-full">
+      <div id="weekdayPatternSection" style="margin-bottom:24px">
+        <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--muted);margin-bottom:10px">📅 Recurring Patterns</div>
+        <div id="weekdayPatternList"></div>
+      </div>
+    </div>
+
     <div class="dash-section dash-full" id="dashHeatmapSection">
       <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--muted);margin-bottom:10px">Incident Heatmap — Last 12 Months</div>
       <div id="dashHeatmap"></div>
@@ -5858,6 +5865,28 @@ body.no-transitions * { transition: none !important; }
           }
         }
 
+        var patternsEl = document.getElementById('empProfilePatterns');
+        if (patternsEl) {
+          var patterns = detectWeekdayPatterns(name);
+          if (patterns.length) {
+            patternsEl.style.display = 'block';
+            patternsEl.innerHTML =
+              '<div style="padding:10px 14px;border-radius:var(--radius);background:rgba(245,158,11,0.08);border:1px solid rgba(245,158,11,0.25)">' +
+              '<div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:#92400e;margin-bottom:8px">⚠ Recurring Absence Patterns</div>' +
+              patterns.map(function(p) {
+                return '<div style="font-size:12px;padding:3px 0">' +
+                  '<span style="font-weight:700;color:var(--text)">' + escapeHtml(p.dayName) + 's</span> — ' +
+                  '<span style="color:var(--muted)">' + escapeHtml(p.code) + '</span> ' +
+                  '<span style="font-weight:700">' + p.count + '\xd7</span>' +
+                  ' <span style="color:var(--muted);font-size:11px">(' + p.dates.slice(-3).join(', ') + (p.dates.length > 3 ? '…' : '') + ')</span>' +
+                  '</div>';
+              }).join('') +
+              '</div>';
+          } else {
+            patternsEl.style.display = 'none';
+          }
+        }
+
         var empModal = document.getElementById('empProfileModal');
         empModal.classList.remove('hidden');
         trapFocus(empModal);
@@ -5960,6 +5989,12 @@ body.no-transitions * { transition: none !important; }
         return '';  // approaching-mid — no badge, too noisy
       }
 
+      function empPatternBadge(empName) {
+        var patterns = detectWeekdayPatterns(empName);
+        if (!patterns.length) return '';
+        return '<span title="' + patterns.length + ' recurring weekday pattern' + (patterns.length !== 1 ? 's' : '') + '" style="display:inline-block;background:rgba(245,158,11,0.15);color:#92400e;border:1px solid rgba(245,158,11,0.4);border-radius:99px;font-size:10px;font-weight:700;padding:1px 7px;margin-left:4px;vertical-align:middle">📅 ' + patterns.length + 'P</span>';
+      }
+
       function empPtsSummary(empName) {
         var pts = getEmpCurrentPoints(empName);
         if (pts === 0) return '';
@@ -6014,7 +6049,7 @@ body.no-transitions * { transition: none !important; }
           }
           return '<tr>' +
             '<td><code class="editable-cell" data-emp-field="id" data-emp-id="' + escapeHtml(emp.id) + '" title="Click to edit ID">' + escapeHtml(emp.id || '—') + '</code></td>' +
-            '<td style="display:flex;align-items:center;gap:8px">' + avatar + '<span class="emp-name-link editable-cell" data-emp-field="name" data-emp-id="' + escapeHtml(emp.id) + '" title="Click to edit name" style="font-weight:650;cursor:pointer;text-decoration:underline;text-decoration-style:dotted;text-underline-offset:2px">' + escapeHtml(emp.name) + '</span>' + empRiskBadge(emp.name) + empPtsSummary(emp.name) + '</td>' +
+            '<td style="display:flex;align-items:center;gap:8px">' + avatar + '<span class="emp-name-link editable-cell" data-emp-field="name" data-emp-id="' + escapeHtml(emp.id) + '" title="Click to edit name" style="font-weight:650;cursor:pointer;text-decoration:underline;text-decoration-style:dotted;text-underline-offset:2px">' + escapeHtml(emp.name) + '</span>' + empRiskBadge(emp.name) + empPatternBadge(emp.name) + empPtsSummary(emp.name) + '</td>' +
             '<td><span class="editable-cell" data-emp-field="department" data-emp-id="' + escapeHtml(emp.id) + '" title="Click to edit">' + escapeHtml(emp.department || '—') + '</span></td>' +
             '<td><span class="editable-cell" data-emp-field="role" data-emp-id="' + escapeHtml(emp.id) + '" title="Click to edit">' + escapeHtml(emp.role || '—') + '</span></td>' +
             '<td><span class="badge ' + tone + '">' + escapeHtml(emp.status) + '</span></td>' +
@@ -6366,6 +6401,41 @@ body.no-transitions * { transition: none !important; }
         }).join('');
       }
 
+      var DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+
+      function detectWeekdayPatterns(empName) {
+        // Returns array of pattern objects: {dayOfWeek, dayName, code, count, dates}
+        var empRows = rows.filter(function(r) {
+          return norm(r.name) === norm(empName) && r.dateIso && r.code && r.points > 0;
+        });
+
+        // Group by dayOfWeek + code
+        var groups = {};
+        empRows.forEach(function(r) {
+          var d = new Date(r.dateIso);
+          if (isNaN(d)) return;
+          var dow = d.getDay();
+          var key = dow + '|' + r.code;
+          if (!groups[key]) groups[key] = { dayOfWeek: dow, dayName: DAY_NAMES[dow], code: r.code, count: 0, dates: [] };
+          groups[key].count++;
+          groups[key].dates.push(r.dateIso);
+        });
+
+        return Object.values(groups)
+          .filter(function(g) { return g.count >= 3; })
+          .sort(function(a, b) { return b.count - a.count; });
+      }
+
+      function detectAllWeekdayPatterns() {
+        // Returns {empName: [patterns]} for all employees with patterns
+        var result = {};
+        employees.forEach(function(emp) {
+          var patterns = detectWeekdayPatterns(emp.name);
+          if (patterns.length) result[emp.name] = patterns;
+        });
+        return result;
+      }
+
       function detectClusters() {
         var results = [];
         var byEmployee = {};
@@ -6453,6 +6523,35 @@ body.no-transitions * { transition: none !important; }
             '<span style="font-size:12px;font-weight:700;color:' + (isHigh ? 'var(--danger)' : '#b45309') + '">' +
               e.pts.toFixed(e.pts % 1 === 0 ? 0 : 1) + ' pts' +
               (isHigh ? '' : ' (' + (high - e.pts).toFixed((high - e.pts) % 1 === 0 ? 0 : 1) + ' from HIGH)') +
+            '</span>' +
+            '</div>';
+        }).join('');
+      }
+
+      function renderWeekdayPatterns() {
+        var el = document.getElementById('weekdayPatternList');
+        if (!el) return;
+        var allPatterns = detectAllWeekdayPatterns();
+        var entries = Object.keys(allPatterns);
+
+        if (!entries.length) {
+          el.innerHTML = '<div style="font-size:13px;color:var(--muted);padding:6px 0">No recurring patterns detected (3+ same code, same weekday).</div>';
+          return;
+        }
+
+        el.innerHTML = entries.map(function(empName) {
+          var patterns = allPatterns[empName];
+          return '<div style="display:flex;justify-content:space-between;align-items:flex-start;padding:8px 10px;margin-bottom:6px;border-radius:var(--radius);background:var(--card);border:1px solid var(--border);cursor:pointer" onclick="openEmpProfile(' + JSON.stringify(empName) + ')">' +
+            '<div>' +
+              '<span style="font-weight:700;font-size:13px">' + escapeHtml(empName) + '</span>' +
+              '<div style="font-size:12px;color:var(--muted);margin-top:2px">' +
+                patterns.map(function(p) {
+                  return escapeHtml(p.dayName) + ': <strong>' + escapeHtml(p.code) + '</strong> \xd7' + p.count;
+                }).join(' &nbsp;&middot;&nbsp; ') +
+              '</div>' +
+            '</div>' +
+            '<span style="font-size:11px;font-weight:700;color:var(--yellow);white-space:nowrap;margin-left:8px">' +
+              patterns.length + ' pattern' + (patterns.length !== 1 ? 's' : '') +
             '</span>' +
             '</div>';
         }).join('');
@@ -6736,6 +6835,9 @@ body.no-transitions * { transition: none !important; }
 
         // At-risk employees
         renderAtRiskSection();
+
+        // Recurring weekday patterns
+        renderWeekdayPatterns();
 
         _renderCalendar();
 
@@ -10616,6 +10718,7 @@ body.no-transitions * { transition: none !important; }
       <button type="button" id="closeEmpProfileBtn" style="background:none;border:none;color:var(--muted);font-size:24px;cursor:pointer;padding:0 4px;line-height:1">×</button>
     </div>
     <div id="empProfileAlertBanner" style="display:none;padding:10px 14px;border-radius:var(--radius);margin-bottom:14px;font-size:13px;font-weight:600"></div>
+    <div id="empProfilePatterns" style="display:none;margin-bottom:14px"></div>
     <div id="empProfileStats" style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:20px"></div>
     <div id="empProfileStatusRow" style="display:flex;gap:10px;align-items:center;margin-bottom:20px;flex-wrap:wrap"></div>
     <div style="margin-bottom:16px">
