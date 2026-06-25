@@ -6753,10 +6753,14 @@ body.no-transitions * { transition: none !important; }
       }
 
       var EMP_STATUSES = {
-        good:      { label: 'Good Standing', color: 'var(--ok)',     bg: 'rgba(16,185,129,0.15)' },
-        watchlist: { label: 'Watch List',    color: 'var(--yellow)', bg: 'rgba(245,158,11,0.15)' },
-        warning:   { label: 'Final Warning', color: 'var(--danger)', bg: 'rgba(239,68,68,0.15)'  },
-        onleave:   { label: 'On Leave',      color: 'var(--blue)',   bg: 'rgba(59,130,246,0.15)' },
+        good:        { label: 'Good Standing', color: 'var(--ok)',     bg: 'rgba(16,185,129,0.15)' },
+        watchlist:   { label: 'Watch List',    color: 'var(--yellow)', bg: 'rgba(245,158,11,0.15)' },
+        warning:     { label: 'Final Warning', color: 'var(--danger)', bg: 'rgba(239,68,68,0.15)'  },
+        onleave:     { label: 'On Leave',      color: 'var(--blue)',   bg: 'rgba(59,130,246,0.15)' },
+        // Auto-calculated standing values (capitalized)
+        Good:        { label: 'Good',          color: '#22c55e',       bg: 'rgba(34,197,94,0.15)'  },
+        Warning:     { label: 'Warning',        color: '#f59e0b',       bg: 'rgba(245,158,11,0.15)' },
+        Termination: { label: 'Termination',    color: '#ef4444',       bg: 'rgba(239,68,68,0.15)'  },
       };
 
       function empStatusBadge(standing) {
@@ -7575,7 +7579,22 @@ body.no-transitions * { transition: none !important; }
         return '<span style="font-size:11px;color:var(--muted);margin-left:4px">' + (pts % 1 === 0 ? pts : pts.toFixed(1)) + ' pts</span>';
       }
 
+      function syncEmployeeStandings() {
+        var changed = false;
+        employees.forEach(function(emp) {
+          if (!emp.name) return;
+          var calc = calcEmployeeStanding(emp.name || emp);
+          var newStanding = calc.standing;
+          if (emp.standing !== newStanding) {
+            emp.standing = newStanding;
+            changed = true;
+          }
+        });
+        if (changed) saveEmployees();
+      }
+
       function renderEmployees() {
+        syncEmployeeStandings();
         var empBody = document.getElementById('employeesBody');
         var empEmpty = document.getElementById('employeesEmpty');
         var empSummary = document.getElementById('empSummary');
@@ -9092,6 +9111,24 @@ body.no-transitions * { transition: none !important; }
         });
       }
       // ── End Dashboard ──────────────────────────────────────────────────────
+
+      function calcEmployeeStanding(empName) {
+        var highT = parseFloat(appSettings.highThresh) || 8;
+        var warnT = parseFloat(appSettings.warnThresh) || 4;
+        // Rolling 12-month points
+        var cutoff = new Date();
+        cutoff.setFullYear(cutoff.getFullYear() - 1);
+        var cutoffStr = cutoff.toISOString().slice(0, 10);
+        var pts = 0;
+        rows.forEach(function(r) {
+          if (norm(r.name) === norm(empName) && r.dateIso >= cutoffStr) {
+            pts += parseFloat(r.points) || 0;
+          }
+        });
+        if (pts >= highT) return { standing: 'Termination', pts: pts, color: '#ef4444' };
+        if (pts >= warnT) return { standing: 'Warning', pts: pts, color: '#f59e0b' };
+        return { standing: 'Good', pts: pts, color: '#22c55e' };
+      }
 
       function render() {
         rows = rows.map(function (row) {
@@ -12803,6 +12840,10 @@ body.no-transitions * { transition: none !important; }
           document.getElementById('retentionMonths').value = appSettings.retentionMonths || 0;
           updateRetentionPreview();
         }
+        var wtEl = document.getElementById('settingWarnThresh');
+        if (wtEl) wtEl.value = appSettings.warnThresh !== undefined ? appSettings.warnThresh : 4;
+        var htEl = document.getElementById('settingHighThresh');
+        if (htEl) htEl.value = appSettings.highThresh !== undefined ? appSettings.highThresh : 8;
         var settingsModalEl = document.getElementById('settingsModal');
         settingsModalEl.classList.remove('hidden');
         trapFocus(settingsModalEl);
@@ -12966,6 +13007,8 @@ body.no-transitions * { transition: none !important; }
           var sevMidVal = parseFloat((document.getElementById('severityMidInput') || {value:''}).value);
           if (!isNaN(sevHighVal) && sevHighVal > 0) appSettings.severityHigh = sevHighVal;
           if (!isNaN(sevMidVal) && sevMidVal >= 0) appSettings.severityMid = sevMidVal;
+          if (document.getElementById('settingWarnThresh')) appSettings.warnThresh = parseFloat(document.getElementById('settingWarnThresh').value) || appSettings.warnThresh || 4;
+          if (document.getElementById('settingHighThresh')) appSettings.highThresh = parseFloat(document.getElementById('settingHighThresh').value) || appSettings.highThresh || 8;
           var acToggle = document.getElementById('autoConsequencesToggle');
           if (acToggle) appSettings.autoConsequences = acToggle.checked;
           var dtsEl = document.getElementById('defaultTabSetting');
@@ -13126,6 +13169,15 @@ body.no-transitions * { transition: none !important; }
       // ── Init: load all persisted data ────────────────────────────────────
       document.body.setAttribute('data-print-date', new Date().toLocaleDateString());
       loadSettings();
+      appSettings.dashWidgets = appSettings.dashWidgets || {
+        stats: true,
+        streakLeaderboard: true,
+        atRisk: true,
+        monthlyChart: true,
+        deptChart: true,
+        anniversary: true,
+        scoreDistChart: true
+      };
       loadPointsConfig();
       loadTemplates();
       renderTemplateChips();
@@ -14441,6 +14493,20 @@ body.no-transitions * { transition: none !important; }
         </div>
         <div id="retentionPreview" style="font-size:12px;color:var(--muted);margin-top:6px"></div>
         <button type="button" id="purgeNowBtn" class="secondary" style="font-size:12px;padding:4px 12px;margin-top:8px;display:none">🗑️ Purge Old Records Now</button>
+      </div>
+
+      <div style="border-top:1px solid var(--border);margin-top:16px;padding-top:16px">
+        <div style="font-size:13px;font-weight:700;margin-bottom:10px">⚠️ Point Thresholds</div>
+        <div class="form-row" style="gap:10px">
+          <div class="form-group">
+            <label for="settingWarnThresh">Warning threshold (pts)</label>
+            <input type="number" id="settingWarnThresh" min="0" step="0.5" style="width:100%">
+          </div>
+          <div class="form-group">
+            <label for="settingHighThresh">Termination threshold (pts)</label>
+            <input type="number" id="settingHighThresh" min="0" step="0.5" style="width:100%">
+          </div>
+        </div>
       </div>
 
     </div>
