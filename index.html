@@ -2784,8 +2784,9 @@ body.no-transitions * { transition: none !important; }
         if (tr) { tr.classList.add('kb-focused'); tr.scrollIntoView({ block: 'nearest' }); }
       }
       var buckets = {};
+      var CLOUD_DEFAULT_CLIENT_ID = '864829712195-iumfni8l5f0m7n4f50qqrisb6fd98p49.apps.googleusercontent.com';
       var cloudConfig = {
-        clientId: '',
+        clientId: CLOUD_DEFAULT_CLIENT_ID,
         apiKey: '',
         spreadsheetId: '',
         autoSync: false
@@ -3797,12 +3798,12 @@ body.no-transitions * { transition: none !important; }
         try {
           var parsed = JSON.parse(saved);
           if (!parsed || typeof parsed !== 'object') return;
-          cloudConfig.clientId = toText(parsed.clientId);
+          cloudConfig.clientId = toText(parsed.clientId) || CLOUD_DEFAULT_CLIENT_ID;
           cloudConfig.apiKey = toText(parsed.apiKey || '');
           cloudConfig.spreadsheetId = toText(parsed.spreadsheetId);
           cloudConfig.autoSync = Boolean(parsed.autoSync);
         } catch (error) {
-          cloudConfig = { clientId: '', apiKey: '', spreadsheetId: '', autoSync: false };
+          cloudConfig = { clientId: CLOUD_DEFAULT_CLIENT_ID, apiKey: '', spreadsheetId: '', autoSync: false };
         }
       }
 
