@@ -10159,6 +10159,28 @@ body.no-transitions * { transition: none !important; }
         return { headers: headers, data: data };
       }
 
+      function saveImportMapping(headers, mapping) {
+        var fingerprint = headers.slice().sort().join('|').slice(0, 120);
+        try {
+          var saved = JSON.parse(localStorage.getItem('attTracker_colMappings') || '{}');
+          saved[fingerprint] = { mapping: mapping, ts: Date.now() };
+          var keys = Object.keys(saved);
+          if (keys.length > 8) {
+            keys.sort(function(a,b){ return saved[a].ts - saved[b].ts; });
+            delete saved[keys[0]];
+          }
+          localStorage.setItem('attTracker_colMappings', JSON.stringify(saved));
+        } catch(e) {}
+      }
+
+      function loadImportMapping(headers) {
+        var fingerprint = headers.slice().sort().join('|').slice(0, 120);
+        try {
+          var saved = JSON.parse(localStorage.getItem('attTracker_colMappings') || '{}');
+          return saved[fingerprint] ? saved[fingerprint].mapping : null;
+        } catch(e) { return null; }
+      }
+
       function setImportWizStep(n) {
         // step 0 = drop zone
         var step0 = document.getElementById('importWizStep0');
@@ -10462,6 +10484,11 @@ body.no-transitions * { transition: none !important; }
             return;
           }
 
+          // Show importing progress state
+          var origLabel = doImportBtn.textContent;
+          doImportBtn.disabled = true;
+          doImportBtn.textContent = 'Importing…';
+
           var snapshot = rows.slice();
           newRows.forEach(function(r) { rows.push(r); });
           pushUndo('Import ' + newRows.length + ' record' + (newRows.length !== 1 ? 's' : ''), function() {
@@ -10470,9 +10497,17 @@ body.no-transitions * { transition: none !important; }
             saveData(); render();
           });
           saveData(); render();
+
+          // Save column mapping for next time
+          var hadSavedMapping = !!loadImportMapping(_wizCsvHeaders);
+          saveImportMapping(_wizCsvHeaders, Object.assign({}, _wizMapping));
+
+          doImportBtn.disabled = false;
+          doImportBtn.textContent = origLabel;
           closeWizV2();
           showToast('Imported ' + newRows.length + ' record' + (newRows.length !== 1 ? 's' : '') +
             (dupeRows.length ? ' (' + dupeRows.length + ' duplicate' + (dupeRows.length !== 1 ? 's' : '') + ' skipped)' : ''));
+          if (!hadSavedMapping) showToast('Mapping saved — auto-applied next time you import this file format');
         });
 
         // Drop zone wiring
