@@ -6034,6 +6034,107 @@ body.no-transitions * { transition: none !important; }
           });
         });
         if (window.innerWidth < 768) renderSummaryCards();
+        renderThisMonthSummary();
+        renderDeptBreakdown();
+        renderMonthlyBreakdown();
+      }
+
+      function renderMonthlyBreakdown() {
+        var el = document.getElementById('monthlyBreakdown');
+        if (!el) return;
+        var byMonth = {};
+        rows.forEach(function(r) {
+          if (!r.dateIso) return;
+          var mo = r.dateIso.slice(0, 7);
+          if (!byMonth[mo]) byMonth[mo] = { count: 0, points: 0, employees: {} };
+          byMonth[mo].count++;
+          byMonth[mo].points += parseFloat(r.points) || 0;
+          byMonth[mo].employees[r.name] = true;
+        });
+        var months = Object.keys(byMonth).sort().reverse().slice(0, 12);
+        if (months.length === 0) {
+          el.innerHTML = '<div style="color:var(--muted);font-size:13px;padding:12px">No data</div>';
+          return;
+        }
+        var maxPts = Math.max.apply(null, months.map(function(m) { return byMonth[m].points; }));
+        el.innerHTML = '<table style="width:100%;border-collapse:collapse;font-size:13px">' +
+          '<thead><tr>' +
+            '<th style="text-align:left;padding:6px 8px;border-bottom:1px solid var(--border)">Month</th>' +
+            '<th style="text-align:right;padding:6px 8px;border-bottom:1px solid var(--border)">Records</th>' +
+            '<th style="text-align:right;padding:6px 8px;border-bottom:1px solid var(--border)">Points</th>' +
+            '<th style="text-align:right;padding:6px 8px;border-bottom:1px solid var(--border)">Employees</th>' +
+            '<th style="padding:6px 8px;border-bottom:1px solid var(--border)">Trend</th>' +
+          '</tr></thead><tbody>' +
+          months.map(function(mo) {
+            var d = byMonth[mo];
+            var pct = maxPts > 0 ? Math.round((d.points / maxPts) * 100) : 0;
+            var label = new Date(mo + '-01').toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+            return '<tr><td style="padding:5px 8px">' + label + '</td>' +
+              '<td style="padding:5px 8px;text-align:right">' + d.count + '</td>' +
+              '<td style="padding:5px 8px;text-align:right;font-weight:600">' + d.points.toFixed(1) + '</td>' +
+              '<td style="padding:5px 8px;text-align:right">' + Object.keys(d.employees).length + '</td>' +
+              '<td style="padding:5px 8px"><div style="height:6px;background:var(--blue);border-radius:3px;width:' + pct + '%"></div></td>' +
+              '</tr>';
+          }).join('') +
+          '</tbody></table>';
+      }
+
+      function renderThisMonthSummary() {
+        var el = document.getElementById('thisMonthSummary');
+        if (!el) return;
+        var thisMonth = new Date().toISOString().slice(0, 7);
+        var byEmp = {};
+        rows.forEach(function(r) {
+          if (!r.dateIso || r.dateIso.slice(0,7) !== thisMonth) return;
+          byEmp[r.name] = (byEmp[r.name] || 0) + (parseFloat(r.points) || 0);
+        });
+        var sorted = Object.keys(byEmp).map(function(n) { return { name: n, pts: byEmp[n] }; })
+          .sort(function(a,b) { return b.pts - a.pts; }).slice(0, 5);
+        if (sorted.length === 0) {
+          el.innerHTML = '<div style="color:var(--muted);font-size:13px;padding:8px">No records this month</div>';
+          return;
+        }
+        el.innerHTML = sorted.map(function(e, i) {
+          return '<div style="display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid var(--border)">' +
+            '<span style="width:20px;text-align:center;font-weight:700;color:var(--muted);font-size:12px">' + (i+1) + '</span>' +
+            '<span style="flex:1;font-size:13px">' + escapeHtml(e.name) + '</span>' +
+            '<span style="font-weight:700;font-size:13px">' + e.pts.toFixed(1) + ' pts</span></div>';
+        }).join('');
+      }
+
+      function renderDeptBreakdown() {
+        var el = document.getElementById('deptBreakdown');
+        var card = document.getElementById('deptBreakdownCard');
+        if (!el) return;
+        var deptPoints = {};
+        rows.forEach(function(r) {
+          var emp = employees.find(function(e) { return norm(e.name || e) === norm(r.name); });
+          var dept = (emp && emp.department) ? emp.department : 'Unassigned';
+          deptPoints[dept] = (deptPoints[dept] || 0) + (parseFloat(r.points) || 0);
+        });
+        var depts = Object.keys(deptPoints).sort(function(a,b) { return deptPoints[b] - deptPoints[a]; });
+        if (depts.length <= 1) {
+          if (card) card.style.display = 'none';
+          return;
+        }
+        if (card) card.style.display = '';
+        var maxPts = deptPoints[depts[0]] || 1;
+        el.innerHTML = '<table style="width:100%;border-collapse:collapse;font-size:13px">' +
+          '<thead><tr>' +
+            '<th style="text-align:left;padding:5px 8px;border-bottom:1px solid var(--border)">Department</th>' +
+            '<th style="text-align:right;padding:5px 8px;border-bottom:1px solid var(--border)">Points</th>' +
+            '<th style="padding:5px 8px;border-bottom:1px solid var(--border)">Bar</th>' +
+          '</tr></thead><tbody>' +
+          depts.map(function(dept) {
+            var pts = deptPoints[dept];
+            var pct = Math.round((pts / maxPts) * 100);
+            return '<tr>' +
+              '<td style="padding:5px 8px">' + escapeHtml(dept) + '</td>' +
+              '<td style="padding:5px 8px;text-align:right;font-weight:600">' + pts.toFixed(1) + '</td>' +
+              '<td style="padding:5px 8px"><div style="height:6px;background:var(--blue);border-radius:3px;width:' + pct + '%"></div></td>' +
+              '</tr>';
+          }).join('') +
+          '</tbody></table>';
       }
 
       function renderRecordCards() {
