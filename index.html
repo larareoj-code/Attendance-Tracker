@@ -1900,7 +1900,7 @@ body.no-transitions * { transition: none !important; }
         <button class="secondary" type="button" id="colVisBtn" title="Show/hide table columns">⊞ Columns</button>
         <button class="secondary" type="button" id="shortcutsBtn" title="Keyboard shortcuts (?)">⌨ Shortcuts</button>
         <button class="secondary" type="button" id="policyRulesBtn" title="Configure auto-flagging rules">⚖ Rules</button>
-        <button class="secondary" type="button" id="dataHealthBtn" title="Check data quality">🩺 Health</button>
+        <button class="secondary" type="button" id="dataHealthBtn" title="Check data quality">🩺 Health</button><span id="healthScoreBadge" style="display:none"></span>
         <button class="secondary" type="button" id="demoDataBtn" title="Load demo data (Ctrl+D)">🎭 Demo</button>
         <div class="more-menu-wrap" id="moreMenuWrap">
           <button class="secondary" type="button" id="moreMenuBtn">⋯ More</button>
@@ -2913,6 +2913,7 @@ body.no-transitions * { transition: none !important; }
       var employeeSort = { key: 'name', dir: 1 };
       var timeOffSort = { key: 'startDate', dir: -1 };
       var rows = [];
+      var selectedIds = new Set();
       var _kbFocusedRowId = null;
       var _calYear = new Date().getFullYear();
       var _calMonth = new Date().getMonth(); // 0-indexed
@@ -8473,6 +8474,7 @@ body.no-transitions * { transition: none !important; }
         }
         // Sync active filters into the URL hash for bookmarking/sharing
         if (typeof pushFiltersToHash === 'function') pushFiltersToHash();
+        updateHealthBadge();
       }
 
       function updateTabBadges(visibleCount) {
@@ -12346,7 +12348,6 @@ body.no-transitions * { transition: none !important; }
       })();
 
       // ── Multi-select Bulk Actions ────────────────────────────────────────
-      var selectedIds = new Set();
 
       function updateBulkBar() {
         var bar = document.getElementById('bulkBar');
@@ -12764,7 +12765,7 @@ body.no-transitions * { transition: none !important; }
       })();
 
       // ── Task 2: Data Health Panel ─────────────────────────────────────────
-      function runDataHealthCheck() {
+      function getHealthIssues() {
         var issues=[], warnings=[], info=[];
         var noName=rows.filter(function(r){return !r.name||!r.name.trim();});
         if(noName.length) issues.push(noName.length+' record(s) have no name');
@@ -12783,7 +12784,52 @@ body.no-transitions * { transition: none !important; }
         rows.forEach(function(r){if(r.name&&rosterNames.indexOf(norm(r.name))===-1)unmatched[r.name]=true;});
         var uCount=Object.keys(unmatched).length;
         if(uCount) info.push(uCount+' unique name(s) in records not in Employee roster');
+        // Duplicate employee names (case-insensitive)
+        var nameMap={};
+        employees.forEach(function(e){
+          var n=norm(e.name||e);
+          if(!nameMap[n]) nameMap[n]=[];
+          nameMap[n].push(e.name||e);
+        });
+        Object.keys(nameMap).forEach(function(key){
+          if(nameMap[key].length>1) issues.push('Duplicate employee name ('+nameMap[key].length+'×): "'+nameMap[key][0]+'"');
+        });
+        // Orphaned records (records for employees not in roster)
+        var empSet={};
+        employees.forEach(function(e){ empSet[norm(e.name||e)]=true; });
+        var orphans=[];
+        rows.forEach(function(r){ if(r.name&&!empSet[norm(r.name)]) orphans.push(r.name); });
+        var uniqueOrphans=orphans.filter(function(n,i,a){ return a.indexOf(n)===i; });
+        uniqueOrphans.forEach(function(name){
+          warnings.push('Orphaned record for "'+name+'" — not in employee roster');
+        });
+        // Future-dated records (any type, not just occurrences)
+        var today=new Date().toISOString().slice(0,10);
+        var futureCount=rows.filter(function(r){ return r.dateIso&&r.dateIso>today; }).length;
+        if(futureCount>0) info.push(futureCount+' record(s) are dated in the future');
+        // High point values (>10 absolute)
+        var highCount=rows.filter(function(r){ return Math.abs(parseFloat(r.points)||0)>10; }).length;
+        if(highCount>0) warnings.push(highCount+' record(s) have unusually high point values (>10)');
         info.push('Total: '+rows.length+' records · '+employees.length+' employees · '+timeOffRequests.length+' time-off requests');
+        return { issues: issues, warnings: warnings, info: info };
+      }
+
+      function updateHealthBadge() {
+        var badge=document.getElementById('healthScoreBadge');
+        if(!badge||rows.length===0){ if(badge) badge.style.display='none'; return; }
+        var result=getHealthIssues();
+        var errors=result.issues.length;
+        var warns=result.warnings.length;
+        var score=Math.max(0,100-errors*15-warns*5);
+        var color=score>=90?'#22c55e':score>=70?'#f59e0b':'#ef4444';
+        badge.style.cssText='display:inline-flex;align-items:center;justify-content:center;min-width:18px;height:18px;border-radius:9px;padding:0 4px;background:'+color+';color:#fff;font-size:10px;font-weight:700;margin-left:3px;vertical-align:middle';
+        badge.textContent=score===100?'✓':String(score);
+        badge.style.display='inline-flex';
+      }
+
+      function runDataHealthCheck() {
+        var result=getHealthIssues();
+        var issues=result.issues, warnings=result.warnings, info=result.info;
         var score=Math.max(0,Math.min(100,100-issues.length*15-warnings.length*7));
         var scoreColor=score>=85?'var(--ok)':score>=60?'var(--yellow)':'var(--danger)';
         var el=document.getElementById('dataHealthResults');
