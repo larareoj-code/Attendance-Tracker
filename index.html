@@ -2089,6 +2089,7 @@ body.no-transitions * { transition: none !important; }
         <button class="tab-button" id="bucketTab" type="button" role="tab" aria-selected="false" data-view="bucket" title="Bucket (Ctrl+3)">Bucket</button>
         <button class="tab-button" id="employeesTab" type="button" role="tab" aria-selected="false" data-view="employees" title="Employees (Ctrl+4)">Employees</button>
         <button class="tab-button" id="timeoffTab" type="button" role="tab" aria-selected="false" data-view="timeoff" title="Time Off (Ctrl+5)">Time Off</button>
+        <button class="tab-button" id="calendarTab" type="button" role="tab" aria-selected="false" data-view="calendar" title="Calendar (Ctrl+6)">📅 Calendar</button>
       </div>
 
       <div id="dashboardView" class="hidden" role="tabpanel" aria-labelledby="dashboardTab">
@@ -2391,6 +2392,50 @@ body.no-transitions * { transition: none !important; }
         <div id="timeoffEmpty" class="empty"><div class="empty-state"><div class="empty-state-icon">📅</div><div class="empty-state-title">No time-off requests</div><div class="empty-state-body">Submit a request using the form above, or import from Excel.</div></div></div>
       </div>
 
+      <div id="calendarView" class="hidden" role="tabpanel" aria-labelledby="calendarTab">
+        <!-- Controls bar -->
+        <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:16px">
+          <div style="display:flex;align-items:center;gap:8px">
+            <button type="button" id="calPrevBtn" class="secondary" style="padding:6px 12px;font-size:16px" aria-label="Previous month">‹</button>
+            <h2 id="calMonthLabel" style="margin:0;font-size:18px;font-weight:800;min-width:160px;text-align:center"></h2>
+            <button type="button" id="calNextBtn" class="secondary" style="padding:6px 12px;font-size:16px" aria-label="Next month">›</button>
+          </div>
+          <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+            <button type="button" id="calTodayBtn" class="secondary" style="font-size:12px;padding:5px 10px">Today</button>
+            <select id="calDeptFilter" style="font-size:13px;min-width:120px">
+              <option value="">All Depts</option>
+            </select>
+            <!-- Legend -->
+            <div style="display:flex;align-items:center;gap:8px;font-size:11px;color:var(--muted)">
+              <span style="display:inline-flex;align-items:center;gap:3px"><span style="width:10px;height:10px;border-radius:50%;background:var(--danger);display:inline-block"></span>Absence</span>
+              <span style="display:inline-flex;align-items:center;gap:3px"><span style="width:10px;height:10px;border-radius:50%;background:var(--yellow);display:inline-block"></span>Late/EO</span>
+              <span style="display:inline-flex;align-items:center;gap:3px"><span style="width:10px;height:10px;border-radius:50%;background:var(--ok);display:inline-block"></span>Time Off</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Day-of-week headers -->
+        <div id="calGrid" style="display:grid;grid-template-columns:repeat(7,1fr);gap:2px">
+          <div style="text-align:center;font-size:11px;font-weight:700;color:var(--muted);padding:4px">Sun</div>
+          <div style="text-align:center;font-size:11px;font-weight:700;color:var(--muted);padding:4px">Mon</div>
+          <div style="text-align:center;font-size:11px;font-weight:700;color:var(--muted);padding:4px">Tue</div>
+          <div style="text-align:center;font-size:11px;font-weight:700;color:var(--muted);padding:4px">Wed</div>
+          <div style="text-align:center;font-size:11px;font-weight:700;color:var(--muted);padding:4px">Thu</div>
+          <div style="text-align:center;font-size:11px;font-weight:700;color:var(--muted);padding:4px">Fri</div>
+          <div style="text-align:center;font-size:11px;font-weight:700;color:var(--muted);padding:4px">Sat</div>
+        </div>
+        <div id="calDays" style="display:grid;grid-template-columns:repeat(7,1fr);gap:2px;margin-top:0"></div>
+
+        <!-- Day detail panel -->
+        <div id="calDayDetail" class="hidden" style="margin-top:16px;padding:14px;background:var(--card);border-radius:var(--radius);border:1px solid var(--border)">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+            <h3 id="calDayDetailTitle" style="margin:0;font-size:14px;font-weight:800"></h3>
+            <button type="button" id="calDayDetailClose" style="background:none;border:none;cursor:pointer;color:var(--muted);font-size:18px;padding:0">✕</button>
+          </div>
+          <div id="calDayDetailBody"></div>
+        </div>
+      </div>
+
     </section>
   </main>
 
@@ -2660,6 +2705,9 @@ body.no-transitions * { transition: none !important; }
       var timeOffSort = { key: 'startDate', dir: -1 };
       var rows = [];
       var _kbFocusedRowId = null;
+      var _calYear = new Date().getFullYear();
+      var _calMonth = new Date().getMonth(); // 0-indexed
+      var _calSelectedDay = null;
       function kbFocusRow(id) {
         _kbFocusedRowId = id;
         document.querySelectorAll('#recordsBody tr.kb-focused').forEach(function(tr) {
@@ -7291,6 +7339,10 @@ body.no-transitions * { transition: none !important; }
         renderBucket();
         renderEmployees();
         renderTimeOff();
+        // Refresh calendar if visible
+        if (document.getElementById('calendarView') && !document.getElementById('calendarView').classList.contains('hidden')) {
+          renderCalendar();
+        }
         renderStatus(visibleCount);
         updateTabBadges(visibleCount);
         // Update CSV export button tooltip with filtered count
@@ -7331,6 +7383,150 @@ body.no-transitions * { transition: none !important; }
         }
       }
 
+      function populateCalDeptFilter() {
+        var sel = document.getElementById('calDeptFilter');
+        if (!sel) return;
+        var prev = sel.value;
+        var depts = [];
+        employees.forEach(function(e) { if (e.department && depts.indexOf(e.department) === -1) depts.push(e.department); });
+        depts.sort();
+        sel.innerHTML = '<option value="">All Depts</option>' + depts.map(function(d) {
+          return '<option value="' + escapeHtml(d) + '"' + (d === prev ? ' selected' : '') + '>' + escapeHtml(d) + '</option>';
+        }).join('');
+      }
+
+      function renderCalendar() {
+        var monthLabel = document.getElementById('calMonthLabel');
+        var daysEl = document.getElementById('calDays');
+        if (!monthLabel || !daysEl) return;
+
+        var d = new Date(_calYear, _calMonth, 1);
+        monthLabel.textContent = d.toLocaleString('default', { month: 'long', year: 'numeric' });
+
+        var dept = document.getElementById('calDeptFilter') ? document.getElementById('calDeptFilter').value : '';
+
+        // Filter employees by dept
+        var filteredEmps = dept
+          ? employees.filter(function(e) { return e.department === dept; }).map(function(e) { return norm(e.name); })
+          : null; // null means all
+
+        // Build a map: dateIso -> {records: [], timeOff: []}
+        var dayMap = {};
+
+        // Attendance records this month
+        rows.forEach(function(r) {
+          if (!r.dateIso) return;
+          var rd = new Date(r.dateIso);
+          if (rd.getFullYear() !== _calYear || rd.getMonth() !== _calMonth) return;
+          if (filteredEmps && filteredEmps.indexOf(norm(r.name)) === -1) return;
+          if (!dayMap[r.dateIso]) dayMap[r.dateIso] = { records: [], timeOff: [] };
+          dayMap[r.dateIso].records.push(r);
+        });
+
+        // Approved time-off overlapping this month
+        timeOffRequests.forEach(function(req) {
+          if (req.status !== 'Approved') return;
+          if (filteredEmps && filteredEmps.indexOf(norm(req.employeeName)) === -1) return;
+          var start = new Date(req.startDate);
+          var end = new Date(req.endDate || req.startDate);
+          // Iterate each day in the range that falls in this month
+          for (var cur = new Date(start); cur <= end; cur.setDate(cur.getDate() + 1)) {
+            if (cur.getFullYear() !== _calYear || cur.getMonth() !== _calMonth) continue;
+            var iso = cur.toISOString().slice(0, 10);
+            if (!dayMap[iso]) dayMap[iso] = { records: [], timeOff: [] };
+            dayMap[iso].timeOff.push(req);
+          }
+        });
+
+        // Render day cells
+        var firstDow = new Date(_calYear, _calMonth, 1).getDay();
+        var daysInMonth = new Date(_calYear, _calMonth + 1, 0).getDate();
+        var today = new Date().toISOString().slice(0, 10);
+
+        var cells = '';
+        for (var i = 0; i < firstDow; i++) {
+          cells += '<div style="min-height:70px;border-radius:var(--radius);background:transparent"></div>';
+        }
+
+        for (var day = 1; day <= daysInMonth; day++) {
+          var iso = _calYear + '-' + String(_calMonth + 1).padStart(2, '0') + '-' + String(day).padStart(2, '0');
+          var data = dayMap[iso] || { records: [], timeOff: [] };
+          var isToday = iso === today;
+          var isSelected = iso === _calSelectedDay;
+          var dow = new Date(iso).getDay();
+          var isWeekend = dow === 0 || dow === 6;
+          var severityMid = (appSettings.severityMid !== undefined) ? appSettings.severityMid : 2;
+
+          var dotHtml = '';
+          var highRecs = data.records.filter(function(r) { return r.points >= severityMid; });
+          var lowRecs = data.records.filter(function(r) { return r.points > 0 && r.points < severityMid; });
+          if (highRecs.length) dotHtml += '<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--danger);margin:1px" title="' + highRecs.length + ' absence(s)"></span>';
+          if (lowRecs.length) dotHtml += '<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--yellow);margin:1px" title="' + lowRecs.length + ' late/early out"></span>';
+          if (data.timeOff.length) dotHtml += '<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--ok);margin:1px" title="' + data.timeOff.length + ' on time off"></span>';
+
+          var totalCount = data.records.length + data.timeOff.length;
+
+          cells += '<div class="cal-day" data-iso="' + iso + '" style="' +
+            'min-height:70px;padding:6px;border-radius:var(--radius);cursor:' + (totalCount > 0 ? 'pointer' : 'default') + ';' +
+            'background:' + (isSelected ? 'var(--blue)' : isToday ? 'rgba(59,130,246,0.08)' : isWeekend ? 'rgba(128,128,128,0.04)' : 'var(--card)') + ';' +
+            'border:1.5px solid ' + (isSelected ? 'var(--blue)' : isToday ? 'var(--blue)' : 'var(--border)') + ';' +
+            'transition:border-color 0.15s,background 0.15s' +
+            '">' +
+            '<div style="font-size:12px;font-weight:' + (isToday ? '800' : '600') + ';color:' + (isSelected ? '#fff' : isToday ? 'var(--blue)' : 'var(--text)') + ';margin-bottom:4px">' + day + '</div>' +
+            (dotHtml ? '<div style="display:flex;flex-wrap:wrap;gap:2px">' + dotHtml + '</div>' : '') +
+            (totalCount > 0 ? '<div style="font-size:10px;color:' + (isSelected ? 'rgba(255,255,255,0.8)' : 'var(--muted)') + ';margin-top:3px">' + totalCount + ' event' + (totalCount !== 1 ? 's' : '') + '</div>' : '') +
+            '</div>';
+        }
+
+        daysEl.innerHTML = cells;
+
+        // Wire day clicks
+        daysEl.querySelectorAll('.cal-day').forEach(function(cell) {
+          cell.addEventListener('click', function() {
+            var cellIso = cell.getAttribute('data-iso');
+            var cellData = dayMap[cellIso];
+            if (!cellData || (cellData.records.length === 0 && cellData.timeOff.length === 0)) return;
+            _calSelectedDay = cellIso;
+            renderCalendar();
+            showCalDayDetail(cellIso, cellData);
+          });
+        });
+
+        populateCalDeptFilter();
+      }
+
+      function showCalDayDetail(iso, data) {
+        var panel = document.getElementById('calDayDetail');
+        var title = document.getElementById('calDayDetailTitle');
+        var body = document.getElementById('calDayDetailBody');
+        if (!panel || !title || !body) return;
+
+        var d = new Date(iso);
+        title.textContent = d.toLocaleDateString(undefined, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+
+        var html = '';
+        if (data.records.length) {
+          html += '<div style="font-size:11px;font-weight:700;text-transform:uppercase;color:var(--muted);margin-bottom:6px">Attendance Records</div>';
+          html += data.records.map(function(r) {
+            return '<div style="display:flex;justify-content:space-between;padding:6px 8px;margin-bottom:4px;border-radius:var(--radius);background:var(--card2);font-size:13px">' +
+              '<span><strong>' + escapeHtml(r.name) + '</strong> — ' + escapeHtml(r.code || r.type || '') + '</span>' +
+              '<span style="color:var(--muted)">' + (r.points || 0) + ' pt' + (r.points !== 1 ? 's' : '') + '</span>' +
+              '</div>';
+          }).join('');
+        }
+        if (data.timeOff.length) {
+          html += '<div style="font-size:11px;font-weight:700;text-transform:uppercase;color:var(--muted);margin-top:8px;margin-bottom:6px">Time Off (Approved)</div>';
+          html += data.timeOff.map(function(req) {
+            return '<div style="display:flex;justify-content:space-between;padding:6px 8px;margin-bottom:4px;border-radius:var(--radius);background:rgba(34,197,94,0.08);border:1px solid rgba(34,197,94,0.2);font-size:13px">' +
+              '<span><strong>' + escapeHtml(req.employeeName) + '</strong> — ' + escapeHtml(req.type) + '</span>' +
+              '<span style="color:var(--ok)">Approved</span>' +
+              '</div>';
+          }).join('');
+        }
+        body.innerHTML = html;
+        panel.classList.remove('hidden');
+      }
+
       function setView(view) {
         activeView = view;
         var showDashboard = activeView === 'dashboard';
@@ -7339,30 +7535,35 @@ body.no-transitions * { transition: none !important; }
         var showBucket = activeView === 'bucket';
         var showEmployees = activeView === 'employees';
         var showTimeoff = activeView === 'timeoff';
+        var showCalendar = activeView === 'calendar';
         document.getElementById('dashboardView').classList.toggle('hidden', !showDashboard);
         els.recordsView.classList.toggle('hidden', !showRecords);
         els.summaryView.classList.toggle('hidden', !showSummary);
         els.bucketView.classList.toggle('hidden', !showBucket);
         document.getElementById('employeesView').classList.toggle('hidden', !showEmployees);
         document.getElementById('timeoffView').classList.toggle('hidden', !showTimeoff);
+        document.getElementById('calendarView').classList.toggle('hidden', !showCalendar);
         document.getElementById('dashboardTab').classList.toggle('active', showDashboard);
         els.recordsTab.classList.toggle('active', showRecords);
         els.summaryTab.classList.toggle('active', showSummary);
         els.bucketTab.classList.toggle('active', showBucket);
         document.getElementById('employeesTab').classList.toggle('active', showEmployees);
         document.getElementById('timeoffTab').classList.toggle('active', showTimeoff);
+        document.getElementById('calendarTab').classList.toggle('active', showCalendar);
         document.getElementById('dashboardTab').setAttribute('aria-selected', String(showDashboard));
         els.recordsTab.setAttribute('aria-selected', String(showRecords));
         els.summaryTab.setAttribute('aria-selected', String(showSummary));
         els.bucketTab.setAttribute('aria-selected', String(showBucket));
         document.getElementById('employeesTab').setAttribute('aria-selected', String(showEmployees));
         document.getElementById('timeoffTab').setAttribute('aria-selected', String(showTimeoff));
+        document.getElementById('calendarTab').setAttribute('aria-selected', String(showCalendar));
         // Trigger fade-in animation on the newly active panel
         var newPanel = showDashboard ? document.getElementById('dashboardView')
           : showRecords ? els.recordsView
           : showSummary ? els.summaryView
           : showBucket ? els.bucketView
           : showEmployees ? document.getElementById('employeesView')
+          : showCalendar ? document.getElementById('calendarView')
           : document.getElementById('timeoffView');
         if (newPanel) {
           newPanel.classList.remove('tab-entering');
@@ -7370,6 +7571,7 @@ body.no-transitions * { transition: none !important; }
           newPanel.classList.add('tab-entering');
         }
         if (showDashboard) renderDashboard();
+        if (showCalendar) renderCalendar();
         // Sync mobile tab bar active state
         document.querySelectorAll('.mobile-tab-btn').forEach(function(b) {
           b.classList.toggle('active', b.getAttribute('data-view') === view);
@@ -9456,6 +9658,40 @@ body.no-transitions * { transition: none !important; }
         });
       }());
 
+      // Wire calendar navigation controls
+      (function() {
+        var prevBtn = document.getElementById('calPrevBtn');
+        var nextBtn = document.getElementById('calNextBtn');
+        var todayBtn = document.getElementById('calTodayBtn');
+        var deptSel = document.getElementById('calDeptFilter');
+        var closeDetail = document.getElementById('calDayDetailClose');
+
+        if (prevBtn) prevBtn.addEventListener('click', function() {
+          _calMonth--;
+          if (_calMonth < 0) { _calMonth = 11; _calYear--; }
+          _calSelectedDay = null;
+          renderCalendar();
+        });
+        if (nextBtn) nextBtn.addEventListener('click', function() {
+          _calMonth++;
+          if (_calMonth > 11) { _calMonth = 0; _calYear++; }
+          _calSelectedDay = null;
+          renderCalendar();
+        });
+        if (todayBtn) todayBtn.addEventListener('click', function() {
+          _calYear = new Date().getFullYear();
+          _calMonth = new Date().getMonth();
+          _calSelectedDay = null;
+          renderCalendar();
+        });
+        if (deptSel) deptSel.addEventListener('change', function() { renderCalendar(); });
+        if (closeDetail) closeDetail.addEventListener('click', function() {
+          _calSelectedDay = null;
+          document.getElementById('calDayDetail').classList.add('hidden');
+          renderCalendar();
+        });
+      }());
+
       // Resize handler: toggle table vs card views
       window.addEventListener('resize', function() {
         var isMobile = window.innerWidth < 768;
@@ -9519,7 +9755,7 @@ body.no-transitions * { transition: none !important; }
         renderSummary();
       });
 
-      var TAB_VIEWS = ['records', 'summary', 'bucket', 'employees', 'timeoff'];
+      var TAB_VIEWS = ['records', 'summary', 'bucket', 'employees', 'timeoff', 'calendar'];
       document.addEventListener('keydown', function (event) {
         // KB row navigation — only when records tab is active and no input/modal is focused
         if (activeView === 'records') {
@@ -11379,6 +11615,10 @@ body.no-transitions * { transition: none !important; }
   <button class="mobile-tab-btn" type="button" data-view="timeoff">
     <span class="mobile-tab-icon">📅</span>
     <span class="mobile-tab-label">Time Off</span>
+  </button>
+  <button class="mobile-tab-btn" type="button" data-view="calendar">
+    <span class="mobile-tab-icon">🗓️</span>
+    <span class="mobile-tab-label">Calendar</span>
   </button>
 </nav>
 
