@@ -6609,6 +6609,13 @@ body.no-transitions * { transition: none !important; }
       }
 
       function exportBucketCsv() {
+        function csvCell(val) {
+          var s = String(val === null || val === undefined ? '' : val);
+          if (s.indexOf(',') !== -1 || s.indexOf('"') !== -1 || s.indexOf('\n') !== -1) {
+            return '"' + s.replace(/"/g, '""') + '"';
+          }
+          return s;
+        }
         var bucketRows = bucketEmployeeRows();
         if (!bucketRows.length) { showToast('No bucket data to export'); return; }
         var lines = [['Name', 'Approved Days', 'Bucket Occurrences', 'Remaining Days'].join(',')];
@@ -12534,6 +12541,8 @@ body.no-transitions * { transition: none !important; }
       });
 
       document.getElementById('syncBucketFromTimeoffBtn').addEventListener('click', syncBucketFromTimeoff);
+      var bucketExportBtn = document.getElementById('bucketExportBtn');
+      if (bucketExportBtn) bucketExportBtn.addEventListener('click', exportBucketCsv);
       document.getElementById('bucketSearch').addEventListener('input', renderBucket);
       document.getElementById('exportTimeOffBtn').addEventListener('click', exportTimeOff);
 
