@@ -8870,37 +8870,7 @@ body.no-transitions * { transition: none !important; }
         setImportWizStep(0);
       })();
       document.getElementById('shortcutsBtn').addEventListener('click', function () {
-        alert([
-          'Keyboard Shortcuts',
-          '',
-          'Navigation:',
-          '  Ctrl+`            Switch to Dashboard tab',
-          '  Ctrl+1 … Ctrl+5   Switch to tab 1–5',
-          '  ← →               Move between tabs (when tab focused)',
-          '  /                  Focus search input (from Records tab)',
-          '  Esc                Close modal / clear focused search field',
-          '',
-          'Tables:',
-          '  Click column header   Sort ascending/descending',
-          '  Click editable cell   Edit inline (Name, Dept, Role, ID, Notes)',
-          '  Enter                 Confirm inline edit',
-          '  Esc                   Cancel inline edit',
-          '',
-          'Records:',
-          '  Actions menu → Duplicate  Copy a row with a single click',
-          '  Delete row → Undo toast appears for 5 seconds',
-          '',
-          'Date filter presets:',
-          '  Last 30 Days / This Week / This Month / Last Month / This Year',
-          '',
-          'Tools:',
-          '  ⊞ Columns   Show/hide Records table columns',
-          '  🗂 Browse Drive   Pick an existing Google Sheet from your Drive',
-          '  Ctrl+K      Open command palette (search anything, quick actions)',
-          '  Ctrl+S      Save all data to local storage',
-          '  Ctrl+N      New record (focus Add Record form)',
-          '  Ctrl+P      Print current view',
-        ].join('\n'));
+        openShortcutsModal();
       });
       els.dedupeBtn.addEventListener('click', function () { removeDuplicates(true); });
       els.clearSavedBtn.addEventListener('click', clearSavedData);
