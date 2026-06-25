@@ -2399,7 +2399,7 @@ body.no-transitions * { transition: none !important; }
       </div>
     </div>
 
-    <div class="dash-section">
+    <div class="dash-section" id="monthlyChartSection">
       <div class="dash-section-title">Monthly Occurrences (Last 12 Months)</div>
       <canvas id="monthlyChart" style="width:100%;display:block"></canvas>
       <div id="monthlyChartEmpty" class="empty" style="display:none">No occurrence data yet.</div>
@@ -2407,7 +2407,7 @@ body.no-transitions * { transition: none !important; }
       <div style="margin-top:6px;text-align:right"><a id="monthlyChartExport" href="#" download="monthly-attendance-chart.png" style="display:none;font-size:12px;padding:4px 10px;border-radius:var(--radius);border:1px solid var(--border);text-decoration:none;color:var(--text);align-items:center;gap:4px">&#128229; Save Chart</a></div>
     </div>
 
-    <div class="dash-section">
+    <div class="dash-section" id="deptChartSection">
       <div id="deptCompareSection" style="margin-bottom:24px">
         <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--muted);margin-bottom:10px">🏢 Department Comparison (Avg Points/Employee)</div>
         <canvas id="deptCompareChart" height="0" style="width:100%;display:block"></canvas>
@@ -8587,6 +8587,27 @@ body.no-transitions * { transition: none !important; }
 
         // Anniversary panel
         renderAnniversaryPanel();
+
+        applyDashWidgetVisibility();
+      }
+
+      function applyDashWidgetVisibility() {
+        var w = appSettings.dashWidgets || {};
+        var map = {
+          stats:            ['dashStats'],
+          streakLeaderboard:['dashStreakSection'],
+          atRisk:           ['atRiskSection'],
+          monthlyChart:     ['monthlyChartSection'],
+          deptChart:        ['deptChartSection'],
+          anniversary:      ['anniversaryPanel']
+        };
+        Object.keys(map).forEach(function(key) {
+          var show = w[key] !== false;
+          map[key].forEach(function(id) {
+            var el = document.getElementById(id);
+            if (el) el.style.display = show ? '' : 'none';
+          });
+        });
       }
 
       function _renderDashStats() {
@@ -12844,6 +12865,11 @@ body.no-transitions * { transition: none !important; }
         if (wtEl) wtEl.value = appSettings.warnThresh !== undefined ? appSettings.warnThresh : 4;
         var htEl = document.getElementById('settingHighThresh');
         if (htEl) htEl.value = appSettings.highThresh !== undefined ? appSettings.highThresh : 8;
+        var wKeys = ['Stats','StreakLeaderboard','AtRisk','MonthlyChart','DeptChart','Anniversary'];
+        wKeys.forEach(function(k) {
+          var el = document.getElementById('widget' + k);
+          if (el) el.checked = appSettings.dashWidgets ? appSettings.dashWidgets[k.charAt(0).toLowerCase() + k.slice(1)] !== false : true;
+        });
         var settingsModalEl = document.getElementById('settingsModal');
         settingsModalEl.classList.remove('hidden');
         trapFocus(settingsModalEl);
@@ -13020,6 +13046,12 @@ body.no-transitions * { transition: none !important; }
           var abEl = document.getElementById('settingAutoBackup');
           if (abEl) appSettings.autoBackupInterval = parseInt(abEl.value, 10) || 0;
           appSettings.retentionMonths = parseInt(document.getElementById('retentionMonths').value) || 0;
+          var wKeys = ['Stats','StreakLeaderboard','AtRisk','MonthlyChart','DeptChart','Anniversary'];
+          if (!appSettings.dashWidgets) appSettings.dashWidgets = {};
+          wKeys.forEach(function(k) {
+            var el = document.getElementById('widget' + k);
+            if (el) appSettings.dashWidgets[k.charAt(0).toLowerCase() + k.slice(1)] = el.checked;
+          });
           saveSettings(); applySettings();
           closeModal(document.getElementById('settingsModal'));
           showToast('Settings saved');
@@ -14506,6 +14538,30 @@ body.no-transitions * { transition: none !important; }
             <label for="settingHighThresh">Termination threshold (pts)</label>
             <input type="number" id="settingHighThresh" min="0" step="0.5" style="width:100%">
           </div>
+        </div>
+      </div>
+
+      <div style="border-top:1px solid var(--border);margin-top:16px;padding-top:16px">
+        <div style="font-size:13px;font-weight:700;margin-bottom:10px">📊 Dashboard Widgets</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">
+          <label style="display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer">
+            <input type="checkbox" id="widgetStats" checked> Stats Row
+          </label>
+          <label style="display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer">
+            <input type="checkbox" id="widgetStreakLeaderboard" checked> Streak Leaderboard
+          </label>
+          <label style="display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer">
+            <input type="checkbox" id="widgetAtRisk" checked> At-Risk Panel
+          </label>
+          <label style="display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer">
+            <input type="checkbox" id="widgetMonthlyChart" checked> Monthly Chart
+          </label>
+          <label style="display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer">
+            <input type="checkbox" id="widgetDeptChart" checked> Dept Comparison
+          </label>
+          <label style="display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer">
+            <input type="checkbox" id="widgetAnniversary" checked> Anniversaries
+          </label>
         </div>
       </div>
 
