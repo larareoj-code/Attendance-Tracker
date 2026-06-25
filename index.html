@@ -1107,6 +1107,17 @@
       .modal-overlay, #toBulkBar, #atRiskSection,
       #dashChartTooltip, #whosOffSection, #timeOffStatsCard { display: none !important; }
 
+      /* hide sync badge, filter/cloud panel bodies, status line, mobile tab bar */
+      #cloudSyncBadge, .sync-badge { display: none !important; }
+      .status-line { display: none !important; }
+      .tab-bar-desktop, .tab-bar-mobile { display: none !important; }
+      #cloudPanelBody, #filterPanelBody, #manualPanelBody { display: none !important; }
+      .panel-title { display: none !important; }
+
+      /* table font size bump to 10pt for better readability */
+      table { font-size: 10pt !important; }
+      th { font-size: 9pt !important; }
+
       /* When printing from summary modal, show only the report */
       #empSummaryModal:not(.hidden) { display: block !important; position: static !important; background: none !important; }
       #empSummaryModal:not(.hidden) ~ * { display: none !important; }
@@ -1835,6 +1846,7 @@ body.no-transitions * { transition: none !important; }
   </style>
 <style id="googleidentityservice_button_styles">.qJTHM{-moz-user-select:none;-webkit-user-select:none;-ms-user-select:none;color:#202124;direction:ltr;-webkit-touch-callout:none;font-family:Roboto-Regular,arial,sans-serif;-webkit-font-smoothing:antialiased;font-weight:400;margin:0;overflow:hidden;-webkit-text-size-adjust:100%}.ynRLnc{left:-9999px;position:absolute;top:-9999px}.L6cTce{display:none}.bltWBb{overflow-wrap:break-word;word-break:break-word}.hSRGPd{color:#1a73e8;cursor:pointer;font-weight:500;text-decoration:none}.Bz112c-W3lGp{height:16px;width:16px}.Bz112c-E3DyYd{height:20px;width:20px}.Bz112c-r9oPif{height:24px;width:24px}.Bz112c-u2z5K{height:36px;width:36px}.Bz112c-uaxL4e{border-radius:10px}.LgbsSe-Bz112c{display:block}.S9gUrf-YoZ4jf{border:none;margin:0;padding:0}.S9gUrf-YoZ4jf *{border:none;margin:0;padding:0}.fFW7wc-ibnC6b>.aZ2wEe>div{border-color:#4285f4}.P1ekSe-ZMv3u{-webkit-transition:height .2s linear;transition:height .2s linear}.P1ekSe-ZMv3u>div:first-child{background-color:#1a73e8!important;-webkit-transition:width .3s linear;transition:width .3s linear}.P1ekSe-ZMv3u>div:nth-child(2){background-image:-webkit-gradient(linear,left top,right top,from(rgba(255,255,255,.7)),to(rgba(255,255,255,.7))),-webkit-gradient(linear,left top,right top,from(#1a73e8),to(#1a73e8))!important;background-image:-webkit-linear-gradient(left,rgba(255,255,255,.7),rgba(255,255,255,.7)),-webkit-linear-gradient(left,#1a73e8,#1a73e8)!important;background-image:linear-gradient(90deg,rgba(255,255,255,.7),rgba(255,255,255,.7)),linear-gradient(90deg,#1a73e8,#1a73e8)!important}.P1ekSe-ZMv3u>div:nth-child(3){background-image:-webkit-gradient(linear,left top,right top,from(rgba(255,255,255,.7)),to(rgba(255,255,255,.7))),-webkit-gradient(linear,left top,right top,from(#1a73e8),to(#1a73e8))!important;background-image:-webkit-linear-gradient(left,rgba(255,255,255,.7),rgba(255,255,255,.7)),-webkit-linear-gradient(left,#1a73e8,#1a73e8)!important;background-image:linear-gradient(90deg,rgba(255,255,255,.7),rgba(255,255,255,.7)),linear-gradient(90deg,#1a73e8,#1a73e8)!important}.haAclf{display:inline-block}.nsm7Bb-HzV7m-LgbsSe{border-radius:4px;box-sizing:border-box;-webkit-transition:background-color .218s,border-color .218s;transition:background-color .218s,border-color .218s;-moz-user-select:none;-webkit-user-select:none;-ms-user-select:none;-webkit-appearance:none;background-color:#fff;background-image:none;border:1px solid #dadce0;color:#3c4043;cursor:pointer;font-family:Google Sans,arial,sans-serif;font-size:14px;height:40px;letter-spacing:.25px;outline:none;overflow:hidden;padding:0 12px;position:relative;text-align:center;vertical-align:middle;white-space:nowrap;width:auto}@media screen and (-ms-high-contrast:active){.nsm7Bb-HzV7m-LgbsSe{border:2px solid windowText;color:windowText}}@media screen and (preferes-contrast:more){.nsm7Bb-HzV7m-LgbsSe{color:#000}}.nsm7Bb-HzV7m-LgbsSe.pSzOP-SxQuSe{font-size:14px;height:32px;letter-spacing:.25px;padding:0 10px}.nsm7Bb-HzV7m-LgbsSe.purZT-SxQuSe{font-size:11px;height:20px;letter-spacing:.3px;padding:0 8px}.nsm7Bb-HzV7m-LgbsSe.Bz112c-LgbsSe{padding:0;width:40px}.nsm7Bb-HzV7m-LgbsSe.Bz112c-LgbsSe.pSzOP-SxQuSe{width:32px}.nsm7Bb-HzV7m-LgbsSe.Bz112c-LgbsSe.purZT-SxQuSe{width:20px}.nsm7Bb-HzV7m-LgbsSe.JGcpL-RbRzK{border-radius:20px}.nsm7Bb-HzV7m-LgbsSe.JGcpL-RbRzK.pSzOP-SxQuSe{border-radius:16px}.nsm7Bb-HzV7m-LgbsSe.JGcpL-RbRzK.purZT-SxQuSe{border-radius:10px}.nsm7Bb-HzV7m-LgbsSe.MFS4be-Ia7Qfc{border:none;color:#fff}.nsm7Bb-HzV7m-LgbsSe.MFS4be-v3pZbf-Ia7Qfc{background-color:#1a73e8}.nsm7Bb-HzV7m-LgbsSe.MFS4be-JaPV2b-Ia7Qfc{background-color:#202124;color:#e8eaed}@media screen and (prefers-contrast:more){.nsm7Bb-HzV7m-LgbsSe.MFS4be-JaPV2b-Ia7Qfc{color:#fff}}.nsm7Bb-HzV7m-LgbsSe .nsm7Bb-HzV7m-LgbsSe-Bz112c{height:18px;margin-right:8px;min-width:18px;width:18px}.nsm7Bb-HzV7m-LgbsSe.pSzOP-SxQuSe .nsm7Bb-HzV7m-LgbsSe-Bz112c{height:14px;min-width:14px;width:14px}.nsm7Bb-HzV7m-LgbsSe.purZT-SxQuSe .nsm7Bb-HzV7m-LgbsSe-Bz112c{height:10px;min-width:10px;width:10px}.nsm7Bb-HzV7m-LgbsSe.jVeSEe .nsm7Bb-HzV7m-LgbsSe-Bz112c{margin-left:8px;margin-right:-4px}.nsm7Bb-HzV7m-LgbsSe.Bz112c-LgbsSe .nsm7Bb-HzV7m-LgbsSe-Bz112c{margin:0;padding:10px}.nsm7Bb-HzV7m-LgbsSe.Bz112c-LgbsSe.pSzOP-SxQuSe .nsm7Bb-HzV7m-LgbsSe-Bz112c{padding:8px}.nsm7Bb-HzV7m-LgbsSe.Bz112c-LgbsSe.purZT-SxQuSe .nsm7Bb-HzV7m-LgbsSe-Bz112c{padding:4px}.nsm7Bb-HzV7m-LgbsSe .nsm7Bb-HzV7m-LgbsSe-Bz112c-haAclf{border-top-left-radius:3px;border-bottom-left-radius:3px;display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-pack:center;-webkit-justify-content:center;justify-content:center;-webkit-box-align:center;-webkit-align-items:center;align-items:center;background-color:#fff;height:36px;margin-left:-10px;margin-right:12px;min-width:36px;width:36px}.nsm7Bb-HzV7m-LgbsSe .nsm7Bb-HzV7m-LgbsSe-Bz112c-haAclf .nsm7Bb-HzV7m-LgbsSe-Bz112c,.nsm7Bb-HzV7m-LgbsSe.Bz112c-LgbsSe .nsm7Bb-HzV7m-LgbsSe-Bz112c-haAclf .nsm7Bb-HzV7m-LgbsSe-Bz112c{margin:0;padding:0}.nsm7Bb-HzV7m-LgbsSe.pSzOP-SxQuSe .nsm7Bb-HzV7m-LgbsSe-Bz112c-haAclf{height:28px;margin-left:-8px;margin-right:10px;min-width:28px;width:28px}.nsm7Bb-HzV7m-LgbsSe.purZT-SxQuSe .nsm7Bb-HzV7m-LgbsSe-Bz112c-haAclf{height:16px;margin-left:-6px;margin-right:8px;min-width:16px;width:16px}.nsm7Bb-HzV7m-LgbsSe.Bz112c-LgbsSe .nsm7Bb-HzV7m-LgbsSe-Bz112c-haAclf{border-radius:3px;margin-left:2px;margin-right:0;padding:0}.nsm7Bb-HzV7m-LgbsSe.JGcpL-RbRzK .nsm7Bb-HzV7m-LgbsSe-Bz112c-haAclf{border-radius:18px}.nsm7Bb-HzV7m-LgbsSe.pSzOP-SxQuSe.JGcpL-RbRzK .nsm7Bb-HzV7m-LgbsSe-Bz112c-haAclf{border-radius:14px}.nsm7Bb-HzV7m-LgbsSe.purZT-SxQuSe.JGcpL-RbRzK .nsm7Bb-HzV7m-LgbsSe-Bz112c-haAclf{border-radius:8px}.nsm7Bb-HzV7m-LgbsSe .nsm7Bb-HzV7m-LgbsSe-bN97Pc-sM5MNb{display:-webkit-box;display:-webkit-flex;display:flex;-webkit-align-items:center;-webkit-box-align:center;align-items:center;-webkit-flex-direction:row;-webkit-box-orient:horizontal;-webkit-box-direction:normal;flex-direction:row;-webkit-box-pack:justify;-webkit-justify-content:space-between;justify-content:space-between;-webkit-flex-wrap:nowrap;flex-wrap:nowrap;height:100%;position:relative;width:100%}.nsm7Bb-HzV7m-LgbsSe .oXtfBe-l4eHX{-webkit-box-pack:center;-webkit-justify-content:center;justify-content:center}.nsm7Bb-HzV7m-LgbsSe .nsm7Bb-HzV7m-LgbsSe-BPrWId{-webkit-flex-grow:1;-webkit-box-flex:1;flex-grow:1;font-family:Google Sans,arial,sans-serif;font-weight:500;overflow:hidden;text-overflow:ellipsis;vertical-align:top}.nsm7Bb-HzV7m-LgbsSe.purZT-SxQuSe .nsm7Bb-HzV7m-LgbsSe-BPrWId{font-weight:300}.nsm7Bb-HzV7m-LgbsSe .oXtfBe-l4eHX .nsm7Bb-HzV7m-LgbsSe-BPrWId{-webkit-flex-grow:0;-webkit-box-flex:0;flex-grow:0}.nsm7Bb-HzV7m-LgbsSe .nsm7Bb-HzV7m-LgbsSe-MJoBVe{-webkit-transition:background-color .218s;transition:background-color .218s;bottom:0;left:0;position:absolute;right:0;top:0}.nsm7Bb-HzV7m-LgbsSe:focus,.nsm7Bb-HzV7m-LgbsSe:hover{box-shadow:none;border-color:rgb(210,227,252);outline:none}.nsm7Bb-HzV7m-LgbsSe:focus-within{outline:2px solid #00639b;border-color:transparent}.nsm7Bb-HzV7m-LgbsSe:hover .nsm7Bb-HzV7m-LgbsSe-MJoBVe{background:rgba(66,133,244,.08)}.nsm7Bb-HzV7m-LgbsSe:active .nsm7Bb-HzV7m-LgbsSe-MJoBVe,.nsm7Bb-HzV7m-LgbsSe:focus .nsm7Bb-HzV7m-LgbsSe-MJoBVe{background:rgba(66,133,244,.1)}.nsm7Bb-HzV7m-LgbsSe.MFS4be-Ia7Qfc:hover .nsm7Bb-HzV7m-LgbsSe-MJoBVe{background:rgba(255,255,255,.24)}.nsm7Bb-HzV7m-LgbsSe.MFS4be-Ia7Qfc:active .nsm7Bb-HzV7m-LgbsSe-MJoBVe,.nsm7Bb-HzV7m-LgbsSe.MFS4be-Ia7Qfc:focus .nsm7Bb-HzV7m-LgbsSe-MJoBVe{background:rgba(255,255,255,.32)}.nsm7Bb-HzV7m-LgbsSe .n1UuX-DkfjY{border-radius:50%;display:-webkit-box;display:-webkit-flex;display:flex;height:20px;margin-left:-4px;margin-right:8px;min-width:20px;width:20px}.nsm7Bb-HzV7m-LgbsSe.jVeSEe .nsm7Bb-HzV7m-LgbsSe-BPrWId{font-family:Roboto;font-size:12px;text-align:left}.nsm7Bb-HzV7m-LgbsSe.jVeSEe .nsm7Bb-HzV7m-LgbsSe-BPrWId .K4efff .fmcmS,.nsm7Bb-HzV7m-LgbsSe.jVeSEe .nsm7Bb-HzV7m-LgbsSe-BPrWId .ssJRIf{overflow:hidden;text-overflow:ellipsis}.nsm7Bb-HzV7m-LgbsSe.jVeSEe .nsm7Bb-HzV7m-LgbsSe-BPrWId .K4efff{display:-webkit-box;display:-webkit-flex;display:flex;-webkit-align-items:center;-webkit-box-align:center;align-items:center;color:#5f6368;fill:#5f6368;font-size:11px;font-weight:400}.nsm7Bb-HzV7m-LgbsSe.jVeSEe.MFS4be-Ia7Qfc .nsm7Bb-HzV7m-LgbsSe-BPrWId .K4efff{color:#e8eaed;fill:#e8eaed}@media screen and (prefers-contrast:more){.nsm7Bb-HzV7m-LgbsSe.jVeSEe .nsm7Bb-HzV7m-LgbsSe-BPrWId .K4efff,.nsm7Bb-HzV7m-LgbsSe.jVeSEe.MFS4be-Ia7Qfc .nsm7Bb-HzV7m-LgbsSe-BPrWId .K4efff{color:#000;fill:#000}}.nsm7Bb-HzV7m-LgbsSe.jVeSEe .nsm7Bb-HzV7m-LgbsSe-BPrWId .K4efff .Bz112c{height:18px;margin:-3px -3px -3px 2px;min-width:18px;width:18px}.nsm7Bb-HzV7m-LgbsSe.jVeSEe .nsm7Bb-HzV7m-LgbsSe-Bz112c-haAclf{border-top-left-radius:0;border-bottom-left-radius:0;border-top-right-radius:3px;border-bottom-right-radius:3px;margin-left:12px;margin-right:-10px}.nsm7Bb-HzV7m-LgbsSe.jVeSEe.JGcpL-RbRzK .nsm7Bb-HzV7m-LgbsSe-Bz112c-haAclf{border-radius:18px}.L5Fo6c-sM5MNb{border:0;display:block;left:0;position:relative;top:0}.L5Fo6c-bF1uUb{border-radius:4px;bottom:0;cursor:pointer;left:0;position:absolute;right:0;top:0}.L5Fo6c-bF1uUb:focus{border:none;outline:none}sentinel{}</style></head>
 <body>
+  <a href="#mainContent" class="skip-link" style="position:absolute;top:-40px;left:0;background:var(--blue);color:#fff;padding:8px 16px;z-index:9999;border-radius:0 0 4px 0;transition:top 0.2s;font-size:13px;font-weight:600;text-decoration:none" onfocus="this.style.top='0'" onblur="this.style.top='-40px'">Skip to main content</a>
   <header class="hero">
     <div class="wrap hero-inner">
       <div>
@@ -1857,7 +1869,7 @@ body.no-transitions * { transition: none !important; }
         <button id="exportFilteredBtn" class="secondary" type="button" disabled="" title="Export filtered records (import data first)">Export Filtered</button>
         <button class="secondary" type="button" id="exportCsvBtn" title="Export all records as CSV" disabled="">CSV ↓</button>
         <div class="toolbar-divider"></div>
-        <button class="secondary" type="button" id="printBtn" title="Print current view">🖨 Print</button>
+        <button class="secondary" type="button" id="printBtn" title="Print current view (Ctrl+P)">🖨 Print</button>
         <button id="dedupeBtn" class="secondary" type="button" disabled="">Remove Duplicates</button>
         <button id="clearSavedBtn" class="danger" type="button">Clear Saved Data</button>
         <button class="secondary" type="button" id="backupJsonBtn" title="Download a full backup of all your data as JSON">⬇ Backup</button>
@@ -1901,7 +1913,7 @@ body.no-transitions * { transition: none !important; }
     </div>
   </header>
 
-  <main class="app">
+  <main class="app" id="mainContent">
     <div class="print-header">
       <strong style="font-size:16pt">Attendance Tracker — Report</strong>
       <div id="printMeta" style="font-size:10pt;color:#555;margin-top:4px"></div>
@@ -2608,7 +2620,7 @@ body.no-transitions * { transition: none !important; }
         <div id="calDayDetail" class="hidden" style="margin-top:16px;padding:14px;background:var(--card);border-radius:var(--radius);border:1px solid var(--border)">
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
             <h3 id="calDayDetailTitle" style="margin:0;font-size:14px;font-weight:800"></h3>
-            <button type="button" id="calDayDetailClose" style="background:none;border:none;cursor:pointer;color:var(--muted);font-size:18px;padding:0">✕</button>
+            <button type="button" id="calDayDetailClose" aria-label="Close" style="background:none;border:none;cursor:pointer;color:var(--muted);font-size:18px;padding:0">✕</button>
           </div>
           <div id="calDayDetailBody"></div>
         </div>
@@ -9203,11 +9215,11 @@ body.no-transitions * { transition: none !important; }
         newOk.textContent = opts.ok || 'Confirm';
         newOk.className = opts.danger ? 'btn-danger' : 'primary';
         newCancel.textContent = opts.cancel || 'Cancel';
-        function close() { modal.classList.add('hidden'); }
+        function close() { modal.classList.add('hidden'); releaseFocus(modal); }
         newOk.addEventListener('click', function() { close(); onConfirm(); });
         newCancel.addEventListener('click', close);
         modal.addEventListener('click', function handler(e) { if (e.target === modal) { close(); modal.removeEventListener('click', handler); } });
-        newOk.focus();
+        trapFocus(modal);
       }
 
       function deleteRecord(id) {
@@ -9317,7 +9329,18 @@ body.no-transitions * { transition: none !important; }
         var workbook = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(workbook, XLSX.utils.json_to_sheet(data), 'Filtered Records');
         var today = new Date().toISOString().slice(0, 10);
-        XLSX.writeFile(workbook, 'attendance-filtered-' + today + '.xlsx');
+        var filteredDateRange = '';
+        if (visible.length > 0) {
+          var fDates = visible.map(function(r) { return r.dateIso; }).filter(Boolean).sort();
+          if (fDates.length > 0) {
+            filteredDateRange = '_' + fDates[0] + '_to_' + fDates[fDates.length - 1];
+          }
+        }
+        var filteredNameStr = '';
+        if (els.nameFilter && els.nameFilter.value) {
+          filteredNameStr = '_' + els.nameFilter.value.replace(/\s+/g, '_');
+        }
+        XLSX.writeFile(workbook, 'attendance-filtered' + filteredNameStr + filteredDateRange + '_exported_' + today + '.xlsx');
       }
 
       // ── Task 1: CSV Export ───────────────────────────────────────────────────
@@ -9341,7 +9364,15 @@ body.no-transitions * { transition: none !important; }
         var url = URL.createObjectURL(blob);
         var a = document.createElement('a');
         var isFiltered = data.length < rows.length;
-        a.href = url; a.download = (filename || 'attendance' + (isFiltered ? '-filtered' : '') + '-' + new Date().toISOString().slice(0,10)) + '.csv';
+        var csvDateStr = new Date().toISOString().slice(0, 10);
+        var csvDateRange = '';
+        if (data.length > 0) {
+          var csvDates = data.map(function(r) { return r.dateIso; }).filter(Boolean).sort();
+          if (csvDates.length > 0) {
+            csvDateRange = '_' + csvDates[0] + '_to_' + csvDates[csvDates.length - 1];
+          }
+        }
+        a.href = url; a.download = (filename || 'attendance' + (isFiltered ? '-filtered' : '') + csvDateRange + '_exported_' + csvDateStr) + '.csv';
         document.body.appendChild(a); a.click();
         setTimeout(function() { document.body.removeChild(a); URL.revokeObjectURL(url); }, 100);
         showToast('Exported ' + data.length + ' records as CSV');
@@ -9790,7 +9821,15 @@ body.no-transitions * { transition: none !important; }
           XLSX.utils.book_append_sheet(workbook, XLSX.utils.json_to_sheet(summaryData), 'Summary');
         }
 
-        XLSX.writeFile(workbook, 'attendance-tracker-export.xlsx');
+        var exportDateStr = new Date().toISOString().slice(0, 10);
+        var exportDateRange = '';
+        if (rows.length > 0) {
+          var exportDates = rows.map(function(r) { return r.dateIso; }).filter(Boolean).sort();
+          if (exportDates.length > 0) {
+            exportDateRange = '_' + exportDates[0] + '_to_' + exportDates[exportDates.length - 1];
+          }
+        }
+        XLSX.writeFile(workbook, 'attendance-tracker' + exportDateRange + '_exported_' + exportDateStr + '.xlsx');
       }
 
       function downloadTemplate() {
@@ -12526,7 +12565,7 @@ body.no-transitions * { transition: none !important; }
   <div style="background:var(--card2);border:1px solid var(--border-light);border-radius:var(--radius);box-shadow:var(--shadow);width:100%;max-width:540px;max-height:82vh;overflow-y:auto;padding:24px">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
       <strong id="policyModalTitle" style="font-size:15px">⚖ Policy Rules</strong>
-      <button type="button" id="closePolicyBtn" style="background:none;border:none;color:var(--muted);font-size:20px;cursor:pointer;padding:0 4px;line-height:1">×</button>
+      <button type="button" id="closePolicyBtn" aria-label="Close" style="background:none;border:none;color:var(--muted);font-size:20px;cursor:pointer;padding:0 4px;line-height:1">×</button>
     </div>
     <p style="font-size:13px;color:var(--muted);margin:0 0 14px">Rules auto-flag records when conditions are met. Evaluated on every save.</p>
     <div id="policyRulesList"></div>
@@ -12569,7 +12608,7 @@ body.no-transitions * { transition: none !important; }
   <div style="background:var(--card2);border:1px solid var(--border-light);border-radius:var(--radius);box-shadow:var(--shadow);width:100%;max-width:560px;max-height:82vh;overflow-y:auto;padding:24px">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
       <strong id="dataHealthModalTitle" style="font-size:15px">🩺 Data Health</strong>
-      <button type="button" id="closeHealthBtn" style="background:none;border:none;color:var(--muted);font-size:20px;cursor:pointer;padding:0 4px;line-height:1">×</button>
+      <button type="button" id="closeHealthBtn" aria-label="Close" style="background:none;border:none;color:var(--muted);font-size:20px;cursor:pointer;padding:0 4px;line-height:1">×</button>
     </div>
     <div id="dataHealthResults"></div>
   </div>
@@ -12620,7 +12659,7 @@ body.no-transitions * { transition: none !important; }
   <div style="background:var(--card2);border:1px solid var(--border-light);border-radius:var(--radius);box-shadow:var(--shadow);width:100%;max-width:580px;max-height:90vh;overflow-y:auto;padding:24px">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px">
       <strong id="recordEditModalTitle" style="font-size:16px">Edit Record</strong>
-      <button type="button" id="closeRecordEditBtn" style="background:none;border:none;color:var(--muted);font-size:22px;cursor:pointer;padding:0 4px;line-height:1">×</button>
+      <button type="button" id="closeRecordEditBtn" aria-label="Close" style="background:none;border:none;color:var(--muted);font-size:22px;cursor:pointer;padding:0 4px;line-height:1">×</button>
     </div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
       <div style="grid-column:1/-1">
@@ -12681,11 +12720,11 @@ body.no-transitions * { transition: none !important; }
   </div>
 </div>
 
-<div id="importWizardModal" class="hidden" style="position:fixed;inset:0;z-index:400;background:rgba(0,0,0,0.65);display:flex;align-items:center;justify-content:center;padding:20px">
+<div id="importWizardModal" class="hidden" role="dialog" aria-modal="true" aria-labelledby="importWizardModalTitle" style="position:fixed;inset:0;z-index:400;background:rgba(0,0,0,0.65);display:flex;align-items:center;justify-content:center;padding:20px">
   <div style="background:var(--card2);border:1px solid var(--border-light);border-radius:var(--radius);box-shadow:var(--shadow);width:100%;max-width:600px;max-height:88vh;overflow-y:auto;padding:24px">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
-      <strong style="font-size:16px">Import: Map Columns</strong>
-      <button type="button" id="closeImportWizardBtn" style="background:none;border:none;color:var(--muted);font-size:22px;cursor:pointer;padding:0 4px;line-height:1">×</button>
+      <strong id="importWizardModalTitle" style="font-size:16px">Import: Map Columns</strong>
+      <button type="button" id="closeImportWizardBtn" aria-label="Close" style="background:none;border:none;color:var(--muted);font-size:22px;cursor:pointer;padding:0 4px;line-height:1">×</button>
     </div>
     <p style="font-size:13px;color:var(--muted);margin:0 0 16px">Match your file's columns to the app fields. Unmatched columns are ignored.</p>
     <div id="importPreviewInfo" style="font-size:13px;color:var(--muted);margin-bottom:14px"></div>
@@ -12764,7 +12803,7 @@ body.no-transitions * { transition: none !important; }
   <div style="background:var(--card2);border:1px solid var(--border-light);border-radius:var(--radius);box-shadow:var(--shadow);width:100%;max-width:520px;max-height:80vh;overflow-y:auto;padding:24px">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
       <strong id="importHistoryModalTitle" style="font-size:15px">📜 Import History</strong>
-      <button type="button" id="closeImportHistoryBtn" style="background:none;border:none;color:var(--muted);font-size:20px;cursor:pointer;line-height:1;padding:0 4px">×</button>
+      <button type="button" id="closeImportHistoryBtn" aria-label="Close" style="background:none;border:none;color:var(--muted);font-size:20px;cursor:pointer;line-height:1;padding:0 4px">×</button>
     </div>
     <div id="importHistoryList"></div>
   </div>
@@ -12774,7 +12813,7 @@ body.no-transitions * { transition: none !important; }
   <div style="background:var(--card2);border:1px solid var(--border-light);border-radius:var(--radius);box-shadow:var(--shadow);width:100%;max-width:480px;padding:28px;max-height:90vh;overflow-y:auto">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px">
       <strong id="settingsModalTitle" style="font-size:16px">⚙ Settings</strong>
-      <button type="button" id="closeSettingsBtn" style="background:none;border:none;color:var(--muted);font-size:22px;cursor:pointer;padding:0 4px;line-height:1">×</button>
+      <button type="button" id="closeSettingsBtn" aria-label="Close" style="background:none;border:none;color:var(--muted);font-size:22px;cursor:pointer;padding:0 4px;line-height:1">×</button>
     </div>
     <div style="display:flex;flex-direction:column;gap:18px">
       <div>
@@ -12884,7 +12923,7 @@ body.no-transitions * { transition: none !important; }
   <div style="background:var(--card2);border:1px solid var(--border-light);border-radius:var(--radius);box-shadow:var(--shadow);width:100%;max-width:480px;padding:28px">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
       <strong id="bulkEditModalTitle" style="font-size:16px">✏ Bulk Edit</strong>
-      <button type="button" id="closeBulkEditBtn" style="background:none;border:none;color:var(--muted);font-size:22px;cursor:pointer;padding:0 4px;line-height:1">×</button>
+      <button type="button" id="closeBulkEditBtn" aria-label="Close" style="background:none;border:none;color:var(--muted);font-size:22px;cursor:pointer;padding:0 4px;line-height:1">×</button>
     </div>
     <p id="bulkEditSubtitle" style="font-size:13px;color:var(--muted);margin:0 0 18px"></p>
     <p style="font-size:12px;color:var(--muted);margin:0 0 14px">Leave a field blank to keep existing values unchanged.</p>
@@ -12945,7 +12984,7 @@ body.no-transitions * { transition: none !important; }
       </div>
       <div style="display:flex;align-items:center;gap:8px">
         <button type="button" id="empProfilePrintBtn" class="secondary no-print" style="margin-right:8px">🖨 Print Summary</button>
-        <button type="button" id="closeEmpProfileBtn" style="background:none;border:none;color:var(--muted);font-size:24px;cursor:pointer;padding:0 4px;line-height:1">×</button>
+        <button type="button" id="closeEmpProfileBtn" aria-label="Close" style="background:none;border:none;color:var(--muted);font-size:24px;cursor:pointer;padding:0 4px;line-height:1">×</button>
       </div>
     </div>
     <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap">
