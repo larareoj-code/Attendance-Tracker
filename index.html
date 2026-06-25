@@ -1599,6 +1599,33 @@
   #policyModal,
   #dataHealthModal,
   #colVisModal { padding: 0 !important; align-items: flex-end !important; }
+
+  /* Sheet-style overlay modals (shortcutsModal, importWizardV2Modal, empSummaryModal) */
+  .modal-overlay { align-items: flex-end !important; padding: 0 !important; }
+  .modal-content {
+    width: 100% !important;
+    max-width: 100% !important;
+    border-radius: var(--radius) var(--radius) 0 0 !important;
+    max-height: 85vh !important;
+    overflow-y: auto;
+    margin: 0 !important;
+  }
+
+  /* .modal (inline modals like confirmModal) */
+  .modal {
+    width: 95vw !important;
+    max-width: 95vw !important;
+    margin: 8px !important;
+  }
+
+  /* Hide toolbar dividers on mobile — saves horizontal space */
+  .toolbar-divider { display: none; }
+
+  /* Hero action buttons: smaller on mobile */
+  .hero-actions button { font-size: 11px; padding: 4px 8px; }
+
+  /* iOS input zoom prevention */
+  input, select, textarea { font-size: 16px !important; }
 }
 
 /* ── More overflow menu ─────────────────────────────────────────────────── */
@@ -1734,6 +1761,9 @@ body.no-transitions * { transition: none !important; }
 
   /* Bulk bar wraps */
   .bulk-bar { flex-wrap: wrap; gap: 6px; }
+
+  /* Dashboard stat-grid (JS-rendered): 2-column on tablet */
+  .stat-grid { grid-template-columns: repeat(2, 1fr) !important; }
 
   /* Additional full-screen modals not already covered */
   #bulkEditModal > div,
@@ -6426,6 +6456,50 @@ body.no-transitions * { transition: none !important; }
       }
       window.openEmpProfile = openEmpProfile;
 
+      // Quick-action buttons in profile modal
+      (function() {
+        var profileEditBtn = document.getElementById('profileEditBtn');
+        if (profileEditBtn) profileEditBtn.addEventListener('click', function() {
+          var empName = window._empProfileName || '';
+          var modal = document.getElementById('empProfileModal');
+          closeModal(modal);
+          // Navigate to employees tab and focus the employee's row
+          setView('employees');
+          setTimeout(function() {
+            var search = document.getElementById('employeeSearch');
+            if (search && empName) { search.value = empName; search.dispatchEvent(new Event('input')); renderEmployees(); }
+          }, 200);
+        });
+
+        var profileAddRecordBtn = document.getElementById('profileAddRecordBtn');
+        if (profileAddRecordBtn) profileAddRecordBtn.addEventListener('click', function() {
+          var empName = window._empProfileName || '';
+          var modal = document.getElementById('empProfileModal');
+          closeModal(modal);
+          setView('records');
+          setTimeout(function() {
+            if (typeof focusManualForm === 'function') focusManualForm();
+            setTimeout(function() {
+              var nameField = document.getElementById('manualName');
+              if (nameField && empName) { nameField.value = empName; nameField.dispatchEvent(new Event('input')); }
+            }, 350);
+          }, 200);
+        });
+
+        var profileViewRecordsBtn = document.getElementById('profileViewRecordsBtn');
+        if (profileViewRecordsBtn) profileViewRecordsBtn.addEventListener('click', function() {
+          var empName = window._empProfileName || '';
+          var modal = document.getElementById('empProfileModal');
+          closeModal(modal);
+          setView('records');
+          setTimeout(function() {
+            var nameFilter = document.getElementById('nameFilter');
+            if (nameFilter && empName) { nameFilter.value = empName; nameFilter.dispatchEvent(new Event('change')); }
+            if (typeof render === 'function') render();
+          }, 200);
+        });
+      })();
+
       function openEmpSummaryReport(empName) {
         var modal = document.getElementById('empSummaryModal');
         var body = document.getElementById('empSummaryBody');
@@ -6636,10 +6710,13 @@ body.no-transitions * { transition: none !important; }
         var textColor = cs.getPropertyValue('--text').trim() || '#111827';
         var dangerColor = cs.getPropertyValue('--danger').trim() || '#ef4444';
 
+        var dpr = window.devicePixelRatio || 1;
         var W = canvas.offsetWidth || 420;
         var H = 140;
-        canvas.width = W;
-        canvas.height = H;
+        canvas.width = W * dpr;
+        canvas.height = H * dpr;
+        canvas.style.height = H + 'px';
+        ctx.scale(dpr, dpr);
 
         ctx.clearRect(0, 0, W, H);
 
@@ -6714,8 +6791,12 @@ body.no-transitions * { transition: none !important; }
 
         var W = canvas.offsetWidth || 420;
         var H = 70;
-        canvas.width = W;
-        canvas.height = H;
+        var dpr = window.devicePixelRatio || 1;
+        canvas.width = W * dpr;
+        canvas.height = H * dpr;
+        canvas.style.width = W + 'px';
+        canvas.style.height = H + 'px';
+        ctx.scale(dpr, dpr);
         ctx.clearRect(0, 0, W, H);
 
         var cs = getComputedStyle(document.documentElement);
