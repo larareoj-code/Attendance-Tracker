@@ -1070,6 +1070,18 @@
       #fabBtn, #toastContainer, #demoBanner, #cmdPalette,
       .modal-overlay, #toBulkBar, #atRiskSection,
       #dashChartTooltip, #whosOffSection, #timeOffStatsCard { display: none !important; }
+
+      /* When printing from summary modal, show only the report */
+      #empSummaryModal:not(.hidden) { display: block !important; position: static !important; background: none !important; }
+      #empSummaryModal:not(.hidden) ~ * { display: none !important; }
+      #empSummaryModal:not(.hidden) .modal-content {
+        box-shadow: none !important;
+        max-width: 100% !important;
+        width: 100% !important;
+        max-height: none !important;
+        overflow: visible !important;
+      }
+      #empSummaryModal:not(.hidden) .no-print { display: none !important; }
     }
     /* Row severity coloring */
     tbody tr[data-severity="low"] td { background: rgba(52,211,153,0.04); }
@@ -6026,6 +6038,9 @@ body.no-transitions * { transition: none !important; }
           }
         }
 
+        var profilePrintBtn = document.getElementById('empProfilePrintBtn');
+        if (profilePrintBtn) profilePrintBtn._empName = name;
+
         var empModal = document.getElementById('empProfileModal');
         empModal.classList.remove('hidden');
         trapFocus(empModal);
@@ -6070,6 +6085,35 @@ body.no-transitions * { transition: none !important; }
       }
       window.openEmpProfile = openEmpProfile;
 
+      function openEmpSummaryReport(empName) {
+        var modal = document.getElementById('empSummaryModal');
+        var body = document.getElementById('empSummaryBody');
+        var title = document.getElementById('empSummaryTitle');
+        if (!modal || !body) return;
+        if (title) title.textContent = empName + ' — Summary Report';
+        body.innerHTML = generateEmpSummaryHTML(empName);
+        modal.classList.remove('hidden');
+        trapFocus(modal);
+      }
+
+      // Wire summary modal buttons
+      (function() {
+        var printBtn = document.getElementById('empProfilePrintBtn');
+        if (printBtn) printBtn.addEventListener('click', function() {
+          var name = printBtn._empName;
+          if (name) openEmpSummaryReport(name);
+        });
+
+        var summaryPrintBtn = document.getElementById('empSummaryPrintBtn');
+        if (summaryPrintBtn) summaryPrintBtn.addEventListener('click', function() { window.print(); });
+
+        var summaryClose = document.getElementById('empSummaryClose');
+        if (summaryClose) summaryClose.addEventListener('click', function() {
+          var modal = document.getElementById('empSummaryModal');
+          if (modal) { modal.classList.add('hidden'); releaseFocus(modal); }
+        });
+      })();
+
       function getEmpMonthlyPoints(empName, numMonths) {
         numMonths = numMonths || 6;
         var now = new Date();
@@ -6088,6 +6132,154 @@ body.no-transitions * { transition: none !important; }
           });
         });
         return months;
+      }
+
+      function generateEmpSummaryHTML(empName) {
+        var emp = employees.find(function(e) { return norm(e.name) === norm(empName); });
+        if (!emp) return '<p>Employee not found.</p>';
+
+        var empRows = rows.filter(function(r) { return norm(r.name) === norm(empName); });
+        var totalPts = getEmpCurrentPoints(empName);
+        var score = calcAttendanceScore(empName);
+        var tenure = emp.hireDate ? calcTenure(emp.hireDate) : '—';
+        var alert = getEmpThresholdAlert(empName);
+        var patterns = detectWeekdayPatterns(empName);
+        var monthlyPts = getEmpMonthlyPoints(empName, 6);
+
+        // Time-off summary
+        var toApproved = timeOffRequests.filter(function(r) { return norm(r.employeeName) === norm(empName) && r.status === 'Approved'; });
+        var toPending = timeOffRequests.filter(function(r) { return norm(r.employeeName) === norm(empName) && r.status === 'Pending'; });
+
+        // Recent records (last 10)
+        var recentRows = empRows.slice().sort(function(a, b) { return (b.dateIso || '') > (a.dateIso || '') ? 1 : -1; }).slice(0, 10);
+
+        var alertColor = alert === 'at-high' ? '#dc2626' : alert === 'approaching-high' || alert === 'at-mid' ? '#d97706' : '#6b7280';
+        var alertLabel = alert === 'at-high' ? 'HIGH SEVERITY' : alert === 'approaching-high' ? 'APPROACHING HIGH' : alert === 'at-mid' ? 'MID SEVERITY' : 'GOOD STANDING';
+
+        var now = new Date().toLocaleDateString(undefined, {year:'numeric', month:'long', day:'numeric'});
+
+        var html = '';
+
+        // Header
+        html += '<div style="border-bottom:2px solid #000;padding-bottom:12px;margin-bottom:16px">' +
+          '<div style="display:flex;justify-content:space-between;align-items:flex-start">' +
+          '<div>' +
+            '<div style="font-size:22px;font-weight:800">' + escapeHtml(emp.name) + '</div>' +
+            '<div style="font-size:13px;color:#555;margin-top:2px">' +
+              (emp.department ? escapeHtml(emp.department) : '') +
+              (emp.role ? ' · ' + escapeHtml(emp.role) : '') +
+              (emp.employeeId ? ' · ID: ' + escapeHtml(emp.employeeId) : '') +
+            '</div>' +
+          '</div>' +
+          '<div style="text-align:right;font-size:12px;color:#555">' +
+            'Generated: ' + now + '<br>' +
+            'Standing: <strong>' + escapeHtml(emp.standing || 'Good') + '</strong>' +
+          '</div>' +
+          '</div>' +
+          '</div>';
+
+        // Alert banner (if any)
+        if (alert && alert !== null) {
+          html += '<div style="background:' + (alert === 'at-high' ? '#fee2e2' : '#fef3c7') + ';border:1px solid ' + alertColor + ';border-radius:4px;padding:8px 12px;margin-bottom:14px;color:' + alertColor + ';font-weight:700;font-size:13px">' +
+            alertLabel + ' — ' + totalPts.toFixed(totalPts % 1 === 0 ? 0 : 1) + ' total points' +
+            '</div>';
+        }
+
+        // Stats grid
+        html += '<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:16px">';
+        var stats = [
+          { label: 'Total Points', value: totalPts % 1 === 0 ? totalPts : totalPts.toFixed(1) },
+          { label: 'Attendance Score', value: score + '/100' },
+          { label: 'Total Records', value: empRows.length },
+          { label: 'Tenure', value: tenure },
+          { label: 'Hire Date', value: emp.hireDate || '—' },
+          { label: 'Time Off Approved', value: toApproved.length },
+          { label: 'Time Off Pending', value: toPending.length },
+          { label: 'Patterns Detected', value: patterns.length },
+        ];
+        stats.forEach(function(s) {
+          html += '<div style="border:1px solid #e5e7eb;border-radius:4px;padding:8px;text-align:center">' +
+            '<div style="font-size:16px;font-weight:800">' + escapeHtml(String(s.value)) + '</div>' +
+            '<div style="font-size:10px;color:#6b7280;text-transform:uppercase;letter-spacing:0.05em">' + escapeHtml(s.label) + '</div>' +
+            '</div>';
+        });
+        html += '</div>';
+
+        // 6-month trend (text table since canvas won't print from a modal)
+        html += '<div style="margin-bottom:16px">';
+        html += '<div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;color:#6b7280;margin-bottom:8px">6-Month Points Trend</div>';
+        html += '<div style="display:flex;gap:4px;align-items:flex-end;height:60px">';
+        var maxPts = Math.max(1, Math.max.apply(null, monthlyPts.map(function(m) { return m.pts; })));
+        monthlyPts.forEach(function(m) {
+          var pct = Math.round((m.pts / maxPts) * 100);
+          var color = m.pts >= (appSettings.severityHigh || 6) ? '#dc2626' : m.pts >= (appSettings.severityMid || 2) ? '#d97706' : m.pts > 0 ? '#3b82f6' : '#e5e7eb';
+          html += '<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:2px">' +
+            '<div style="font-size:10px;color:#6b7280">' + (m.pts > 0 ? m.pts : '') + '</div>' +
+            '<div style="width:100%;background:' + color + ';height:' + Math.max(2, pct * 0.45) + 'px;border-radius:2px 2px 0 0"></div>' +
+            '<div style="font-size:9px;color:#9ca3af">' + escapeHtml(m.label) + '</div>' +
+            '</div>';
+        });
+        html += '</div></div>';
+
+        // Weekday patterns
+        if (patterns.length) {
+          html += '<div style="margin-bottom:16px;padding:8px 10px;background:#fef3c7;border:1px solid #d97706;border-radius:4px">';
+          html += '<div style="font-size:11px;font-weight:700;text-transform:uppercase;color:#92400e;margin-bottom:6px">Recurring Absence Patterns</div>';
+          patterns.forEach(function(p) {
+            html += '<div style="font-size:12px;padding:2px 0">' +
+              '<strong>' + escapeHtml(p.dayName) + 's</strong> — ' + escapeHtml(p.code) + ' \xd7' + p.count +
+              ' <span style="color:#92400e;font-size:11px">(' + p.dates.slice(-3).join(', ') + (p.dates.length > 3 ? '…' : '') + ')</span>' +
+              '</div>';
+          });
+          html += '</div>';
+        }
+
+        // Recent records table
+        if (recentRows.length) {
+          html += '<div style="margin-bottom:16px">';
+          html += '<div style="font-size:11px;font-weight:700;text-transform:uppercase;color:#6b7280;margin-bottom:8px">Recent Records (last ' + recentRows.length + ')</div>';
+          html += '<table style="width:100%;border-collapse:collapse;font-size:12px">';
+          html += '<thead><tr style="background:#f3f4f6">' +
+            '<th style="padding:5px 8px;text-align:left;border:1px solid #e5e7eb">Date</th>' +
+            '<th style="padding:5px 8px;text-align:left;border:1px solid #e5e7eb">Code</th>' +
+            '<th style="padding:5px 8px;text-align:left;border:1px solid #e5e7eb">Type</th>' +
+            '<th style="padding:5px 8px;text-align:right;border:1px solid #e5e7eb">Pts</th>' +
+            '<th style="padding:5px 8px;text-align:left;border:1px solid #e5e7eb">Reason</th>' +
+            '</tr></thead><tbody>';
+          recentRows.forEach(function(r) {
+            html += '<tr>' +
+              '<td style="padding:4px 8px;border:1px solid #e5e7eb">' + escapeHtml(r.dateIso || '') + '</td>' +
+              '<td style="padding:4px 8px;border:1px solid #e5e7eb">' + escapeHtml(r.code || '') + '</td>' +
+              '<td style="padding:4px 8px;border:1px solid #e5e7eb">' + escapeHtml(r.type || '') + '</td>' +
+              '<td style="padding:4px 8px;border:1px solid #e5e7eb;text-align:right">' + (r.points || 0) + '</td>' +
+              '<td style="padding:4px 8px;border:1px solid #e5e7eb;color:#6b7280">' + escapeHtml((r.reason || '').slice(0, 60)) + '</td>' +
+              '</tr>';
+          });
+          html += '</tbody></table></div>';
+        }
+
+        // Manager notes (last 3)
+        if (emp.notesLog && emp.notesLog.length) {
+          var recentNotes = emp.notesLog.slice(-3).reverse();
+          html += '<div style="margin-bottom:8px">';
+          html += '<div style="font-size:11px;font-weight:700;text-transform:uppercase;color:#6b7280;margin-bottom:8px">Manager Notes (recent)</div>';
+          recentNotes.forEach(function(entry) {
+            var d = new Date(entry.ts);
+            html += '<div style="padding:6px 8px;border:1px solid #e5e7eb;border-radius:4px;margin-bottom:4px;font-size:12px">' +
+              '<div>' + escapeHtml(entry.text) + '</div>' +
+              '<div style="font-size:10px;color:#9ca3af;margin-top:2px">' + d.toLocaleDateString() + '</div>' +
+              '</div>';
+          });
+          html += '</div>';
+        }
+
+        // Footer
+        html += '<div style="border-top:1px solid #e5e7eb;margin-top:16px;padding-top:8px;font-size:10px;color:#9ca3af;display:flex;justify-content:space-between">' +
+          '<span>Attendance Tracker \xb7 Confidential HR Document</span>' +
+          '<span>' + escapeHtml(emp.name) + ' \xb7 ' + now + '</span>' +
+          '</div>';
+
+        return html;
       }
 
       function renderEmpTrendChart(empName) {
@@ -11685,7 +11877,10 @@ body.no-transitions * { transition: none !important; }
           <div id="empProfileMeta" style="font-size:13px;color:var(--muted);margin-top:2px"></div>
         </div>
       </div>
-      <button type="button" id="closeEmpProfileBtn" style="background:none;border:none;color:var(--muted);font-size:24px;cursor:pointer;padding:0 4px;line-height:1">×</button>
+      <div style="display:flex;align-items:center;gap:8px">
+        <button type="button" id="empProfilePrintBtn" class="secondary no-print" style="margin-right:8px">🖨 Print Summary</button>
+        <button type="button" id="closeEmpProfileBtn" style="background:none;border:none;color:var(--muted);font-size:24px;cursor:pointer;padding:0 4px;line-height:1">×</button>
+      </div>
     </div>
     <div id="empProfileAlertBanner" style="display:none;padding:10px 14px;border-radius:var(--radius);margin-bottom:14px;font-size:13px;font-weight:600"></div>
     <button type="button" id="empProfileReviewStandingBtn" style="display:none;margin-bottom:10px;padding:6px 14px;font-size:12px;font-weight:700;background:var(--yellow);color:#fff;border:none;border-radius:var(--radius);cursor:pointer"></button>
@@ -11714,6 +11909,18 @@ body.no-transitions * { transition: none !important; }
       <!-- Notes log feed -->
       <div id="empProfileNotesFeed" style="max-height:200px;overflow-y:auto;display:flex;flex-direction:column;gap:6px"></div>
     </div>
+  </div>
+</div>
+<div id="empSummaryModal" class="modal-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="empSummaryTitle">
+  <div class="modal-content" style="max-width:680px;width:95vw;max-height:90vh;overflow-y:auto">
+    <div class="no-print" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+      <h3 id="empSummaryTitle" style="margin:0;font-size:16px;font-weight:800">Employee Summary Report</h3>
+      <div style="display:flex;gap:8px">
+        <button type="button" id="empSummaryPrintBtn" class="primary">🖨 Print</button>
+        <button type="button" id="empSummaryClose" class="secondary">Close</button>
+      </div>
+    </div>
+    <div id="empSummaryBody"></div>
   </div>
 </div>
 </body></html>
