@@ -5666,12 +5666,12 @@ body.no-transitions * { transition: none !important; }
       // ── Wire dept / flag / pts filter events ──────────────────────────────
       (function() {
         var deptFilter = document.getElementById('deptFilter');
-        if (deptFilter) deptFilter.addEventListener('change', function() { render(); });
+        if (deptFilter) deptFilter.addEventListener('change', function() { renderWithPageReset(); });
         var flagFilter = document.getElementById('flagFilter');
-        if (flagFilter) flagFilter.addEventListener('change', function() { render(); });
+        if (flagFilter) flagFilter.addEventListener('change', function() { renderWithPageReset(); });
         ['ptsMinFilter','ptsMaxFilter'].forEach(function(id) {
           var el = document.getElementById(id);
-          if (el) el.addEventListener('input', function() { debouncedRender(); });
+          if (el) el.addEventListener('input', function() { debouncedRenderWithPageReset(); });
         });
       })();
 
@@ -5800,12 +5800,43 @@ body.no-transitions * { transition: none !important; }
         });
       }
 
+      function renderPagination(total, pageSize, currentPage) {
+        var el = document.getElementById('recordsPagination');
+        if (!el) return;
+        if (pageSize <= 0 || total <= pageSize) { el.innerHTML = ''; return; }
+        var totalPages = Math.ceil(total / pageSize);
+        var start = currentPage * pageSize + 1;
+        var end = Math.min((currentPage + 1) * pageSize, total);
+        el.innerHTML = '<div style="display:flex;align-items:center;gap:8px;padding:8px 0;font-size:13px">' +
+          '<button type="button" id="pgPrev" class="secondary" style="padding:3px 10px" ' + (currentPage === 0 ? 'disabled' : '') + '>← Prev</button>' +
+          '<span style="color:var(--muted)">Page ' + (currentPage+1) + ' of ' + totalPages + ' (' + start + '–' + end + ' of ' + total + ')</span>' +
+          '<button type="button" id="pgNext" class="secondary" style="padding:3px 10px" ' + (currentPage >= totalPages-1 ? 'disabled' : '') + '>Next →</button>' +
+        '</div>';
+        var prev = document.getElementById('pgPrev');
+        var next = document.getElementById('pgNext');
+        if (prev) prev.addEventListener('click', function() { window._recordsPage = Math.max(0, currentPage-1); render(); });
+        if (next) next.addEventListener('click', function() { window._recordsPage = Math.min(totalPages-1, currentPage+1); render(); });
+      }
+
       function renderRecords() {
         _kbFocusedRowId = null;
         var visibleRows = sortRows(filteredRows());
         renderSortIndicators();
         var nameSearchVal = els.searchInput ? els.searchInput.value.trim() : '';
         var searchNotesActive = document.getElementById('searchNotes') && document.getElementById('searchNotes').checked;
+
+        // Pagination
+        var pageSize = (appSettings && appSettings.pageSize !== undefined) ? parseInt(appSettings.pageSize) : 50;
+        var totalFiltered = visibleRows.length;
+        var currentPage = window._recordsPage || 0;
+        if (pageSize > 0 && totalFiltered > pageSize) {
+          var totalPages = Math.ceil(totalFiltered / pageSize);
+          currentPage = Math.min(currentPage, totalPages - 1);
+          window._recordsPage = currentPage;
+          visibleRows = visibleRows.slice(currentPage * pageSize, (currentPage + 1) * pageSize);
+        } else {
+          currentPage = 0;
+        }
 
         // Build per-employee cumulative point totals for at-risk row highlight
         var _recSevHigh = appSettings.severityHigh !== undefined ? appSettings.severityHigh : 6;
@@ -5905,6 +5936,7 @@ body.no-transitions * { transition: none !important; }
           });
         });
         updateBulkBar();
+        renderPagination(totalFiltered, pageSize, currentPage);
         if (window.innerWidth < 768) renderRecordCards();
       }
 
@@ -8953,34 +8985,85 @@ body.no-transitions * { transition: none !important; }
         populateCalDeptFilter();
       }
 
+      function closeDayDetail() {
+        _calSelectedDay = null;
+        var panel = document.getElementById('calDayDetail');
+        if (panel) panel.classList.add('hidden');
+        renderCalendar();
+      }
+
       function showCalDayDetail(iso, data) {
         var panel = document.getElementById('calDayDetail');
         var title = document.getElementById('calDayDetailTitle');
         var body = document.getElementById('calDayDetailBody');
         if (!panel || !title || !body) return;
 
-        var d = new Date(iso);
+        var d = new Date(iso + 'T00:00:00');
         title.textContent = d.toLocaleDateString(undefined, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
 
         var html = '';
+
+        // Group attendance records by employee name
         if (data.records.length) {
           html += '<div style="font-size:11px;font-weight:700;text-transform:uppercase;color:var(--muted);margin-bottom:6px">Attendance Records</div>';
-          html += data.records.map(function(r) {
-            return '<div style="display:flex;justify-content:space-between;padding:6px 8px;margin-bottom:4px;border-radius:var(--radius);background:var(--card2);font-size:13px">' +
-              '<span><strong>' + escapeHtml(r.name) + '</strong> — ' + escapeHtml(r.code || r.type || '') + '</span>' +
-              '<span style="color:var(--muted)">' + (r.points || 0) + ' pt' + (r.points !== 1 ? 's' : '') + '</span>' +
-              '</div>';
-          }).join('');
+          var empGroups = {};
+          var empOrder = [];
+          data.records.forEach(function(r) {
+            var key = r.name || '';
+            if (!empGroups[key]) { empGroups[key] = []; empOrder.push(key); }
+            empGroups[key].push(r);
+          });
+          empOrder.forEach(function(empName) {
+            var recs = empGroups[empName];
+            html += '<div style="margin-bottom:8px">';
+            html += '<div style="font-size:12px;font-weight:700;color:var(--text);padding:4px 0 2px">' + escapeHtml(empName) + '</div>';
+            recs.forEach(function(r) {
+              var typeColor = getCalEventColor(r.type || 'past');
+              var typeLabel = (r.type === 'past' ? 'Occurrence' : r.type === 'future' ? 'Future Request' : r.type === 'pastrequest' ? 'Past Request' : r.type || 'Occurrence');
+              var pts = parseFloat(r.points) || 0;
+              html += '<div style="display:flex;justify-content:space-between;align-items:center;padding:5px 8px;margin-bottom:3px;border-radius:var(--radius);background:var(--card2);font-size:13px">' +
+                '<span style="display:flex;align-items:center;gap:6px">' +
+                  '<span style="display:inline-block;padding:2px 7px;border-radius:20px;font-size:10px;font-weight:700;color:#fff;background:' + typeColor + '">' + escapeHtml(typeLabel) + '</span>' +
+                  (r.code ? '<span style="color:var(--muted)">' + escapeHtml(r.code) + '</span>' : '') +
+                '</span>' +
+                '<span style="color:var(--muted);font-size:12px">' + pts + ' pt' + (pts !== 1 ? 's' : '') + '</span>' +
+                '</div>';
+            });
+            html += '</div>';
+          });
         }
+
+        // Approved time off grouped by employee
         if (data.timeOff.length) {
           html += '<div style="font-size:11px;font-weight:700;text-transform:uppercase;color:var(--muted);margin-top:8px;margin-bottom:6px">Time Off (Approved)</div>';
-          html += data.timeOff.map(function(req) {
-            return '<div style="display:flex;justify-content:space-between;padding:6px 8px;margin-bottom:4px;border-radius:var(--radius);background:rgba(34,197,94,0.08);border:1px solid rgba(34,197,94,0.2);font-size:13px">' +
-              '<span><strong>' + escapeHtml(req.employeeName) + '</strong> — ' + escapeHtml(req.type) + '</span>' +
-              '<span style="color:var(--ok)">Approved</span>' +
-              '</div>';
-          }).join('');
+          var toGroups = {};
+          var toOrder = [];
+          data.timeOff.forEach(function(req) {
+            var key = req.employeeName || '';
+            if (!toGroups[key]) { toGroups[key] = []; toOrder.push(key); }
+            toGroups[key].push(req);
+          });
+          toOrder.forEach(function(empName) {
+            toGroups[empName].forEach(function(req) {
+              html += '<div style="display:flex;justify-content:space-between;align-items:center;padding:5px 8px;margin-bottom:3px;border-radius:var(--radius);background:rgba(34,197,94,0.08);border:1px solid rgba(34,197,94,0.2);font-size:13px">' +
+                '<span style="display:flex;align-items:center;gap:6px">' +
+                  '<span style="display:inline-block;padding:2px 7px;border-radius:20px;font-size:10px;font-weight:700;color:#fff;background:#22c55e">Time Off</span>' +
+                  '<strong>' + escapeHtml(empName) + '</strong>' +
+                  (req.type ? '<span style="color:var(--muted)">' + escapeHtml(req.type) + '</span>' : '') +
+                '</span>' +
+                '<span style="color:var(--ok);font-size:12px">Approved</span>' +
+                '</div>';
+            });
+          });
         }
+
+        // '+ Add Record for this day' button
+        html += '<button type="button" class="secondary" style="font-size:12px;margin-top:8px;width:100%" ' +
+          'onclick="closeDayDetail();setView(\'records\');setTimeout(function(){' +
+            'if(typeof focusManualForm===\'function\')focusManualForm();' +
+            'setTimeout(function(){var d=document.getElementById(\'manualDate\');if(d){d.value=\'' + iso + '\';d.dispatchEvent(new Event(\'change\'));}},300);' +
+          '},100)">+ Add Record for this day</button>';
+
         body.innerHTML = html;
         panel.classList.remove('hidden');
       }
@@ -11340,15 +11423,22 @@ body.no-transitions * { transition: none !important; }
         _renderDebounce = setTimeout(render, 150);
       }
 
-      els.searchInput.addEventListener('input', debouncedRender);
+      // Reset pagination page to 0 when filters change, then render
+      function renderWithPageReset() { window._recordsPage = 0; render(); }
+      function debouncedRenderWithPageReset() {
+        clearTimeout(_renderDebounce);
+        _renderDebounce = setTimeout(function() { window._recordsPage = 0; render(); }, 150);
+      }
+
+      els.searchInput.addEventListener('input', debouncedRenderWithPageReset);
       var searchNotesChk = document.getElementById('searchNotes');
-      if (searchNotesChk) searchNotesChk.addEventListener('change', render);
-      els.nameFilter.addEventListener('change', render);
-      els.codeFilter.addEventListener('change', render);
-      els.typeFilter.addEventListener('change', render);
-      els.followUpFilter.addEventListener('change', render);
-      document.getElementById('dateFromFilter').addEventListener('change', render);
-      document.getElementById('dateToFilter').addEventListener('change', render);
+      if (searchNotesChk) searchNotesChk.addEventListener('change', renderWithPageReset);
+      els.nameFilter.addEventListener('change', renderWithPageReset);
+      els.codeFilter.addEventListener('change', renderWithPageReset);
+      els.typeFilter.addEventListener('change', renderWithPageReset);
+      els.followUpFilter.addEventListener('change', renderWithPageReset);
+      document.getElementById('dateFromFilter').addEventListener('change', renderWithPageReset);
+      document.getElementById('dateToFilter').addEventListener('change', renderWithPageReset);
 
       (function () {
         function pad(n) { return String(n).padStart(2, '0'); }
