@@ -6506,6 +6506,65 @@ body.no-transitions * { transition: none !important; }
           '</tr>';
         }
         els.bucketEmpty.classList.toggle('hidden', bucketRows.length !== 0);
+        renderBucketStats(bucketRows);
+      }
+
+      function renderBucketStats(bucketRows) {
+        var statsEl = document.getElementById('bucketStats');
+        var labelEl = document.getElementById('bucketRangeLabel');
+        if (!statsEl) return;
+
+        var bucketUsageRows = rows.filter(function (r) { return r.bucketApplied && r.date; });
+        var dates = bucketUsageRows.map(function (r) { return r.date; }).sort();
+        if (labelEl) {
+          if (dates.length > 0) {
+            var fmt = { year: 'numeric', month: 'short', day: 'numeric' };
+            var dStart = new Date(dates[0] + 'T00:00:00');
+            var dEnd = new Date(dates[dates.length - 1] + 'T00:00:00');
+            var same = dates[0] === dates[dates.length - 1];
+            labelEl.textContent = same
+              ? 'Bucket occurrences on: ' + dStart.toLocaleDateString('en-US', fmt)
+              : 'Bucket occurrences: ' + dStart.toLocaleDateString('en-US', fmt) + ' – ' + dEnd.toLocaleDateString('en-US', fmt);
+          } else {
+            labelEl.textContent = '';
+          }
+        }
+
+        if (!bucketRows || bucketRows.length === 0) { statsEl.innerHTML = ''; return; }
+
+        var totalEmployees = bucketRows.length;
+        var totalDays     = bucketRows.reduce(function (s, r) { return s + (Number(r.days) || 0); }, 0);
+        var totalUsed     = bucketRows.reduce(function (s, r) { return s + r.assigned; }, 0);
+        var totalLeft     = totalDays - totalUsed;
+        var overBudget    = bucketRows.filter(function (r) { return r.remaining < 0; }).length;
+        var remColor      = totalLeft < 0 ? 'var(--danger)' : 'var(--ok)';
+
+        function statCard(label, value, color) {
+          return '<div class="dash-stat">' +
+            '<div class="dash-stat-label">' + label + '</div>' +
+            '<div class="dash-stat-value" style="font-size:20px;color:' + (color || 'inherit') + '">' + value + '</div>' +
+            '</div>';
+        }
+
+        statsEl.innerHTML = '<div class="dash-stats-row" style="margin-bottom:10px">' +
+          statCard('Employees', totalEmployees.toLocaleString()) +
+          statCard('Total Approved Days', formatPoints(totalDays)) +
+          statCard('Days Used', totalUsed.toLocaleString()) +
+          statCard('Days Remaining', formatPoints(totalLeft), remColor) +
+          (overBudget > 0 ? statCard('Over Budget', overBudget.toLocaleString(), 'var(--danger)') : '') +
+          '</div>';
+      }
+
+      function exportBucketCsv() {
+        var bucketRows = bucketEmployeeRows();
+        if (!bucketRows.length) { showToast('No bucket data to export'); return; }
+        var lines = [['Name', 'Approved Days', 'Bucket Occurrences', 'Remaining Days'].join(',')];
+        bucketRows.forEach(function (r) {
+          lines.push([csvCell(r.name), csvCell(formatPoints(r.days)), csvCell(r.assigned), csvCell(formatPoints(r.remaining))].join(','));
+        });
+        var csv = lines.join('\r\n');
+        downloadTextFile(csv, 'bucket-' + new Date().toISOString().slice(0, 10) + '.csv', 'text/csv');
+        showToast('Exported ' + bucketRows.length + ' employees');
       }
 
       // ── Employees ──────────────────────────────────────────────────────────
@@ -13071,6 +13130,26 @@ body.no-transitions * { transition: none !important; }
                   if (inp2) { inp2.value = n; inp2.dispatchEvent(new Event('input')); }
                 }, 80);
               }});
+            }
+          });
+          // Search employee notes (notesLog entries and legacy notes field)
+          var noteSeen = {}, noteCnt = 0;
+          employees.forEach(function(e) {
+            if (noteCnt >= 3 || noteSeen[e.name]) return;
+            var noteTexts = [];
+            if (e.notesLog && e.notesLog.length) {
+              e.notesLog.forEach(function(entry) { if (entry.text) noteTexts.push(entry.text); });
+            }
+            if (e.notes && e.notes.trim()) noteTexts.push(e.notes.trim());
+            var matchedText = '';
+            for (var ni = 0; ni < noteTexts.length; ni++) {
+              if (noteTexts[ni].toLowerCase().indexOf(q) !== -1) { matchedText = noteTexts[ni]; break; }
+            }
+            if (matchedText) {
+              noteSeen[e.name] = true; noteCnt++;
+              var eName = e.name;
+              var preview = matchedText.slice(0, 50) + (matchedText.length > 50 ? '…' : '');
+              filtered.push({ icon: '📝', label: eName + ' — note', sub: preview, action: function() { openEmpProfile(eName); closeCmdPalette(); } });
             }
           });
         }
