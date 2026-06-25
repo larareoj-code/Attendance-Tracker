@@ -1784,13 +1784,13 @@ body.no-transitions * { transition: none !important; }
     <div class="wrap hero-inner">
       <div>
         <h1>Attendance Tracker</h1>
-        <p>Import attendance files, manage employee points, review past occurrences and future requests, then export the updated workbook.</p>
+        <p>Track attendance, manage points, and sync to Google Drive.</p>
       </div>
       <div class="hero-actions">
         <button id="themeToggleBtn" class="secondary" type="button" title="Toggle light/dark theme">☀ Light</button>
-        <div>
-          <label for="fileInput">Import Excel or CSV</label>
-          <input id="fileInput" type="file" accept=".xlsx,.xls,.csv" multiple="">
+        <div style="display:flex;gap:6px;align-items:center">
+          <button type="button" id="importFileBtn" class="secondary" title="Import Excel or CSV file (supports .xlsx, .xls, .csv)">📂 Import File</button>
+          <input id="fileInput" type="file" accept=".xlsx,.xls,.csv" multiple="" style="display:none">
         </div>
         <button id="importWizardV2Btn" class="secondary" type="button" title="Drag-and-drop import with column mapping wizard">📂 Import Wizard</button>
         <button id="templateBtn" class="yellow" type="button">Template</button>
@@ -2005,11 +2005,11 @@ body.no-transitions * { transition: none !important; }
         </div>
         <div>
           <label for="manualPoints">Points</label>
-          <input id="manualPoints" type="number" step="0.25" value="0" required="">
+          <input id="manualPoints" type="number" step="0.5" min="0" value="0" required="">
         </div>
         <div>
           <label for="manualStatusSelect">Status</label>
-          <select id="manualStatusSelect">
+          <select id="manualStatusSelect" style="min-width:120px">
             <option value="past">Occurrence</option>
             <option value="future">Future Request</option>
             <option value="pastrequest">Past Request</option>
@@ -5062,8 +5062,19 @@ body.no-transitions * { transition: none !important; }
       }
 
       function focusManualForm() {
-        els.manualName.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        els.manualName.focus();
+        // Expand the Add Record panel if it is collapsed
+        var manualBody = document.getElementById('manualPanelBody');
+        if (manualBody && manualBody.style.display === 'none') {
+          manualBody.style.display = '';
+          localStorage.setItem('attTracker_manualCollapsed', '0');
+          var chevron = document.getElementById('manualPanelChevron');
+          if (chevron) chevron.style.transform = '';
+        }
+        var manualSection = document.getElementById('manualPanelToggle');
+        if (manualSection) manualSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        setTimeout(function() {
+          els.manualName.focus();
+        }, 300);
       }
 
       function getFilterState() {
@@ -10561,7 +10572,7 @@ body.no-transitions * { transition: none !important; }
           });
         }
         makeCollapsible('cloudPanelToggle', 'cloudPanelBody', 'cloudPanelChevron', 'attTracker_cloudCollapsed', true);
-        makeCollapsible('manualPanelToggle', 'manualPanelBody', 'manualPanelChevron', 'attTracker_manualCollapsed');
+        makeCollapsible('manualPanelToggle', 'manualPanelBody', 'manualPanelChevron', 'attTracker_manualCollapsed', true);
         makeCollapsible('filterPanelToggle', 'filterPanelBody', 'filterPanelChevron', 'attTracker_filterCollapsed', true);
       }());
 
