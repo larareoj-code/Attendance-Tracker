@@ -1129,6 +1129,26 @@
         overflow: visible !important;
       }
       #empSummaryModal:not(.hidden) .no-print { display: none !important; }
+
+      /* hide the print buttons themselves when printing */
+      #printSummaryBtn, #printRecordsBtn { display: none !important; }
+
+      /* print-only content: show it when printing */
+      .print-only { display: block !important; }
+
+      /* summary section page-break control */
+      .summary-section { page-break-inside: avoid; }
+
+      /* print header using body data attribute */
+      body::before {
+        content: "Attendance Tracker Report \B7 " attr(data-print-date);
+        display: block;
+        font-size: 10pt;
+        color: #555;
+        border-bottom: 1px solid #ccc;
+        padding-bottom: 4px;
+        margin-bottom: 12px;
+      }
     }
     /* Row severity coloring */
     tbody tr[data-severity="low"] td { background: rgba(52,211,153,0.04); }
@@ -1741,6 +1761,9 @@ tr.emp-on-leave td:first-child { border-left: 3px solid #f59e0b; }
   padding-bottom: 8px;
   border-bottom: 2px solid #000;
 }
+
+/* ── Print-only content (hidden on screen, shown when printing) ──────────── */
+.print-only { display: none; }
 
 /* ── Custom confirm modal danger button ─────────────────────────────────── */
 .btn-danger { background: var(--danger); color: #fff; border: none; border-radius: var(--radius); padding: 8px 18px; font-size: 13px; font-weight: 700; cursor: pointer; }
@@ -2467,6 +2490,9 @@ body.no-transitions * { transition: none !important; }
           <button class="secondary small" type="button" id="bulkDeselectBtn" style="margin-left:auto">✕ Deselect All</button>
         </div>
         <div id="importBanner" style="display:none;background:rgba(34,197,94,0.1);border:1px solid rgba(34,197,94,0.3);color:#15803d;padding:8px 16px;border-radius:var(--radius);margin-bottom:8px;font-size:13px;align-items:center;gap:8px"></div>
+        <div style="display:flex;justify-content:flex-end;margin-bottom:6px">
+          <button type="button" id="printRecordsBtn" class="secondary no-print" title="Print / Save as PDF" onclick="window.print()" style="font-size:12px;padding:4px 12px">🖨️ Print / PDF</button>
+        </div>
         <div id="recordsTableView">
         <div class="table-wrap">
           <table aria-label="Attendance records">
@@ -2500,6 +2526,8 @@ body.no-transitions * { transition: none !important; }
         </div>
       </div>
 
+      <div id="printHeader" class="print-only"></div>
+
       <div id="summaryView" role="tabpanel" aria-labelledby="summaryTab">
         <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;flex-wrap:wrap">
           <input id="summaryNameSearch" type="search" placeholder="Search agents…" autocomplete="off" style="max-width:180px">
@@ -2510,6 +2538,7 @@ body.no-transitions * { transition: none !important; }
           </div>
           <button class="secondary small" type="button" id="clearSummaryDeptBtn">Clear</button>
           <button class="secondary small" type="button" id="exportSummaryBtn" title="Export the current summary view to Excel" style="margin-left:auto">Export Summary</button>
+          <button type="button" id="printSummaryBtn" class="secondary no-print" title="Print / Save as PDF" onclick="window.print()" style="font-size:12px;padding:4px 12px">🖨️ Print / PDF</button>
           <span id="summaryFilterInfo" style="font-size:13px;color:var(--muted)"></span>
         </div>
         <div id="summaryTableView">
@@ -6243,6 +6272,23 @@ body.no-transitions * { transition: none !important; }
         renderDeptBreakdown();
         renderMonthlyBreakdown();
         renderShiftBreakdown();
+
+        // Update print header with current report metadata
+        var printHeader = document.getElementById('printHeader');
+        if (printHeader) {
+          var empCount = summary.length;
+          var recCount = filteredRows().length;
+          document.body.setAttribute('data-print-date', new Date().toLocaleDateString());
+          printHeader.innerHTML =
+            '<div style="margin-bottom:16px;padding-bottom:8px;border-bottom:2px solid #333">' +
+              '<div style="font-size:18pt;font-weight:700">Attendance Report</div>' +
+              '<div style="font-size:10pt;color:#555;margin-top:4px">' +
+                'Generated: ' + new Date().toLocaleDateString() + ' \xb7 ' +
+                empCount + ' employee' + (empCount !== 1 ? 's' : '') + ' \xb7 ' +
+                recCount + ' record' + (recCount !== 1 ? 's' : '') +
+              '</div>' +
+            '</div>';
+        }
       }
 
       function renderMonthlyBreakdown() {
@@ -12693,6 +12739,10 @@ body.no-transitions * { transition: none !important; }
         if (psEl) psEl.value = String(appSettings.pageSize !== undefined ? appSettings.pageSize : 50);
         var abEl = document.getElementById('settingAutoBackup');
         if (abEl) abEl.value = String(appSettings.autoBackupInterval !== undefined ? appSettings.autoBackupInterval : 0);
+        if (document.getElementById('retentionMonths')) {
+          document.getElementById('retentionMonths').value = appSettings.retentionMonths || 0;
+          updateRetentionPreview();
+        }
         var settingsModalEl = document.getElementById('settingsModal');
         settingsModalEl.classList.remove('hidden');
         trapFocus(settingsModalEl);
@@ -12866,6 +12916,7 @@ body.no-transitions * { transition: none !important; }
           if (psEl) appSettings.pageSize = parseInt(psEl.value, 10) || 50;
           var abEl = document.getElementById('settingAutoBackup');
           if (abEl) appSettings.autoBackupInterval = parseInt(abEl.value, 10) || 0;
+          appSettings.retentionMonths = parseInt(document.getElementById('retentionMonths').value) || 0;
           saveSettings(); applySettings();
           closeModal(document.getElementById('settingsModal'));
           showToast('Settings saved');
@@ -12975,7 +13026,45 @@ body.no-transitions * { transition: none !important; }
         });
       }());
 
+      // ── Data Retention ───────────────────────────────────────────────────
+      function updateRetentionPreview() {
+        var sel = document.getElementById('retentionMonths');
+        var preview = document.getElementById('retentionPreview');
+        var purgeBtn = document.getElementById('purgeNowBtn');
+        if (!sel || !preview) return;
+        var months = parseInt(sel.value) || 0;
+        if (months === 0) {
+          preview.textContent = '';
+          if (purgeBtn) purgeBtn.style.display = 'none';
+          return;
+        }
+        var cutoff = new Date();
+        cutoff.setMonth(cutoff.getMonth() - months);
+        var cutoffStr = cutoff.toISOString().slice(0, 10);
+        var count = rows.filter(function(r) { return r.dateIso && r.dateIso < cutoffStr; }).length;
+        preview.textContent = count > 0
+          ? count + ' record' + (count !== 1 ? 's' : '') + ' older than ' + cutoff.toLocaleDateString() + ' would be removed.'
+          : 'No records older than ' + cutoff.toLocaleDateString() + '.';
+        if (purgeBtn) purgeBtn.style.display = count > 0 ? 'inline-flex' : 'none';
+      }
+
+      function purgeOldRecords(months) {
+        if (!months) return 0;
+        var cutoff = new Date();
+        cutoff.setMonth(cutoff.getMonth() - months);
+        var cutoffStr = cutoff.toISOString().slice(0, 10);
+        var before = rows.length;
+        rows = rows.filter(function(r) { return !r.dateIso || r.dateIso >= cutoffStr; });
+        var removed = before - rows.length;
+        if (removed > 0) {
+          saveData();
+          render();
+        }
+        return removed;
+      }
+
       // ── Init: load all persisted data ────────────────────────────────────
+      document.body.setAttribute('data-print-date', new Date().toLocaleDateString());
       loadSettings();
       loadPointsConfig();
       loadTemplates();
@@ -14274,6 +14363,25 @@ body.no-transitions * { transition: none !important; }
         <button type="button" id="enableNotifsBtn" class="secondary" style="font-size:12px;padding:4px 10px">Enable</button>
       </div>
       <div id="notifStatusText" style="font-size:11px;color:var(--muted);margin-top:-8px;margin-bottom:12px"></div>
+
+      <div style="border-top:1px solid var(--border);margin-top:16px;padding-top:16px">
+        <div style="font-size:13px;font-weight:700;margin-bottom:10px">🗃️ Data Retention</div>
+        <div class="form-row" style="gap:10px;align-items:center">
+          <div class="form-group" style="flex:1">
+            <label for="retentionMonths">Auto-purge records older than</label>
+            <select id="retentionMonths" style="width:100%">
+              <option value="0">Disabled (keep all records)</option>
+              <option value="12">12 months</option>
+              <option value="18">18 months</option>
+              <option value="24">24 months (2 years)</option>
+              <option value="36">36 months (3 years)</option>
+              <option value="60">60 months (5 years)</option>
+            </select>
+          </div>
+        </div>
+        <div id="retentionPreview" style="font-size:12px;color:var(--muted);margin-top:6px"></div>
+        <button type="button" id="purgeNowBtn" class="secondary" style="font-size:12px;padding:4px 12px;margin-top:8px;display:none">🗑️ Purge Old Records Now</button>
+      </div>
 
     </div>
     <div style="margin-top:22px;padding-top:16px;border-top:1px solid var(--border);display:flex;justify-content:flex-end;gap:10px">
