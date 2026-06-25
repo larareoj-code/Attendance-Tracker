@@ -1863,7 +1863,7 @@ body.no-transitions * { transition: none !important; }
         <button id="importWizardV2Btn" class="secondary" type="button" title="Drag-and-drop import with column mapping wizard">📂 Import Wizard</button>
         <div class="toolbar-divider"></div>
         <button id="templateBtn" class="yellow" type="button">Template</button>
-        <button id="focusManualBtn" class="primary" type="button">Add Record</button>
+        <button id="focusManualBtn" class="primary" type="button" title="Add new record (Ctrl+E)">Add Record</button>
         <div class="toolbar-divider"></div>
         <button id="exportBtn" class="primary" type="button" disabled="" title="Export all records to Excel (import data first)">Export Excel</button>
         <button id="exportFilteredBtn" class="secondary" type="button" disabled="" title="Export filtered records (import data first)">Export Filtered</button>
@@ -1882,12 +1882,12 @@ body.no-transitions * { transition: none !important; }
         </div>
         <div class="toolbar-divider"></div>
         <button class="secondary" type="button" id="importHistoryBtn" title="View import history">📜 History</button>
-        <button class="secondary" type="button" id="undoBtn" title="Nothing to undo" disabled="">↩ Undo</button>
+        <button class="secondary" type="button" id="undoBtn" title="Undo last action (Ctrl+Z)" disabled="">↩ Undo</button>
         <button class="secondary" type="button" id="colVisBtn" title="Show/hide table columns">⊞ Columns</button>
-        <button class="secondary" type="button" id="shortcutsBtn" title="Keyboard shortcuts">⌨ Shortcuts</button>
+        <button class="secondary" type="button" id="shortcutsBtn" title="Keyboard shortcuts (?)">⌨ Shortcuts</button>
         <button class="secondary" type="button" id="policyRulesBtn" title="Configure auto-flagging rules">⚖ Rules</button>
         <button class="secondary" type="button" id="dataHealthBtn" title="Check data quality">🩺 Health</button>
-        <button class="secondary" type="button" id="demoDataBtn" title="Load demo data to explore the app">🎭 Demo</button>
+        <button class="secondary" type="button" id="demoDataBtn" title="Load demo data (Ctrl+D)">🎭 Demo</button>
         <div class="more-menu-wrap" id="moreMenuWrap">
           <button class="secondary" type="button" id="moreMenuBtn">⋯ More</button>
           <div class="more-menu" id="moreMenu" role="menu">
@@ -11003,6 +11003,34 @@ body.no-transitions * { transition: none !important; }
           if (meta) meta.textContent = 'Printed: ' + new Date().toLocaleDateString() + ' \xb7 ' + rows.length + ' records total';
           window.print();
         }
+        // Ctrl+E — expand/focus Add Record form
+        if ((event.ctrlKey || event.metaKey) && event.key === 'e') {
+          var etag = document.activeElement ? document.activeElement.tagName : '';
+          if (etag === 'INPUT' || etag === 'TEXTAREA' || etag === 'SELECT') return;
+          event.preventDefault();
+          if (window.focusManualForm) focusManualForm();
+        }
+        // Ctrl+D — load demo data
+        if ((event.ctrlKey || event.metaKey) && event.key === 'd') {
+          var dtag = document.activeElement ? document.activeElement.tagName : '';
+          if (dtag === 'INPUT' || dtag === 'TEXTAREA' || dtag === 'SELECT') return;
+          event.preventDefault();
+          var demoBtn2 = document.getElementById('demoDataBtn');
+          if (demoBtn2) demoBtn2.click();
+        }
+        // Arrow Left/Right — navigate between tabs when no input/modal is focused
+        if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') {
+          var arrtag = document.activeElement ? document.activeElement.tagName : '';
+          if (arrtag === 'INPUT' || arrtag === 'TEXTAREA' || arrtag === 'SELECT') return;
+          var arrModalOpen = document.querySelector('.modal:not(.hidden), [id$="Modal"]:not(.hidden)');
+          if (arrModalOpen) return;
+          var tabOrder = ['dashboard', 'records', 'summary', 'bucket', 'employees', 'timeoff', 'calendar'];
+          var arrCurrent = tabOrder.indexOf(activeView);
+          if (arrCurrent !== -1) {
+            var arrNext = event.key === 'ArrowRight' ? Math.min(arrCurrent + 1, tabOrder.length - 1) : Math.max(arrCurrent - 1, 0);
+            if (arrNext !== arrCurrent) { setView(tabOrder[arrNext]); event.preventDefault(); }
+          }
+        }
       });
 
       document.querySelector('[role="tablist"]').addEventListener('keydown', function (event) {
@@ -11876,6 +11904,13 @@ body.no-transitions * { transition: none !important; }
       if (cloudRedirectMessage) renderCloudStatus(cloudRedirectMessage);
       setView(appSettings.defaultTab || activeView);
       setInterval(function () { if (lastSyncTime) renderCloudStatus(); }, 60000);
+      // One-time shortcut discovery hint for new users
+      if (!localStorage.getItem('attTracker_shownShortcutHint')) {
+        setTimeout(function() {
+          showToast('Tip: Press ? or Ctrl+K to discover keyboard shortcuts');
+          localStorage.setItem('attTracker_shownShortcutHint', '1');
+        }, 3000);
+      }
 
       // Theme toggle (Item 3)
       var THEME_KEY = 'attTracker_theme';
@@ -12002,13 +12037,16 @@ body.no-transitions * { transition: none !important; }
       });
 
       var SHORTCUTS = [
+        { keys: 'Ctrl + K', desc: 'Global search / command palette' },
         { keys: 'Ctrl + S', desc: 'Save all data' },
-        { keys: 'Ctrl + N', desc: 'New record (focus Add form)' },
-        { keys: 'Ctrl + P', desc: 'Print current view' },
         { keys: 'Ctrl + Z', desc: 'Undo last action' },
-        { keys: 'Ctrl + K', desc: 'Open command palette' },
-        { keys: 'Ctrl + 1–5', desc: 'Switch to tab 1–5' },
+        { keys: 'Ctrl + E', desc: 'Add new record (focus Add form)' },
+        { keys: 'Ctrl + N', desc: 'New record (focus Add form)' },
+        { keys: 'Ctrl + D', desc: 'Load demo data' },
+        { keys: 'Ctrl + P', desc: 'Print current view' },
+        { keys: 'Ctrl + 1–6', desc: 'Switch to tab 1–6' },
         { keys: 'Ctrl + `', desc: 'Go to Dashboard' },
+        { keys: '← / →', desc: 'Navigate between tabs' },
         { keys: '/', desc: 'Focus search / filter bar' },
         { keys: 'ArrowUp / ArrowDown', desc: 'Navigate rows (Records view)' },
         { keys: 'Enter', desc: 'Open edit modal for focused row' },
