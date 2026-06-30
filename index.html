@@ -9357,25 +9357,71 @@ body.no-transitions * { transition: none !important; }
         var el = document.getElementById('leaderboard');
         var emEl = document.getElementById('leaderboardEmpty');
         if (!el) return;
+
+        // Wire toggle buttons (idempotent — skip if already wired)
+        var mostBtn = document.getElementById('lbMostBtn');
+        var bestBtn = document.getElementById('lbBestBtn');
+        if (mostBtn && !mostBtn._lbWired) {
+          mostBtn._lbWired = true;
+          mostBtn.addEventListener('click', function() { _lbMode = 'most'; _renderLeaderboard(); });
+          bestBtn.addEventListener('click', function() { _lbMode = 'best'; _renderLeaderboard(); });
+        }
+        // Highlight active button
+        if (mostBtn) { mostBtn.style.opacity = _lbMode === 'most' ? '1' : '0.5'; mostBtn.style.fontWeight = _lbMode === 'most' ? '700' : '400'; }
+        if (bestBtn) { bestBtn.style.opacity = _lbMode === 'best' ? '1' : '0.5'; bestBtn.style.fontWeight = _lbMode === 'best' ? '700' : '400'; }
+
+        var medals = ['🥇', '🥈', '🥉'];
+        var curMonth = new Date().toISOString().slice(0, 7);
+        var now = new Date().toISOString().slice(0, 10);
+        var d30 = new Date(); d30.setDate(d30.getDate() - 30); var d30s = d30.toISOString().slice(0, 10);
+        var d60 = new Date(); d60.setDate(d60.getDate() - 60); var d60s = d60.toISOString().slice(0, 10);
+
+        // Build points totals from all dash rows
         var pts = {};
-        getDashRows().forEach(function(r){ if(!isOccurrence(r.type)) return; var k=r.name; pts[k]=(pts[k]||0)+(parseFloat(r.points)||0); });
-        var sorted = Object.keys(pts).map(function(n){return{name:n,pts:pts[n]};}).sort(function(a,b){return b.pts-a.pts;}).slice(0,10);
-        if(!sorted.length){el.innerHTML='';if(emEl)emEl.style.display='';return;}
-        if(emEl)emEl.style.display='none';
-        var maxP = sorted[0].pts||1;
-        el.innerHTML = sorted.map(function(item,i){
-          var pct=Math.round((item.pts/maxP)*100);
-          var col=item.pts>=6?'var(--danger)':item.pts>=3?'var(--yellow)':'var(--ok)';
-          return '<div class="leader-row"><span class="leader-rank">'+(i+1)+'</span>'+
-            '<span class="leader-name">'+
-              '<span class="leaderboard-name-link" data-emp-name="'+escapeHtml(item.name)+'" style="cursor:pointer;font-weight:700;text-decoration:underline;text-decoration-style:dotted;text-underline-offset:2px">'+escapeHtml(item.name)+'</span>'+
-              (typeof openEmpProfile === 'function' ? '<button type="button" class="leaderboard-profile-btn secondary" data-emp-name="'+escapeHtml(item.name)+'" style="font-size:11px;padding:2px 6px;margin-left:6px" title="View profile">👤</button>' : '')+
-            '</span>'+
-            '<div class="leader-bar-wrap"><div class="leader-bar" style="width:'+pct+'%;background:'+col+'"></div></div>'+
-            '<span class="leader-pts" style="color:'+col+'">'+item.pts.toFixed(1)+'</span></div>';
+        getDashRows().forEach(function(r) { if (!isOccurrence(r.type)) return; var k = r.name; pts[k] = (pts[k] || 0) + (parseFloat(r.points) || 0); });
+
+        // Also need all rows for trend + perfect badge (use full rows array)
+        function getEmpTrend(empName) {
+          var cur = rows.filter(function(r) { return norm(r.name) === norm(empName) && r.dateIso >= d30s && r.dateIso <= now && isOccurrence(r.type); }).reduce(function(s, r) { return s + (parseFloat(r.points) || 0); }, 0);
+          var prev = rows.filter(function(r) { return norm(r.name) === norm(empName) && r.dateIso >= d60s && r.dateIso < d30s && isOccurrence(r.type); }).reduce(function(s, r) { return s + (parseFloat(r.points) || 0); }, 0);
+          if (cur > prev) return { arrow: '▲', color: '#ef4444' };
+          if (cur < prev) return { arrow: '▼', color: '#22c55e' };
+          return { arrow: '=', color: 'var(--muted)' };
+        }
+
+        var allEmps = Object.keys(pts).map(function(n) { return { name: n, pts: pts[n] }; });
+        var sorted;
+        if (_lbMode === 'best') {
+          sorted = allEmps.sort(function(a, b) { return a.pts - b.pts; }).slice(0, 10);
+        } else {
+          sorted = allEmps.sort(function(a, b) { return b.pts - a.pts; }).slice(0, 10);
+        }
+
+        if (!sorted.length) { el.innerHTML = ''; if (emEl) emEl.style.display = ''; return; }
+        if (emEl) emEl.style.display = 'none';
+        var maxP = sorted.reduce(function(m, x) { return Math.max(m, x.pts); }, 1) || 1;
+
+        el.innerHTML = sorted.map(function(item, i) {
+          var pct = Math.round((item.pts / maxP) * 100);
+          var col = item.pts >= 6 ? 'var(--danger)' : item.pts >= 3 ? 'var(--yellow)' : 'var(--ok)';
+          var medal = i < 3 ? medals[i] + ' ' : (i + 1) + '. ';
+          var trend = getEmpTrend(item.name);
+          var hasPerfect = !rows.some(function(r) { return norm(r.name) === norm(item.name) && r.dateIso && r.dateIso.startsWith(curMonth) && isOccurrence(r.type); });
+          var perfectBadge = hasPerfect ? ' <span style="font-size:10px;background:rgba(34,197,94,0.15);color:#15803d;padding:1px 5px;border-radius:8px;font-weight:600">✨ Perfect</span>' : '';
+          return '<div class="leader-row">' +
+            '<span class="leader-rank" style="min-width:28px;font-size:' + (i < 3 ? '16px' : '12px') + '">' + medal + '</span>' +
+            '<span class="leader-name">' +
+              '<span class="leaderboard-name-link" data-emp-name="' + escapeHtml(item.name) + '" style="cursor:pointer;font-weight:700;text-decoration:underline;text-decoration-style:dotted;text-underline-offset:2px">' + escapeHtml(item.name) + '</span>' +
+              perfectBadge +
+              (typeof openEmpProfile === 'function' ? '<button type="button" class="leaderboard-profile-btn secondary" data-emp-name="' + escapeHtml(item.name) + '" style="font-size:11px;padding:2px 6px;margin-left:6px" title="View profile">👤</button>' : '') +
+            '</span>' +
+            '<div class="leader-bar-wrap"><div class="leader-bar" style="width:' + pct + '%;background:' + col + '"></div></div>' +
+            '<span class="leader-pts" style="color:' + col + '">' + item.pts.toFixed(1) + '</span>' +
+            '<span style="margin-left:6px;font-size:12px;font-weight:700;color:' + trend.color + '" title="vs prior 30 days">' + trend.arrow + '</span>' +
+            '</div>';
         }).join('');
 
-        // Event delegation for drill-down and profile
+        // Event delegation for drill-down and profile (once per render is fine — innerHTML replaces old listeners)
         el.addEventListener('click', function(e) {
           var profBtn = e.target.closest('.leaderboard-profile-btn');
           if (profBtn && typeof openEmpProfile === 'function') {
