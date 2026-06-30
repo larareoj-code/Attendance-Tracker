@@ -1746,6 +1746,7 @@
 /* ── Keyboard row navigation ─────────────────────────────────────────────── */
 #recordsBody tr.kb-focused td { outline: 2px solid var(--blue); outline-offset: -2px; }
 #recordsBody tr.kb-focused { background: var(--card) !important; }
+#recordsBody tr[data-row-id] { cursor: pointer; }
 
 /* ── Row hover & alternating colors ─────────────────────────────────────── */
 #recordsBody tr:hover td, #employeesBody tr:hover td {
@@ -12352,6 +12353,27 @@ body.no-transitions * { transition: none !important; }
               event.preventDefault();
               openRecordEditModal(_kbFocusedRowId);
             }
+            if (event.key === ' ' && _kbFocusedRowId) {
+              event.preventDefault();
+              if (selectedIds.has(_kbFocusedRowId)) selectedIds.delete(_kbFocusedRowId);
+              else selectedIds.add(_kbFocusedRowId);
+              render();
+              kbFocusRow(_kbFocusedRowId);
+            }
+            if ((event.key === 'Delete' || event.key === 'Backspace') && _kbFocusedRowId) {
+              event.preventDefault();
+              var _delRow = rows.find(function(r) { return r.id === _kbFocusedRowId; });
+              var _delIdx = rows.indexOf(_delRow);
+              if (_delRow) {
+                showConfirm('Delete this record for ' + escapeHtml(_delRow.name || '') + '?', function() {
+                  pushUndo('Delete record', (function(r, i) { return function() { rows.splice(i, 0, r); saveData(); render(); }; })(_delRow, _delIdx));
+                  rows.splice(_delIdx, 1);
+                  selectedIds.delete(_kbFocusedRowId);
+                  _kbFocusedRowId = null;
+                  saveData(); render();
+                });
+              }
+            }
           }
         }
         if ((event.ctrlKey || event.metaKey) && event.key >= '1' && event.key <= '5') {
@@ -13643,6 +13665,13 @@ body.no-transitions * { transition: none !important; }
         var ov = document.getElementById('cmdPalette');
         if (ov) ov.classList.remove('open');
         _cmdOpen = false;
+        if (activeView === 'records') {
+          var vrows = filteredRows();
+          if (vrows.length) {
+            var focusId = _kbFocusedRowId || vrows[0].id;
+            setTimeout(function() { kbFocusRow(focusId); }, 0);
+          }
+        }
       }
       function _renderCmdResults(query) {
         var container = document.getElementById('cmdPaletteResults');
