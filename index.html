@@ -2439,6 +2439,10 @@ body.no-transitions * { transition: none !important; }
 
     <div class="dash-section" id="dashLeaderboardSection">
       <div class="dash-section-title">Top Agents by Points</div>
+      <div style="display:flex;gap:4px;margin-bottom:8px">
+        <button type="button" id="lbMostBtn" class="secondary" style="font-size:11px;padding:2px 8px">⬆ Most Points</button>
+        <button type="button" id="lbBestBtn" class="secondary" style="font-size:11px;padding:2px 8px">⬇ Lowest Points</button>
+      </div>
       <div id="leaderboard"></div>
       <div id="leaderboardEmpty" class="empty" style="display:none">No data yet.</div>
     </div>
@@ -3114,6 +3118,7 @@ body.no-transitions * { transition: none !important; }
       var _calYear = new Date().getFullYear();
       var _calMonth = new Date().getMonth(); // 0-indexed
       var _calSelectedDay = null;
+      var _lbMode = 'most'; // 'most' = worst performers (most pts), 'best' = best performers (fewest pts)
       function kbFocusRow(id) {
         _kbFocusedRowId = id;
         document.querySelectorAll('#recordsBody tr.kb-focused').forEach(function(tr) {
@@ -7762,9 +7767,19 @@ body.no-transitions * { transition: none !important; }
           var milestoneBadge = hireStr ? (hireYears >= 10 ? ' 🏆' : hireYears >= 5 ? ' ⭐' : hireYears >= 3 ? ' 🌟' : '') : '';
           var shiftColors = { AM: '#3b82f6', PM: '#f59e0b', Night: '#8b5cf6', Flex: '#22c55e' };
           var shiftHtml = emp.shift ? '<span style="font-size:11px;padding:2px 6px;border-radius:10px;background:' + (shiftColors[emp.shift] || '#6b7280') + '22;color:' + (shiftColors[emp.shift] || '#6b7280') + ';font-weight:600">' + emp.shift + '</span>' : '<span style="color:var(--muted);font-size:12px">—</span>';
+          var goalBadge = '';
+          if (emp.goal > 0) {
+            var gb_cutoff = new Date(); gb_cutoff.setFullYear(gb_cutoff.getFullYear()-1);
+            var gb_cs = gb_cutoff.toISOString().slice(0,10);
+            var gb_ep = rows.filter(function(r) { return norm(r.name)===norm(emp.name) && r.dateIso>=gb_cs; })
+              .reduce(function(s,r){ return s+(parseFloat(r.points)||0); },0);
+            var gb_pct = Math.min(100, Math.round((gb_ep/emp.goal)*100));
+            var gb_c = gb_pct>=100?'#ef4444':gb_pct>=75?'#f59e0b':'#22c55e';
+            goalBadge = ' <span title="Goal: '+gb_ep.toFixed(1)+'/'+emp.goal+' pts ('+gb_pct+'%)" style="font-size:10px;padding:1px 5px;border-radius:8px;background:'+gb_c+'22;color:'+gb_c+';cursor:help">'+gb_pct+'%</span>';
+          }
           return '<tr class="' + onLeaveClass.trim() + '">' +
             '<td><code class="editable-cell" data-emp-field="id" data-emp-id="' + escapeHtml(emp.id) + '" title="Click to edit ID">' + escapeHtml(emp.id || '—') + '</code></td>' +
-            '<td style="display:flex;align-items:center;gap:8px">' + avatar + '<span class="emp-name-link editable-cell" data-emp-field="name" data-emp-id="' + escapeHtml(emp.id) + '" title="Click to edit name" style="font-weight:650;cursor:pointer;text-decoration:underline;text-decoration-style:dotted;text-underline-offset:2px">' + escapeHtml(emp.name) + '</span>' + empRiskBadge(emp.name) + empPatternBadge(emp.name) + empPtsSummary(emp.name) + empNotesBadge(emp.name) + '</td>' +
+            '<td style="display:flex;align-items:center;gap:8px">' + avatar + '<span class="emp-name-link editable-cell" data-emp-field="name" data-emp-id="' + escapeHtml(emp.id) + '" title="Click to edit name" style="font-weight:650;cursor:pointer;text-decoration:underline;text-decoration-style:dotted;text-underline-offset:2px">' + escapeHtml(emp.name) + '</span>' + empRiskBadge(emp.name) + empPatternBadge(emp.name) + empPtsSummary(emp.name) + empNotesBadge(emp.name) + goalBadge + '</td>' +
             '<td><span class="editable-cell" data-emp-field="department" data-emp-id="' + escapeHtml(emp.id) + '" title="Click to edit">' + escapeHtml(emp.department || '—') + '</span></td>' +
             '<td><span class="editable-cell" data-emp-field="role" data-emp-id="' + escapeHtml(emp.id) + '" title="Click to edit">' + escapeHtml(emp.role || '—') + '</span></td>' +
             '<td>' + shiftHtml + '</td>' +
