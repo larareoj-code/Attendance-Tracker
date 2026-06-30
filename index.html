@@ -2670,6 +2670,7 @@ body.no-transitions * { transition: none !important; }
           <input type="file" id="importEmployeesInput" accept=".csv,.xlsx,.xls" style="display:none">
           <button type="button" class="secondary" id="empImportBtn" onclick="document.getElementById('empImportModal').style.display='flex'" style="font-size:12px;padding:4px 10px;margin-top:auto">📥 Import CSV</button>
           <button type="button" id="exportEmployeesCsvBtn" class="secondary no-print" style="margin-top:auto" title="Export employee roster to CSV">⬇ Export CSV</button>
+          <button type="button" class="secondary" onclick="openEmpCompare('')" style="font-size:12px;padding:4px 10px;margin-top:auto">⚖️ Compare</button>
           <span id="empSummary" style="margin-left:auto;font-size:13px;color:var(--muted)"></span>
         </div>
         <div id="empStatusSummary" style="font-size:12px;margin-bottom:8px"></div>
@@ -7178,6 +7179,12 @@ body.no-transitions * { transition: none !important; }
             if (typeof render === 'function') render();
           }, 200);
         });
+
+        var profileCompareBtn = document.getElementById('profileCompareBtn');
+        if (profileCompareBtn) profileCompareBtn.addEventListener('click', function() {
+          var empName = window._empProfileName || '';
+          openEmpCompare(empName);
+        });
       })();
 
       function openEmpSummaryReport(empName) {
@@ -8737,6 +8744,76 @@ body.no-transitions * { transition: none !important; }
         renderAnniversaryPanel();
 
         applyDashWidgetVisibility();
+      }
+
+      function openEmpCompare(nameA) {
+        var modal = document.getElementById('empCompareModal');
+        var selA = document.getElementById('compareEmpA');
+        var selB = document.getElementById('compareEmpB');
+        if (!modal || !selA || !selB) return;
+        var empNames = employees.map(function(e) { return typeof e === 'string' ? e : (e.name || ''); }).filter(Boolean).sort();
+        var opts = empNames.map(function(n) { return '<option value="' + escapeHtml(n) + '"' + (n === nameA ? ' selected' : '') + '>' + escapeHtml(n) + '</option>'; }).join('');
+        selA.innerHTML = opts;
+        selB.innerHTML = opts;
+        var other = empNames.find(function(n) { return n !== nameA; });
+        if (other) selB.value = other;
+        modal.style.display = 'flex';
+        renderEmpCompare();
+      }
+
+      function renderEmpCompare() {
+        var selA = document.getElementById('compareEmpA');
+        var selB = document.getElementById('compareEmpB');
+        var results = document.getElementById('compareResults');
+        if (!selA || !selB || !results) return;
+        var nA = selA.value, nB = selB.value;
+        if (!nA || !nB || nA === nB) {
+          results.innerHTML = '<div style="color:var(--muted);text-align:center;padding:16px">Select two different employees.</div>';
+          return;
+        }
+        var cutoff = new Date(); cutoff.setFullYear(cutoff.getFullYear() - 1);
+        var cs = cutoff.toISOString().slice(0, 10);
+        function getData(name) {
+          var er = rows.filter(function(r) { return norm(r.name) === norm(name) && r.dateIso >= cs; });
+          var pts = er.reduce(function(s, r) { return s + (parseFloat(r.points) || 0); }, 0);
+          var streak = typeof calcAttendanceStreakCached === 'function' ? calcAttendanceStreakCached(name) : { current: 0, longest: 0 };
+          var pats = typeof detectOccurrencePatterns === 'function' ? detectOccurrencePatterns(name) : [];
+          var emp = employees.find(function(e) { return norm(e.name || e) === norm(name); });
+          return {
+            pts: pts, count: er.length, streak: streak, pats: pats,
+            dept: emp ? (emp.department || '—') : '—',
+            shift: emp ? (emp.shift || '—') : '—',
+            tenure: emp && emp.hireDate ? calcTenure(emp.hireDate) : '—'
+          };
+        }
+        var a = getData(nA), b = getData(nB);
+        function cmpRow(label, av, bv, higherIsBetter) {
+          var an = parseFloat(av), bn = parseFloat(bv);
+          var aw = !isNaN(an) && !isNaN(bn) && (higherIsBetter ? an > bn : an < bn);
+          var bw = !isNaN(an) && !isNaN(bn) && (higherIsBetter ? bn > an : bn < an);
+          return '<tr style="border-bottom:1px solid var(--border)">' +
+            '<td style="padding:6px 10px;font-size:12px;color:var(--muted);white-space:nowrap">' + label + '</td>' +
+            '<td style="padding:6px 10px;text-align:center;font-weight:' + (aw ? '700' : '400') + ';color:' + (aw ? 'var(--accent)' : 'var(--text)') + '">' + escapeHtml(String(av)) + (aw ? ' ✓' : '') + '</td>' +
+            '<td style="padding:6px 10px;text-align:center;font-weight:' + (bw ? '700' : '400') + ';color:' + (bw ? 'var(--accent)' : 'var(--text)') + '">' + escapeHtml(String(bv)) + (bw ? ' ✓' : '') + '</td>' +
+            '</tr>';
+        }
+        results.innerHTML = '<table style="width:100%;border-collapse:collapse">' +
+          '<thead><tr style="background:var(--card2)">' +
+          '<th style="padding:8px 10px;text-align:left;font-size:12px">Metric</th>' +
+          '<th style="padding:8px 10px;text-align:center;font-weight:700">' + escapeHtml(nA) + '</th>' +
+          '<th style="padding:8px 10px;text-align:center;font-weight:700">' + escapeHtml(nB) + '</th>' +
+          '</tr></thead><tbody>' +
+          cmpRow('Department', a.dept, b.dept) +
+          cmpRow('Shift', a.shift, b.shift) +
+          cmpRow('Tenure', a.tenure, b.tenure) +
+          cmpRow('Points (12mo)', a.pts.toFixed(1), b.pts.toFixed(1), false) +
+          cmpRow('Occurrences', a.count, b.count, false) +
+          cmpRow('Current Streak', a.streak.current, b.streak.current, true) +
+          cmpRow('Longest Streak', a.streak.longest, b.streak.longest, true) +
+          '<tr><td style="padding:6px 10px;font-size:12px;color:var(--muted)">Patterns</td>' +
+          '<td style="padding:6px 10px;text-align:center;font-size:11px">' + (a.pats.length ? a.pats.map(escapeHtml).join('<br>') : '—') + '</td>' +
+          '<td style="padding:6px 10px;text-align:center;font-size:11px">' + (b.pats.length ? b.pats.map(escapeHtml).join('<br>') : '—') + '</td>' +
+          '</tr></tbody></table>';
       }
 
       function applyDashWidgetVisibility() {
@@ -15176,6 +15253,7 @@ body.no-transitions * { transition: none !important; }
       <button type="button" id="profileEditBtn" class="secondary" style="font-size:12px;padding:4px 10px">✏️ Edit Employee</button>
       <button type="button" id="profileAddRecordBtn" class="secondary" style="font-size:12px;padding:4px 10px">➕ Add Record</button>
       <button type="button" id="profileViewRecordsBtn" class="secondary" style="font-size:12px;padding:4px 10px">📋 View Records</button>
+      <button type="button" id="profileCompareBtn" class="secondary" style="font-size:12px;padding:4px 10px">⚖️ Compare</button>
     </div>
     <div id="empProfileAlertBanner" style="display:none;padding:10px 14px;border-radius:var(--radius);margin-bottom:14px;font-size:13px;font-weight:600"></div>
     <button type="button" id="empProfileReviewStandingBtn" style="display:none;margin-bottom:10px;padding:6px 14px;font-size:12px;font-weight:700;background:var(--yellow);color:#fff;border:none;border-radius:var(--radius);cursor:pointer"></button>
@@ -15232,6 +15310,25 @@ body.no-transitions * { transition: none !important; }
       <button type="button" id="empImportDoBtn" class="primary" style="flex:1">Import Employees</button>
       <button type="button" onclick="document.getElementById('empImportModal').style.display='none'" class="secondary">Cancel</button>
     </div>
+  </div>
+</div>
+<div id="empCompareModal" class="modal-overlay" style="display:none;position:fixed;inset:0;z-index:400;background:rgba(0,0,0,0.65);align-items:center;justify-content:center;padding:20px" role="dialog" aria-modal="true">
+  <div class="modal" style="max-width:640px;width:100%;max-height:90vh;overflow-y:auto">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+      <h2 style="margin:0;font-size:16px">⚖️ Employee Comparison</h2>
+      <button type="button" onclick="document.getElementById('empCompareModal').style.display='none'" class="secondary" style="padding:4px 10px">✕</button>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px">
+      <div>
+        <label style="font-size:11px;font-weight:700;text-transform:uppercase;color:var(--muted)">Employee A</label>
+        <select id="compareEmpA" onchange="renderEmpCompare()" style="width:100%;font-size:13px;padding:4px 6px;background:var(--card2);border:1px solid var(--border);border-radius:var(--radius);color:var(--text);margin-top:4px"></select>
+      </div>
+      <div>
+        <label style="font-size:11px;font-weight:700;text-transform:uppercase;color:var(--muted)">Employee B</label>
+        <select id="compareEmpB" onchange="renderEmpCompare()" style="width:100%;font-size:13px;padding:4px 6px;background:var(--card2);border:1px solid var(--border);border-radius:var(--radius);color:var(--text);margin-top:4px"></select>
+      </div>
+    </div>
+    <div id="compareResults" style="font-size:13px"></div>
   </div>
 </div>
 <div id="empSummaryModal" class="modal-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="empSummaryTitle">
