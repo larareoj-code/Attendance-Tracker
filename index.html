@@ -6984,6 +6984,31 @@ body.no-transitions * { transition: none !important; }
           statusRow.innerHTML = empStatusBadge(emp.standing || 'good') + (tenure ? '<span style="font-size:12px;color:var(--muted)">' + escapeHtml(tenure) + '</span>' : '');
         }
 
+        var goalEl = document.getElementById('empProfileGoal');
+        if (goalEl) {
+          var empGoalVal = emp.goal || 0;
+          if (empGoalVal > 0) {
+            var goalCutoff = new Date(); goalCutoff.setFullYear(goalCutoff.getFullYear()-1);
+            var goalCutoffStr = goalCutoff.toISOString().slice(0,10);
+            var goalCurrentPts = rows.filter(function(r) { return norm(r.name)===norm(name) && r.dateIso>=goalCutoffStr; })
+              .reduce(function(s,r) { return s+(parseFloat(r.points)||0); }, 0);
+            var goalPct = Math.min(100, Math.round((goalCurrentPts/empGoalVal)*100));
+            var goalBarColor = goalPct >= 100 ? '#ef4444' : goalPct >= 75 ? '#f59e0b' : '#22c55e';
+            goalEl.innerHTML = '<div style="padding:10px;background:var(--card2);border:1px solid var(--border);border-radius:var(--radius)">' +
+              '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">' +
+                '<div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:var(--muted)">Points Goal</div>' +
+                '<div style="font-size:12px;font-weight:600">' + goalCurrentPts.toFixed(1) + ' / ' + empGoalVal + ' pts</div>' +
+              '</div>' +
+              '<div style="background:var(--border);border-radius:4px;height:8px;overflow:hidden">' +
+                '<div style="background:' + goalBarColor + ';width:' + goalPct + '%;height:100%;border-radius:4px;transition:width 0.3s"></div>' +
+              '</div>' +
+              '<div style="font-size:11px;color:var(--muted);margin-top:4px">' + goalPct + '% of annual goal used</div>' +
+            '</div>';
+          } else {
+            goalEl.innerHTML = '';
+          }
+        }
+
         var histEl = document.getElementById('empProfileHistory');
         if (histEl) {
           if (!empRows.length) {
@@ -7868,11 +7893,13 @@ body.no-transitions * { transition: none !important; }
             standing: (document.getElementById('empStanding')||{value:'good'}).value || 'good',
             hireDate: (document.getElementById('empHireDate')||{value:''}).value || '',
             shift: document.getElementById('empShift') ? document.getElementById('empShift').value : '',
-            notes: (document.getElementById('empNotes')||{value:''}).value.trim()
+            notes: (document.getElementById('empNotes')||{value:''}).value.trim(),
+            goal: parseFloat(document.getElementById('empGoal') ? document.getElementById('empGoal').value : '') || 0
           });
           saveEmployees();
           document.getElementById('addEmployeeForm').reset();
           if(document.getElementById('empNotes')) document.getElementById('empNotes').value = '';
+          if(document.getElementById('empGoal')) document.getElementById('empGoal').value = '';
           renderEmployees();
           var empSummary = document.getElementById('empSummary');
           if (empSummary) { empSummary.textContent = name + ' added.'; setTimeout(function () { renderEmployees(); }, 2500); }
@@ -12554,6 +12581,18 @@ body.no-transitions * { transition: none !important; }
           var demoBtn2 = document.getElementById('demoDataBtn');
           if (demoBtn2) demoBtn2.click();
         }
+        // Shift+T — cycle theme: dark → light → auto
+        if (event.key === 'T' && event.shiftKey && !event.ctrlKey && !event.metaKey) {
+          var _tTag = document.activeElement ? document.activeElement.tagName : '';
+          if (!['INPUT', 'TEXTAREA', 'SELECT'].includes(_tTag)) {
+            event.preventDefault();
+            var themes = ['dark', 'light', 'auto'];
+            var cur = localStorage.getItem(THEME_KEY) || 'dark';
+            var next = themes[(themes.indexOf(cur) + 1) % themes.length];
+            applyTheme(next);
+            showToast('Theme: ' + next.charAt(0).toUpperCase() + next.slice(1));
+          }
+        }
         // Arrow Left/Right — navigate between tabs when no input/modal is focused
         if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') {
           var arrtag = document.activeElement ? document.activeElement.tagName : '';
@@ -13744,10 +13783,20 @@ body.no-transitions * { transition: none !important; }
       // Theme toggle (Item 3)
       var THEME_KEY = 'attTracker_theme';
       function applyTheme(theme) {
-        document.documentElement.setAttribute('data-theme', theme === 'light' ? 'light' : '');
+        var resolved = theme;
+        if (theme === 'auto' || !theme) {
+          var prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+          resolved = prefersDark ? 'dark' : 'light';
+        }
+        document.documentElement.setAttribute('data-theme', resolved === 'light' ? 'light' : '');
         var btn = document.getElementById('themeToggleBtn');
-        if (btn) btn.textContent = theme === 'light' ? '☽ Dark' : '☀ Light';
-        localStorage.setItem(THEME_KEY, theme);
+        if (btn) btn.textContent = theme === 'auto' ? '⟳ Auto' : (resolved === 'light' ? '☽ Dark' : '☀ Light');
+        localStorage.setItem(THEME_KEY, theme || 'dark');
+      }
+      if (window.matchMedia) {
+        window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', function() {
+          if (localStorage.getItem(THEME_KEY) === 'auto') applyTheme('auto');
+        });
       }
       var savedTheme = localStorage.getItem(THEME_KEY);
       if (!savedTheme) {
@@ -13756,14 +13805,65 @@ body.no-transitions * { transition: none !important; }
       }
       applyTheme(savedTheme);
       document.getElementById('themeToggleBtn').addEventListener('click', function () {
-        var curr = document.documentElement.getAttribute('data-theme');
-        applyTheme(curr === 'light' ? 'dark' : 'light');
+        var themes = ['dark', 'light', 'auto'];
+        var cur = localStorage.getItem(THEME_KEY) || 'dark';
+        var next = themes[(themes.indexOf(cur) + 1) % themes.length];
+        applyTheme(next);
       });
 
       // ── Ctrl+K Command Palette ───────────────────────────────────────────
       var _cmdItems = [];
       var _cmdActiveIdx = 0;
       var _cmdOpen = false;
+
+      // ── Search History ───────────────────────────────────────────────────
+      var _searchHistory = [];
+      try { _searchHistory = JSON.parse(localStorage.getItem('attTracker_searchHistory') || '[]'); } catch(e) { _searchHistory = []; }
+
+      function addSearchHistory(q) {
+        if (!q || q.length < 2) return;
+        _searchHistory = _searchHistory.filter(function(h) { return h !== q; });
+        _searchHistory.unshift(q);
+        if (_searchHistory.length > 8) _searchHistory = _searchHistory.slice(0, 8);
+        localStorage.setItem('attTracker_searchHistory', JSON.stringify(_searchHistory));
+      }
+
+      function renderSearchHistory() {
+        var resultsEl = document.getElementById('cmdPaletteResults');
+        if (!resultsEl) return;
+        if (!_searchHistory.length) {
+          resultsEl.innerHTML = '<div style="color:var(--muted);font-size:12px;text-align:center;padding:12px">Type to search records, employees, and actions.</div>';
+          return;
+        }
+        resultsEl.innerHTML = '<div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:var(--muted);padding:4px 12px 2px">Recent</div>' +
+          _searchHistory.map(function(h, i) {
+            return '<div class="cmd-item" style="display:flex;align-items:center;gap:8px;padding:6px 12px;cursor:pointer;border-radius:4px" onclick="applySearchHistory(' + i + ')">' +
+              '<span style="opacity:0.5;font-size:12px">\u{1F550}</span>' +
+              '<span style="font-size:13px">' + escapeHtml(h) + '</span>' +
+              '<button type="button" onclick="event.stopPropagation();removeSearchHistory(' + i + ')" style="margin-left:auto;background:none;border:none;cursor:pointer;color:var(--muted);font-size:12px;padding:0 2px" title="Remove">\xd7</button>' +
+            '</div>';
+          }).join('');
+      }
+
+      function applySearchHistory(i) {
+        var q = _searchHistory[i];
+        if (!q) return;
+        var input = document.getElementById('cmdPaletteInput');
+        if (input) { input.value = q; input.dispatchEvent(new Event('input')); }
+      }
+
+      function removeSearchHistory(i) {
+        _searchHistory.splice(i, 1);
+        localStorage.setItem('attTracker_searchHistory', JSON.stringify(_searchHistory));
+        var input = document.getElementById('cmdPaletteInput');
+        if (input && !input.value.trim()) renderSearchHistory();
+      }
+
+      function clearSearchHistory() {
+        _searchHistory = [];
+        localStorage.removeItem('attTracker_searchHistory');
+        renderSearchHistory();
+      }
 
       function openCmdPalette() {
         var ov = document.getElementById('cmdPalette');
@@ -13772,7 +13872,7 @@ body.no-transitions * { transition: none !important; }
         ov.classList.add('open');
         _cmdOpen = true;
         inp.value = '';
-        _renderCmdResults('');
+        renderSearchHistory();
         inp.focus();
       }
       function closeCmdPalette() {
@@ -13939,18 +14039,29 @@ body.no-transitions * { transition: none !important; }
         var inp = document.getElementById('cmdPaletteInput');
         var ov = document.getElementById('cmdPalette');
         if (!inp || !ov) return;
-        inp.addEventListener('input', function() { _renderCmdResults(this.value); });
+        inp.addEventListener('input', function() {
+          var v = this.value;
+          if (v.trim()) { _renderCmdResults(v); } else { renderSearchHistory(); }
+        });
         inp.addEventListener('keydown', function(e) {
           if (e.key === 'ArrowDown') { _cmdNavigate(1); e.preventDefault(); }
           else if (e.key === 'ArrowUp') { _cmdNavigate(-1); e.preventDefault(); }
-          else if (e.key === 'Enter') { _cmdSelect(); e.preventDefault(); }
+          else if (e.key === 'Enter') {
+            var q = inp.value.trim();
+            if (q) addSearchHistory(q);
+            _cmdSelect(); e.preventDefault();
+          }
           else if (e.key === 'Escape') { closeCmdPalette(); e.preventDefault(); }
         });
         ov.addEventListener('click', function(e) {
           var item = e.target.closest('.cmd-item');
           if (item) {
             var idx = parseInt(item.getAttribute('data-cmd-idx'));
-            if (!isNaN(idx) && _cmdItems[idx]) { _cmdItems[idx].action(); closeCmdPalette(); }
+            if (!isNaN(idx) && _cmdItems[idx]) {
+              var q = inp.value.trim();
+              if (q) addSearchHistory(q);
+              _cmdItems[idx].action(); closeCmdPalette();
+            }
             return;
           }
           if (e.target === ov) closeCmdPalette();
@@ -14809,7 +14920,10 @@ body.no-transitions * { transition: none !important; }
 
 <div id="cmdPalette" role="dialog" aria-modal="true" aria-label="Command palette">
   <div id="cmdPaletteBox">
-    <input id="cmdPaletteInput" type="text" placeholder="Search employees, records, or type a command…" autocomplete="off" spellcheck="false">
+    <div style="display:flex;align-items:center;border-bottom:1px solid var(--border)">
+      <input id="cmdPaletteInput" type="text" placeholder="Search employees, records, or type a command…" autocomplete="off" spellcheck="false" style="flex:1;border-bottom:none">
+      <button type="button" id="clearSearchHistoryBtn" onclick="clearSearchHistory()" style="font-size:11px;background:none;border:none;cursor:pointer;color:var(--muted);padding:0 16px;white-space:nowrap;flex-shrink:0" title="Clear search history">Clear history</button>
+    </div>
     <div id="cmdPaletteResults"></div>
     <div id="cmdPaletteFooter">
       <span><kbd>↑↓</kbd> navigate</span>
@@ -15295,6 +15409,7 @@ body.no-transitions * { transition: none !important; }
     <div id="empProfilePatterns" style="display:none;margin-bottom:14px"></div>
     <div id="empProfileStats" style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:20px"></div>
     <div id="empProfileStatusRow" style="display:flex;gap:10px;align-items:center;margin-bottom:20px;flex-wrap:wrap"></div>
+    <div id="empProfileGoal" style="margin-bottom:16px"></div>
     <div style="margin-bottom:16px">
       <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--muted);margin-bottom:8px">Recent Attendance</div>
       <div id="empProfileHistory" style="max-height:220px;overflow-y:auto"></div>
