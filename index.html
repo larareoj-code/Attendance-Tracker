@@ -11083,9 +11083,43 @@ body.no-transitions * { transition: none !important; }
       document.getElementById('exportFilteredBtn').addEventListener('click', exportFiltered);
       document.getElementById('exportSummaryBtn').addEventListener('click', exportSummary);
 
-      // Task 1: CSV export buttons
+      // Task 1: CSV export buttons — now opens column configurator modal
       var csvBtn = document.getElementById('exportCsvBtn');
-      if (csvBtn) csvBtn.addEventListener('click', function() { exportCsv(filteredRows()); });
+      if (csvBtn) csvBtn.addEventListener('click', openExportModal);
+
+      // doExportBtn: performs the actual CSV export with selected columns
+      (function() {
+        var btn = document.getElementById('doExportBtn');
+        if (btn && !btn._wired) {
+          btn._wired = true;
+          btn.addEventListener('click', function() {
+            var checks = document.querySelectorAll('#exportColChecks input[type=checkbox]');
+            var selectedCols = [], savedState = {};
+            checks.forEach(function(cb) {
+              savedState[cb.dataset.col] = cb.checked;
+              if (cb.checked) selectedCols.push(cb.dataset.col);
+            });
+            localStorage.setItem('attTracker_exportCols', JSON.stringify(savedState));
+            if (!selectedCols.length) { showToast('Select at least one column.'); return; }
+            var colLabels = {};
+            EXPORT_COLS.forEach(function(c) { colLabels[c.key] = c.label; });
+            var header = selectedCols.map(function(k) { return colLabels[k] || k; }).join(',');
+            var csvRows = rows.map(function(r) {
+              return selectedCols.map(function(k) {
+                var val = r[k];
+                if (Array.isArray(val)) val = val.join('; ');
+                if (k === 'dept') { var e = employees.find(function(emp) { return norm(emp.name||emp) === norm(r.name); }); val = e ? (e.department || '') : ''; }
+                if (k === 'shift') { var e2 = employees.find(function(emp) { return norm(emp.name||emp) === norm(r.name); }); val = e2 ? (e2.shift || '') : ''; }
+                if (k === 'status') val = statusLabel ? statusLabel(r.type) : (r.type || '');
+                return '"' + String(val == null ? '' : val).replace(/"/g, '""') + '"';
+              }).join(',');
+            });
+            downloadTextFile('attendance-export.csv', header + '\n' + csvRows.join('\n'), 'text/csv');
+            closeModal(document.getElementById('exportModal'));
+            showToast('Exported ' + rows.length + ' records (' + selectedCols.length + ' cols).');
+          });
+        }
+      }());
 
       // Task 4: Undo button
       var undoBtn = document.getElementById('undoBtn');
@@ -13454,6 +13488,34 @@ body.no-transitions * { transition: none !important; }
         return removed;
       }
 
+      // ── Export Column Configurator ───────────────────────────────────────
+      var EXPORT_COLS = [
+        { key: 'name',    label: 'Employee',   default: true },
+        { key: 'dateIso', label: 'Date',       default: true },
+        { key: 'type',    label: 'Type',       default: true },
+        { key: 'code',    label: 'Code',       default: true },
+        { key: 'points',  label: 'Points',     default: true },
+        { key: 'status',  label: 'Status',     default: true },
+        { key: 'flags',   label: 'Flags',      default: false },
+        { key: 'note',    label: 'Note',       default: false },
+        { key: 'dept',    label: 'Department', default: false },
+        { key: 'shift',   label: 'Shift',      default: false }
+      ];
+
+      function openExportModal() {
+        var container = document.getElementById('exportColChecks');
+        if (!container) return;
+        var saved = {};
+        try { saved = JSON.parse(localStorage.getItem('attTracker_exportCols') || '{}'); } catch(e) {}
+        container.innerHTML = EXPORT_COLS.map(function(col) {
+          var checked = saved.hasOwnProperty(col.key) ? saved[col.key] : col.default;
+          return '<label style="display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer">' +
+            '<input type="checkbox" data-col="' + col.key + '"' + (checked ? ' checked' : '') + '> ' + escapeHtml(col.label) + '</label>';
+        }).join('');
+        var modal = document.getElementById('exportModal');
+        if (modal) modal.classList.remove('hidden');
+      }
+
       // ── Init: load all persisted data ────────────────────────────────────
       document.body.setAttribute('data-print-date', new Date().toLocaleDateString());
       loadSettings();
@@ -15151,6 +15213,20 @@ body.no-transitions * { transition: none !important; }
       </div>
     </div>
     <div id="empSummaryBody"></div>
+  </div>
+</div>
+<div id="exportModal" class="modal-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="exportModalTitle" style="position:fixed;inset:0;z-index:350;background:rgba(0,0,0,0.6);display:flex;align-items:center;justify-content:center;padding:20px">
+  <div class="modal" style="max-width:400px">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+      <h2 id="exportModalTitle" style="margin:0;font-size:16px">📥 Export CSV</h2>
+      <button type="button" onclick="closeModal(document.getElementById('exportModal'))" class="secondary" aria-label="Close" style="padding:4px 10px">✕</button>
+    </div>
+    <div style="font-size:13px;font-weight:600;margin-bottom:8px">Select columns:</div>
+    <div id="exportColChecks" style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:16px"></div>
+    <div style="display:flex;gap:8px">
+      <button type="button" id="doExportBtn" class="primary" style="flex:1">Export CSV</button>
+      <button type="button" onclick="closeModal(document.getElementById('exportModal'))" class="secondary">Cancel</button>
+    </div>
   </div>
 </div>
 </body></html>
