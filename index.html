@@ -2506,7 +2506,8 @@ body.no-transitions * { transition: none !important; }
           <button class="secondary small" type="button" id="bulkDeselectBtn" style="margin-left:auto">✕ Deselect All</button>
         </div>
         <div id="importBanner" style="display:none;background:rgba(34,197,94,0.1);border:1px solid rgba(34,197,94,0.3);color:#15803d;padding:8px 16px;border-radius:var(--radius);margin-bottom:8px;font-size:13px;align-items:center;gap:8px"></div>
-        <div style="display:flex;justify-content:flex-end;margin-bottom:6px">
+        <div style="display:flex;justify-content:flex-end;gap:8px;margin-bottom:6px">
+          <button type="button" id="copyRecordsBtn" class="secondary no-print" title="Copy visible records as tab-separated text" style="font-size:12px;padding:4px 10px">📋 Copy</button>
           <button type="button" id="printRecordsBtn" class="secondary no-print" title="Print / Save as PDF" onclick="window.print()" style="font-size:12px;padding:4px 12px">🖨️ Print / PDF</button>
         </div>
         <div id="recordsTableView">
@@ -2555,6 +2556,7 @@ body.no-transitions * { transition: none !important; }
           <button class="secondary small" type="button" id="clearSummaryDeptBtn">Clear</button>
           <button class="secondary small" type="button" id="exportSummaryBtn" title="Export the current summary view to Excel" style="margin-left:auto">Export Summary</button>
           <button type="button" id="printSummaryBtn" class="secondary no-print" title="Print / Save as PDF" onclick="window.print()" style="font-size:12px;padding:4px 12px">🖨️ Print / PDF</button>
+          <button type="button" id="copyReportBtn" class="secondary no-print" title="Copy formatted report to clipboard" style="font-size:12px;padding:4px 12px">📋 Copy Report</button>
           <span id="summaryFilterInfo" style="font-size:13px;color:var(--muted)"></span>
         </div>
         <div id="summaryTableView">
@@ -8529,6 +8531,7 @@ body.no-transitions * { transition: none !important; }
           counts[r.dateIso] = (counts[r.dateIso] || 0) + 1;
           if (counts[r.dateIso] > maxCount) maxCount = counts[r.dateIso];
         });
+        if (maxCount < 1) maxCount = 1;
 
         // Show last 52 weeks (364 days)
         var today = new Date();
@@ -8551,12 +8554,18 @@ body.no-transitions * { transition: none !important; }
           weeks.push(week);
         }
 
-        // Color scale: 0=bg, 1=low, 2-3=mid, 4+=high
+        // Purple color scale: 0=empty, 1-4=increasing intensity
+        var purpleScale = [
+          'var(--card2,var(--card))',
+          'rgba(139,92,246,0.18)',
+          'rgba(139,92,246,0.38)',
+          'rgba(139,92,246,0.62)',
+          'rgba(139,92,246,0.90)'
+        ];
         function cellColor(count) {
-          if (count === 0) return 'var(--card)';
-          if (count === 1) return 'rgba(16,185,129,0.4)';
-          if (count <= 3) return 'rgba(245,158,11,0.7)';
-          return 'var(--danger)';
+          if (!count) return purpleScale[0];
+          var level = Math.min(4, Math.ceil((count / maxCount) * 4));
+          return purpleScale[level];
         }
 
         var months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
@@ -8584,15 +8593,15 @@ body.no-transitions * { transition: none !important; }
               weeks.map(function(week) {
                 var cell = week[dayIdx];
                 if (!cell || cell.future) return '<div style="width:' + cellSize + 'px;height:' + cellSize + 'px;border-radius:2px"></div>';
-                var title = cell.count ? cell.iso + ': ' + cell.count + ' incident' + (cell.count > 1 ? 's' : '') : cell.iso + ': none';
-                return '<div title="' + title + '" data-heatmap-date="' + cell.iso + '" style="width:' + cellSize + 'px;height:' + cellSize + 'px;border-radius:2px;background:' + cellColor(cell.count) + ';cursor:' + (cell.count > 0 ? 'pointer' : 'default') + '"></div>';
+                var tipLabel = cell.count ? cell.iso + ': ' + cell.count + ' occurrence' + (cell.count !== 1 ? 's' : '') : cell.iso + ': none';
+                return '<div title="' + tipLabel + '" data-heatmap-date="' + cell.iso + '" data-heatmap-count="' + cell.count + '" style="width:' + cellSize + 'px;height:' + cellSize + 'px;border-radius:2px;background:' + cellColor(cell.count) + ';cursor:' + (cell.count > 0 ? 'pointer' : 'default') + '"></div>';
               }).join('') +
               '</div>';
           }).join('') +
           // Legend
           '<div style="display:flex;align-items:center;gap:4px;margin-top:6px;padding-left:18px">' +
           '<span style="font-size:10px;color:var(--muted)">Less</span>' +
-          ['var(--card)', 'rgba(16,185,129,0.4)', 'rgba(245,158,11,0.7)', 'var(--danger)'].map(function(c) {
+          purpleScale.map(function(c) {
             return '<div style="width:12px;height:12px;border-radius:2px;background:' + c + '"></div>';
           }).join('') +
           '<span style="font-size:10px;color:var(--muted)">More</span>' +
@@ -10847,6 +10856,58 @@ body.no-transitions * { transition: none !important; }
         showToast('Undone: ' + action.label);
         updateUndoBtn();
       }
+
+      function startInlineEdit(span) {
+        if (span._editing) return;
+        span._editing = true;
+        var field = span.dataset.field;
+        var rowId = span.dataset.id;
+        var oldVal = span.textContent;
+        var input;
+        if (field === 'note') {
+          input = document.createElement('textarea');
+          input.rows = 2;
+          input.style.cssText = 'width:140px;font-size:12px;padding:2px 4px;resize:none;background:var(--card2);border:1px solid var(--accent);border-radius:4px;color:var(--text);font-family:inherit';
+        } else {
+          input = document.createElement('input');
+          input.type = 'number';
+          input.step = '0.5';
+          input.style.cssText = 'width:60px;font-size:12px;padding:2px 4px;background:var(--card2);border:1px solid var(--accent);border-radius:4px;color:var(--text)';
+        }
+        input.value = oldVal;
+        span.innerHTML = '';
+        span.appendChild(input);
+        input.focus();
+        input.select();
+        function commit() {
+          var newVal = input.value.trim();
+          var row = rows.find(function(r) { return String(r.id || r._id) === String(rowId); }) || rows[parseInt(rowId)];
+          if (row && newVal !== oldVal) {
+            pushUndo('Edit ' + field, (function(r, f, v) { return function() { r[f] = v; saveData(); render(); }; })(row, field, row[field]));
+            if (field === 'points') row.points = parseFloat(newVal) || 0;
+            else row[field] = newVal;
+            saveData();
+          }
+          delete span._editing;
+          render();
+        }
+        input.addEventListener('blur', commit);
+        input.addEventListener('keydown', function(e) {
+          if (e.key === 'Enter' && field !== 'note') { e.preventDefault(); commit(); }
+          if (e.key === 'Escape') { delete span._editing; render(); }
+        });
+      }
+
+      (function() {
+        var rb = document.getElementById('recordsBody');
+        if (rb && !rb._inlineEditWired) {
+          rb._inlineEditWired = true;
+          rb.addEventListener('dblclick', function(e) {
+            var span = e.target.closest ? e.target.closest('.inline-editable') : null;
+            if (span) startInlineEdit(span);
+          });
+        }
+      }());
 
       function exportExcel() {
         if (!window.XLSX) {
@@ -14299,6 +14360,157 @@ body.no-transitions * { transition: none !important; }
         window.location.href = 'mailto:?subject='+sub+'&body='+body;
       }
       window.draftTimeOffEmail = draftTimeOffEmail;
+
+      // ── Copy Report (Summary view) ────────────────────────────────────────
+      function generateReportText() {
+        var lines = [];
+        var now = new Date();
+
+        lines.push('ATTENDANCE TRACKER REPORT');
+        lines.push('Generated: ' + now.toLocaleDateString() + ' ' + now.toLocaleTimeString());
+        lines.push('Period: Rolling 12 months (ending ' + now.toLocaleDateString() + ')');
+        lines.push('Employees: ' + employees.length + ' · Records: ' + rows.length);
+        lines.push('');
+        lines.push('═══════════════════════════════════════');
+        lines.push('SUMMARY BY EMPLOYEE');
+        lines.push('═══════════════════════════════════════');
+
+        // Calculate per-employee points (rolling 12 months)
+        var cutoff = new Date();
+        cutoff.setFullYear(cutoff.getFullYear() - 1);
+        var cutoffStr = cutoff.toISOString().slice(0, 10);
+
+        var empSummary = employees.map(function(e) {
+          var name = typeof e === 'string' ? e : (e.name || '');
+          var empRows = rows.filter(function(r) { return norm(r.name) === norm(name) && r.dateIso >= cutoffStr; });
+          var pts = empRows.reduce(function(s, r) { return s + (parseFloat(r.points) || 0); }, 0);
+          return { name: name, pts: pts, count: empRows.length };
+        }).filter(function(e) { return e.name; }).sort(function(a, b) { return b.pts - a.pts; });
+
+        var highT = parseFloat(appSettings.highThresh) || 8;
+        var warnT = parseFloat(appSettings.warnThresh) || 4;
+
+        empSummary.forEach(function(e) {
+          var status = e.pts >= highT ? '🔴' : e.pts >= warnT ? '🟡' : '🟢';
+          var pad = '                    '.slice(0, Math.max(0, 30 - e.name.length));
+          lines.push(status + ' ' + e.name + pad + e.pts.toFixed(1) + ' pts  (' + e.count + ' records)');
+        });
+
+        lines.push('');
+        lines.push('═══════════════════════════════════════');
+        lines.push('AT-RISK EMPLOYEES');
+        lines.push('═══════════════════════════════════════');
+
+        var atRisk = empSummary.filter(function(e) { return e.pts >= warnT; });
+        if (atRisk.length === 0) {
+          lines.push('No employees currently at or above warning threshold (' + warnT + ' pts).');
+        } else {
+          atRisk.forEach(function(e) {
+            var level = e.pts >= highT ? 'HIGH' : 'WARNING';
+            lines.push('• ' + e.name + ' — ' + e.pts.toFixed(1) + ' pts [' + level + ']');
+          });
+        }
+
+        // Department breakdown
+        var depts = {};
+        employees.forEach(function(e) {
+          var dept = (typeof e === 'object' ? e.department : '') || 'Unassigned';
+          var name = typeof e === 'string' ? e : (e.name || '');
+          var found = empSummary.find(function(s) { return norm(s.name) === norm(name); });
+          var pts = found ? found.pts : 0;
+          if (!depts[dept]) depts[dept] = { pts: 0, count: 0 };
+          depts[dept].pts += pts;
+          depts[dept].count++;
+        });
+
+        var deptKeys = Object.keys(depts).filter(function(d) { return d !== 'Unassigned'; }).sort();
+        if (deptKeys.length > 0) {
+          lines.push('');
+          lines.push('═══════════════════════════════════════');
+          lines.push('DEPARTMENT SUMMARY');
+          lines.push('═══════════════════════════════════════');
+          deptKeys.forEach(function(dept) {
+            var d = depts[dept];
+            lines.push(dept + ': ' + d.pts.toFixed(1) + ' total pts · ' + d.count + ' employees · ' + (d.pts / d.count).toFixed(1) + ' avg');
+          });
+        }
+
+        lines.push('');
+        lines.push('---');
+        lines.push('Attendance Tracker · ' + window.location.href);
+
+        return lines.join('\n');
+      }
+
+      function fallbackCopyReport(text) {
+        var ta = document.createElement('textarea');
+        ta.value = text;
+        ta.style.cssText = 'position:fixed;top:-9999px;left:-9999px';
+        document.body.appendChild(ta);
+        ta.select();
+        try { document.execCommand('copy'); showToast('✓ Report copied to clipboard.'); }
+        catch(e) { showToast('Could not copy — try Ctrl+A then Ctrl+C in the textarea.'); ta.style.cssText = 'width:100%;height:200px'; }
+        document.body.removeChild(ta);
+      }
+
+      var _copyReportBtn = document.getElementById('copyReportBtn');
+      if (_copyReportBtn) {
+        _copyReportBtn.addEventListener('click', function() {
+          var text = generateReportText();
+          if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(text).then(function() {
+              showToast('✓ Report copied to clipboard — paste into email or notes.');
+            }).catch(function() {
+              fallbackCopyReport(text);
+            });
+          } else {
+            fallbackCopyReport(text);
+          }
+        });
+      }
+
+      // ── Copy Records TSV (Records view) ──────────────────────────────────
+      var _copyRecordsBtn = document.getElementById('copyRecordsBtn');
+      if (_copyRecordsBtn) {
+        _copyRecordsBtn.addEventListener('click', function() {
+          var visibleRows = sortRows(filteredRows());
+          var headers = ['Name', 'Date', 'Status', 'Code', 'Reason', 'Points'];
+          var tsv = [headers.join('\t')].concat(visibleRows.map(function(r) {
+            return [
+              r.name || '',
+              r.date || r.dateIso || '',
+              r.type || '',
+              r.code || '',
+              r.reason || '',
+              r.points != null ? r.points : ''
+            ].map(function(v) { return String(v).replace(/\t/g, ' '); }).join('\t');
+          })).join('\n');
+          var label = visibleRows.length + ' record' + (visibleRows.length !== 1 ? 's' : '');
+          if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(tsv).then(function() {
+              showToast('✓ Copied ' + label + ' to clipboard (tab-separated).');
+            }).catch(function() {
+              var ta = document.createElement('textarea');
+              ta.value = tsv;
+              ta.style.cssText = 'position:fixed;top:-9999px;left:-9999px';
+              document.body.appendChild(ta);
+              ta.select();
+              try { document.execCommand('copy'); showToast('✓ Copied ' + label + '.'); }
+              catch(e) { showToast('Could not copy automatically.'); }
+              document.body.removeChild(ta);
+            });
+          } else {
+            var ta = document.createElement('textarea');
+            ta.value = tsv;
+            ta.style.cssText = 'position:fixed;top:-9999px;left:-9999px';
+            document.body.appendChild(ta);
+            ta.select();
+            try { document.execCommand('copy'); showToast('✓ Copied ' + label + '.'); }
+            catch(e) { showToast('Could not copy automatically.'); }
+            document.body.removeChild(ta);
+          }
+        });
+      }
 
     })();
   </script>
