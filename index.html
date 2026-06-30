@@ -7155,6 +7155,17 @@ body.no-transitions * { transition: none !important; }
             patternsEl.style.display = 'block';
             patternsEl.innerHTML += patternSection;
           }
+
+          // Cluster section
+          var empClusters = getClusterSummary().find(function(d) { return norm(d.name) === norm(name); });
+          if (empClusters && empClusters.clusters.length > 0) {
+            patternsEl.style.display = 'block';
+            patternsEl.innerHTML +=
+              '<div style="margin-top:12px;padding:10px;background:rgba(239,68,68,0.06);border-radius:var(--radius);border-left:3px solid #ef4444">' +
+                '<div style="font-size:11px;font-weight:700;text-transform:uppercase;color:#ef4444;margin-bottom:4px">🔗 Clusters</div>' +
+                '<div style="font-size:12px;color:var(--muted)">' + empClusters.clusters.length + ' cluster' + (empClusters.clusters.length !== 1 ? 's' : '') + ' detected (occurrences within 7 days)</div>' +
+              '</div>';
+          }
         }
 
         var profilePrintBtn = document.getElementById('empProfilePrintBtn');
@@ -7718,6 +7729,50 @@ body.no-transitions * { transition: none !important; }
         if (changed) saveEmployees();
       }
 
+      function getEmpMonthlyPts(empName, numMonths) {
+        numMonths = numMonths || 6;
+        var result = [];
+        var now = new Date();
+        for (var i = numMonths - 1; i >= 0; i--) {
+          var d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+          var monthStr = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0');
+          var pts = rows.filter(function(r) { return norm(r.name||r) === norm(empName) && r.dateIso && r.dateIso.startsWith(monthStr); })
+            .reduce(function(s, r) { return s + (parseFloat(r.points) || 0); }, 0);
+          result.push(pts);
+        }
+        return result;
+      }
+
+      function renderSparklineSvg(data, width, height) {
+        width = width || 48; height = height || 18;
+        if (!data || !data.length) return '<svg width="' + width + '" height="' + height + '"></svg>';
+        var max = Math.max.apply(null, data) || 1;
+        var step = width / (data.length - 1 || 1);
+        var points = data.map(function(v, i) {
+          var x = i * step;
+          var y = height - (v / max) * (height - 2) - 1;
+          return x + ',' + y;
+        }).join(' ');
+        var lastVal = data[data.length - 1];
+        var avgVal = data.reduce(function(s,v){return s+v;},0) / data.length;
+        var color = lastVal > avgVal * 1.2 ? '#ef4444' : lastVal < avgVal * 0.8 ? '#22c55e' : '#f59e0b';
+        return '<svg width="' + width + '" height="' + height + '" style="vertical-align:middle">' +
+          '<polyline fill="none" stroke="' + color + '" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round" points="' + points + '"/>' +
+          '<circle cx="' + (data.length-1)*step + '" cy="' + (height - (lastVal/max)*(height-2) - 1) + '" r="2" fill="' + color + '"/>' +
+        '</svg>';
+      }
+
+      var _sparkCache = {};
+      var _sparkCacheKey = '';
+
+      function getEmpMonthlyPtsCached(empName, numMonths) {
+        var key = rows.length + '_' + (rows[0] && rows[0].dateIso || '');
+        if (key !== _sparkCacheKey) { _sparkCache = {}; _sparkCacheKey = key; }
+        var cKey = empName + '_' + (numMonths||6);
+        if (!_sparkCache[cKey]) _sparkCache[cKey] = getEmpMonthlyPts(empName, numMonths);
+        return _sparkCache[cKey];
+      }
+
       function renderEmployees() {
         syncEmployeeStandings();
         var empBody = document.getElementById('employeesBody');
@@ -7783,6 +7838,9 @@ body.no-transitions * { transition: none !important; }
             var gb_c = gb_pct>=100?'#ef4444':gb_pct>=75?'#f59e0b':'#22c55e';
             goalBadge = ' <span title="Goal: '+gb_ep.toFixed(1)+'/'+emp.goal+' pts ('+gb_pct+'%)" style="font-size:10px;padding:1px 5px;border-radius:8px;background:'+gb_c+'22;color:'+gb_c+';cursor:help">'+gb_pct+'%</span>';
           }
+          var monthlyPts = getEmpMonthlyPtsCached(emp.name || emp, 6);
+          var sparkSvg = renderSparklineSvg(monthlyPts, 48, 18);
+          var sparkCell = '<td class="col-trend" style="white-space:nowrap" title="Points per month (last 6 months): ' + monthlyPts.map(function(v){return v.toFixed(1);}).join(', ') + '">' + sparkSvg + '</td>';
           return '<tr class="' + onLeaveClass.trim() + '">' +
             '<td><code class="editable-cell" data-emp-field="id" data-emp-id="' + escapeHtml(emp.id) + '" title="Click to edit ID">' + escapeHtml(emp.id || '—') + '</code></td>' +
             '<td style="display:flex;align-items:center;gap:8px">' + avatar + '<span class="emp-name-link editable-cell" data-emp-field="name" data-emp-id="' + escapeHtml(emp.id) + '" title="Click to edit name" style="font-weight:650;cursor:pointer;text-decoration:underline;text-decoration-style:dotted;text-underline-offset:2px">' + escapeHtml(emp.name) + '</span>' + empRiskBadge(emp.name) + empPatternBadge(emp.name) + empPtsSummary(emp.name) + empNotesBadge(emp.name) + goalBadge + '</td>' +
@@ -7797,6 +7855,7 @@ body.no-transitions * { transition: none !important; }
             '<td>' + lastCell + '</td>' +
             '<td><span title="Longest: ' + empStreak.longest + ' days">' + empStreak.current + (empStreak.current >= 10 ? ' 🔥' : '') + '</span></td>' +
             '<td style="font-size:12px;color:var(--muted);max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="'+escapeHtml(emp.notes||'')+'">'+escapeHtml((emp.notes||'').slice(0,60))+((emp.notes||'').length>60?'…':'')+'</td>' +
+            sparkCell +
             '<td style="display:flex;gap:6px;flex-wrap:wrap">' +
               '<button class="small secondary" type="button" data-emp-action="profile" data-emp-name="' + escapeHtml(emp.name) + '" title="View profile">Profile</button>' +
               '<button class="small secondary" type="button" data-emp-action="viewrecords" data-emp-name="' + escapeHtml(emp.name) + '" title="Show attendance records for this employee">Records</button>' +
