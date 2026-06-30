@@ -5218,6 +5218,8 @@ body.no-transitions * { transition: none !important; }
         if (quickHint) quickHint.style.display = 'none';
         var dayEl = document.getElementById('manualDateDay');
         if (dayEl) dayEl.textContent = '';
+        var toWarn = document.getElementById('manualTimeOffWarning');
+        if (toWarn) toWarn.style.display = 'none';
       }
 
       function isValidDate(str) {
