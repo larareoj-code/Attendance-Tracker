@@ -2523,6 +2523,8 @@ body.no-transitions * { transition: none !important; }
             <option value="pastrequest">Past Request</option>
           </select>
           <button type="button" id="bulkSetStatusBtn" class="secondary small" style="font-size:12px;padding:3px 8px">Apply Status</button>
+          <input type="text" id="bulkCodeInput" placeholder="Set Code…" style="width:80px;font-size:12px;padding:3px 6px;border-radius:var(--radius);background:var(--card2);border:1px solid var(--border);color:var(--text)">
+          <button type="button" id="bulkSetCodeBtn" class="secondary small" style="font-size:12px;padding:3px 8px">Apply Code</button>
           <input type="number" id="bulkPointsInput" step="0.5" placeholder="±pts" style="width:60px;font-size:12px;padding:3px 6px;border-radius:var(--radius);background:var(--card2);border:1px solid var(--border);color:var(--text)">
           <button type="button" id="bulkAdjustPtsBtn" class="secondary small" style="font-size:12px;padding:3px 8px">Adjust Pts</button>
           <button class="secondary small" type="button" id="bulkDeselectBtn" style="margin-left:auto">✕ Deselect All</button>
@@ -14667,6 +14669,40 @@ body.no-transitions * { transition: none !important; }
               showToast('Updated ' + count + ' record' + (count === 1 ? '' : 's') + ' to ' + newStatus);
             }
             sel.value = '';
+          });
+        }
+
+        // ── Bulk Set Code ────────────────────────────────────────────────────
+        var bulkSetCodeBtn = document.getElementById('bulkSetCodeBtn');
+        if (bulkSetCodeBtn) {
+          bulkSetCodeBtn.addEventListener('click', function() {
+            var inp = document.getElementById('bulkCodeInput');
+            if (!inp || !inp.value.trim()) { showToast('Enter a code first'); return; }
+            var newCode = inp.value.trim().toUpperCase();
+            if (!selectedIds.size) { showToast('No records selected'); return; }
+            var snapshots = {};
+            selectedIds.forEach(function(id) {
+              var row = rows.find(function(r) { return r.id === id; });
+              if (row) snapshots[id] = Object.assign({}, row);
+            });
+            var count = 0;
+            selectedIds.forEach(function(id) {
+              var row = rows.find(function(r) { return r.id === id; });
+              if (row) { row.code = newCode; count++; }
+            });
+            if (count > 0) {
+              pushUndo('Bulk set code: ' + newCode + ' (' + count + ')', function() {
+                Object.keys(snapshots).forEach(function(id) {
+                  var row = rows.find(function(r) { return r.id === id; });
+                  if (row) Object.assign(row, snapshots[id]);
+                });
+                saveData(); render();
+              });
+              saveData();
+              render();
+              showToast('Set code to ' + newCode + ' on ' + count + ' record' + (count === 1 ? '' : 's'));
+            }
+            inp.value = '';
           });
         }
 
