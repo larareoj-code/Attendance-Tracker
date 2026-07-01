@@ -2345,6 +2345,12 @@ body.no-transitions * { transition: none !important; }
             <option value="Flex">Flex</option>
           </select>
         </div>
+        <div>
+          <label style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;color:var(--muted)">Source File</label>
+          <select id="sourceFileFilter" style="width:100%;font-size:13px;padding:4px 6px;background:var(--card2);border:1px solid var(--border);border-radius:var(--radius);color:var(--text)">
+            <option value="">All Sources</option>
+          </select>
+        </div>
         <label style="display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer;grid-column:1/-1">
           <input type="checkbox" id="starredOnlyFilter"> ⭐ Starred records only
         </label>
@@ -5493,6 +5499,16 @@ body.no-transitions * { transition: none !important; }
           result = result.filter(function(r) { return r.starred; });
         }
 
+        // Source file filter
+        var sourceFileFilterEl = document.getElementById('sourceFileFilter');
+        var sourceFileVal = sourceFileFilterEl ? sourceFileFilterEl.value : '';
+        if (sourceFileVal) {
+          result = result.filter(function(r) {
+            var src = r.sourceFile ? r.sourceFile.split(/[/\\]/).pop() : '';
+            return src === sourceFileVal;
+          });
+        }
+
         return result;
       }
 
@@ -5920,6 +5936,8 @@ body.no-transitions * { transition: none !important; }
         });
         var shiftFilter = document.getElementById('shiftFilter');
         if (shiftFilter) shiftFilter.value = '';
+        var sourceFileFilterEl = document.getElementById('sourceFileFilter');
+        if (sourceFileFilterEl) sourceFileFilterEl.value = '';
         var searchNotesEl = document.getElementById('searchNotes');
         if (searchNotesEl) searchNotesEl.checked = false;
         var starredOnlyEl = document.getElementById('starredOnlyFilter');
@@ -9106,6 +9124,37 @@ body.no-transitions * { transition: none !important; }
         });
       }
 
+      function getStatDelta(currentVal, priorVal) {
+        if (!priorVal) return '';
+        var diff = currentVal - priorVal;
+        var pct = Math.round((diff / priorVal) * 100);
+        if (Math.abs(pct) < 1) return '<span style="color:var(--muted);font-size:11px"> ~ no change</span>';
+        var up = diff > 0;
+        var color = up ? '#ef4444' : '#22c55e'; // more occurrences/points = worse = red
+        var arrow = up ? '▲' : '▼';
+        return '<span style="color:' + color + ';font-size:11px;font-weight:600"> ' + arrow + ' ' + Math.abs(pct) + '%</span>';
+      }
+
+      function getPriorPeriodRows() {
+        // Prior period = equal-length window immediately preceding the current dashboard range.
+        // "All Time" has no equal-length prior period to compare against.
+        if (_dashRange === 'all') return [];
+        var rangeDays = parseInt(_dashRange, 10);
+        var curStart = new Date();
+        curStart.setDate(curStart.getDate() - rangeDays);
+        var priorStart = new Date(curStart);
+        priorStart.setDate(priorStart.getDate() - rangeDays);
+        return rows.filter(function(r) {
+          if (_dashDept && r.name) {
+            var emp = employees.find(function(e) { return norm(e.name) === norm(r.name); });
+            if (emp && emp.department !== _dashDept) return false;
+          }
+          if (!r.dateIso) return false;
+          var d = new Date(r.dateIso);
+          return d >= priorStart && d < curStart;
+        });
+      }
+
       function _renderDashStats() {
         var el = document.getElementById('dashStats');
         if (!el) return;
@@ -9120,16 +9169,23 @@ body.no-transitions * { transition: none !important; }
         var empCount = _dashDept
           ? employees.filter(function(e) { return e.department === _dashDept; }).length
           : employees.length;
+
+        var priorRows = getPriorPeriodRows();
+        var priorOcc = priorRows.filter(function(r) { return isOccurrence(r.type); });
+        var priorPts = priorOcc.reduce(function(s,r) { return s + (parseFloat(r.points)||0); }, 0);
+        var occDelta = getStatDelta(occ.length, priorOcc.length);
+        var ptsDelta = getStatDelta(totalPts, priorPts);
+
         var stats = [
           { label: 'Total Records', value: dashRows.length, rawValue: dashRows.length, color: 'var(--yellow)' },
-          { label: 'Occurrences', value: occ.length, rawValue: occ.length, color: 'var(--danger)' },
+          { label: 'Occurrences', value: occ.length, rawValue: occ.length, color: 'var(--danger)', delta: occDelta },
           { label: 'Employees', value: empCount, rawValue: empCount, color: 'var(--blue)' },
           { label: 'High Risk ≥' + _sevHighStat + ' pts', value: highRisk, rawValue: highRisk, color: 'var(--danger)' },
           { label: 'Pending Time Off', value: pendingTO, rawValue: pendingTO, color: '#c084fc' },
-          { label: 'Total Points', value: totalPts % 1 === 0 ? totalPts : totalPts.toFixed(1), rawValue: totalPts, color: 'var(--yellow)' },
+          { label: 'Total Points', value: totalPts % 1 === 0 ? totalPts : totalPts.toFixed(1), rawValue: totalPts, color: 'var(--yellow)', delta: ptsDelta },
         ];
         el.innerHTML = stats.map(function(s) {
-          return '<div class="dash-stat"><div class="dash-stat-label">'+escapeHtml(s.label)+'</div><div class="dash-stat-value" data-target="'+s.rawValue+'" style="color:'+s.color+'">0</div></div>';
+          return '<div class="dash-stat"><div class="dash-stat-label">'+escapeHtml(s.label)+'</div><div class="dash-stat-value" data-target="'+s.rawValue+'" style="color:'+s.color+'">0</div>' + (s.delta || '') + '</div>';
         }).join('');
         var lastUpdEl = document.getElementById('dashLastUpdated');
         if (lastUpdEl) lastUpdEl.textContent = 'Updated ' + new Date().toLocaleTimeString('en-US', {hour:'numeric',minute:'2-digit'});
