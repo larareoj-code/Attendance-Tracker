@@ -7257,6 +7257,39 @@ body.no-transitions * { transition: none !important; }
         return { current: current, longest: longest };
       }
 
+      function calcAttendanceCompositeScore(empName) {
+        var maxPts = parseFloat(appSettings.highThresh) || 8;
+        var empRows = rows.filter(function(r){ return norm(r.name)===norm(empName) && r.dateIso; });
+        var cutoff = new Date(); cutoff.setFullYear(cutoff.getFullYear()-1);
+        var cs = cutoff.toISOString().slice(0,10);
+        var recentRows = empRows.filter(function(r){return r.dateIso>=cs;});
+
+        var pts = recentRows.reduce(function(s,r){return s+(parseFloat(r.points)||0);},0);
+        var ptScore = Math.max(0, Math.min(50, Math.round((1 - pts/maxPts) * 50)));
+
+        var streak = 0;
+        if (typeof calcAttendanceStreak === 'function') {
+          var s = calcAttendanceStreak(empName); streak = s ? (s.current||0) : 0;
+        }
+        var streakScore = Math.min(20, Math.round((streak / 90) * 20));
+
+        var dayCounts = [0,0,0,0,0,0,0];
+        recentRows.forEach(function(r){ if(r.dateIso){ dayCounts[new Date(r.dateIso+'T12:00:00').getDay()]++; } });
+        var totalOcc = dayCounts.reduce(function(s,v){return s+v;},0);
+        var maxDay = Math.max.apply(null,dayCounts);
+        var clustering = totalOcc>0 ? maxDay/totalOcc : 0;
+        var patternScore = Math.max(0, Math.round((1 - Math.min(1,(clustering-0.14)/0.5)) * 15));
+
+        var now = new Date(); var d30 = new Date(now-30*86400000); var d60 = new Date(now-60*86400000);
+        var d30s = d30.toISOString().slice(0,10); var d60s = d60.toISOString().slice(0,10); var nows = now.toISOString().slice(0,10);
+        var last30pts = empRows.filter(function(r){return r.dateIso>=d30s&&r.dateIso<=nows;}).reduce(function(s,r){return s+(parseFloat(r.points)||0);},0);
+        var prior30pts = empRows.filter(function(r){return r.dateIso>=d60s&&r.dateIso<d30s;}).reduce(function(s,r){return s+(parseFloat(r.points)||0);},0);
+        var trendScore = last30pts < prior30pts ? 15 : last30pts === prior30pts ? 10 : 5;
+
+        var totalScore = ptScore + streakScore + patternScore + trendScore;
+        return { score: totalScore, ptScore: ptScore, streakScore: streakScore, patternScore: patternScore, trendScore: trendScore };
+      }
+
       function renderEmpMiniCalendar(empName, year, month) {
         var firstDay = new Date(year, month, 1);
         var startWeekday = firstDay.getDay();
@@ -7354,6 +7387,38 @@ body.no-transitions * { transition: none !important; }
             tenure = 'Hired: ' + emp.hireDate + ' (' + (yrs > 0 ? yrs + 'y ' : '') + mos + 'm)';
           }
           statusRow.innerHTML = empStatusBadge(emp.standing || 'good') + (tenure ? '<span style="font-size:12px;color:var(--muted)">' + escapeHtml(tenure) + '</span>' : '');
+        }
+
+        var scoreEl = document.getElementById('empProfileScore');
+        if (scoreEl) {
+          var perf = calcAttendanceCompositeScore(name);
+          var perfColor = perf.score >= 80 ? '#22c55e' : perf.score >= 60 ? '#f59e0b' : '#ef4444';
+          var subBars = [
+            { label: 'Points', value: perf.ptScore, max: 50 },
+            { label: 'Streak', value: perf.streakScore, max: 20 },
+            { label: 'Pattern', value: perf.patternScore, max: 15 },
+            { label: 'Trend', value: perf.trendScore, max: 15 },
+          ];
+          scoreEl.innerHTML = '<div style="padding:10px;background:var(--card2);border:1px solid var(--border);border-radius:var(--radius);margin-bottom:10px">' +
+            '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">' +
+              '<div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:var(--muted)">Attendance Score</div>' +
+              '<div style="font-size:16px;font-weight:800;color:' + perfColor + '">' + perf.score + '/100</div>' +
+            '</div>' +
+            '<div style="background:var(--border);border-radius:4px;height:8px;overflow:hidden;margin-bottom:8px">' +
+              '<div style="background:' + perfColor + ';width:' + perf.score + '%;height:100%;border-radius:4px;transition:width 0.3s"></div>' +
+            '</div>' +
+            '<div style="display:flex;gap:10px;flex-wrap:wrap">' +
+            subBars.map(function(b) {
+              var pct = b.max > 0 ? Math.round((b.value/b.max)*100) : 0;
+              return '<div style="flex:1;min-width:70px" title="' + b.label + ': ' + b.value + '/' + b.max + '">' +
+                '<div style="font-size:10px;color:var(--muted);margin-bottom:2px">' + b.label + ' (' + b.value + '/' + b.max + ')</div>' +
+                '<div style="background:var(--border);border-radius:3px;height:5px;overflow:hidden">' +
+                  '<div style="background:var(--blue);width:' + pct + '%;height:100%;border-radius:3px"></div>' +
+                '</div>' +
+              '</div>';
+            }).join('') +
+            '</div>' +
+          '</div>';
         }
 
         var goalEl = document.getElementById('empProfileGoal');
@@ -8239,9 +8304,12 @@ body.no-transitions * { transition: none !important; }
           var tagBadges = (emp.tags || []).map(function(tag) {
             return '<span style="font-size:9px;padding:1px 5px;border-radius:8px;background:rgba(99,102,241,0.12);color:#6366f1;margin-left:3px;cursor:pointer" onclick="setTagFilter(' + JSON.stringify(tag) + ')" title="Filter by ' + escapeHtml(tag) + '">' + escapeHtml(tag) + '</span>';
           }).join('');
+          var perf = calcAttendanceCompositeScore(emp.name);
+          var scoreColor = perf.score >= 80 ? '#22c55e' : perf.score >= 60 ? '#f59e0b' : '#ef4444';
+          var scoreBadge = '<span style="font-size:10px;padding:1px 5px;border-radius:8px;background:' + scoreColor + '22;color:' + scoreColor + ';font-weight:700;margin-left:4px" title="Attendance score: ' + perf.score + '/100">' + perf.score + '</span>';
           return '<tr class="' + onLeaveClass.trim() + '">' +
             '<td><code class="editable-cell" data-emp-field="id" data-emp-id="' + escapeHtml(emp.id) + '" title="Click to edit ID">' + escapeHtml(emp.id || '—') + '</code></td>' +
-            '<td style="display:flex;align-items:center;gap:8px">' + avatar + '<span class="emp-name-link editable-cell" data-emp-field="name" data-emp-id="' + escapeHtml(emp.id) + '" title="Click to edit name" style="font-weight:650;cursor:pointer;text-decoration:underline;text-decoration-style:dotted;text-underline-offset:2px">' + escapeHtml(emp.name) + '</span>' + managerBadge + empRiskBadge(emp.name) + empPatternBadge(emp.name) + empPtsSummary(emp.name) + empNotesBadge(emp.name) + goalBadge + tagBadges + '</td>' +
+            '<td style="display:flex;align-items:center;gap:8px">' + avatar + '<span class="emp-name-link editable-cell" data-emp-field="name" data-emp-id="' + escapeHtml(emp.id) + '" title="Click to edit name" style="font-weight:650;cursor:pointer;text-decoration:underline;text-decoration-style:dotted;text-underline-offset:2px">' + escapeHtml(emp.name) + '</span>' + scoreBadge + managerBadge + empRiskBadge(emp.name) + empPatternBadge(emp.name) + empPtsSummary(emp.name) + empNotesBadge(emp.name) + goalBadge + tagBadges + '</td>' +
             '<td><span class="editable-cell" data-emp-field="department" data-emp-id="' + escapeHtml(emp.id) + '" title="Click to edit">' + escapeHtml(emp.department || '—') + '</span></td>' +
             '<td><span class="editable-cell" data-emp-field="role" data-emp-id="' + escapeHtml(emp.id) + '" title="Click to edit">' + escapeHtml(emp.role || '—') + '</span></td>' +
             '<td>' + shiftHtml + '</td>' +
@@ -14869,11 +14937,24 @@ body.no-transitions * { transition: none !important; }
       function renderSearchHistory() {
         var resultsEl = document.getElementById('cmdPaletteResults');
         if (!resultsEl) return;
+        var recentHtml = '';
+        if (_recentCmdActions && _recentCmdActions.length) {
+          var allActions = _buildCmdActions();
+          recentHtml = '<div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:var(--muted);padding:4px 12px 2px">Recent Actions</div>' +
+            _recentCmdActions.map(function(label) {
+              var a = allActions.filter(function(x){ return x.label === label; })[0];
+              var icon = a ? a.icon : '⚙';
+              return '<div class="cmd-item" style="display:flex;align-items:center;gap:8px;padding:6px 12px;cursor:pointer;border-radius:4px" onclick="_runRecentCmdAction(' + JSON.stringify(label) + ')">' +
+                '<span style="font-size:12px">' + icon + '</span>' +
+                '<span style="font-size:13px">' + escapeHtml(label) + '</span>' +
+              '</div>';
+            }).join('');
+        }
         if (!_searchHistory.length) {
-          resultsEl.innerHTML = '<div style="color:var(--muted);font-size:12px;text-align:center;padding:12px">Type to search records, employees, and actions.</div>';
+          resultsEl.innerHTML = recentHtml || '<div style="color:var(--muted);font-size:12px;text-align:center;padding:12px">Type to search records, employees, and actions.</div>';
           return;
         }
-        resultsEl.innerHTML = '<div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:var(--muted);padding:4px 12px 2px">Recent</div>' +
+        resultsEl.innerHTML = recentHtml + '<div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:var(--muted);padding:4px 12px 2px">Recent</div>' +
           _searchHistory.map(function(h, i) {
             return '<div class="cmd-item" style="display:flex;align-items:center;gap:8px;padding:6px 12px;cursor:pointer;border-radius:4px" onclick="applySearchHistory(' + i + ')">' +
               '<span style="opacity:0.5;font-size:12px">\u{1F550}</span>' +
@@ -14924,6 +15005,31 @@ body.no-transitions * { transition: none !important; }
             setTimeout(function() { kbFocusRow(focusId); }, 0);
           }
         }
+      }
+      function _buildCmdActions() {
+        return [
+          { label: '+ Add Record', desc: 'Open add record form', icon: '📝', action: function(){ setView('records'); var btn=document.getElementById('manualPanelToggle'); if(btn && btn.getAttribute('aria-expanded')==='false') btn.click(); } },
+          { label: '+ Add Employee', desc: 'Go to employees tab', icon: '👤', action: function(){ setView('employees'); } },
+          { label: '+ Add Time Off', desc: 'Go to time off tab', icon: '📅', action: function(){ setView('timeoff'); } },
+          { label: '⚙ Settings', desc: 'Open settings', icon: '⚙', action: function(){ var btn=document.getElementById('settingsBtn'); if(btn) btn.click(); } },
+          { label: '🌙 Toggle Theme', desc: 'Switch light/dark/auto', icon: '🌙', action: function(){ if(typeof applyTheme==='function'){ var themes=['dark','light','auto']; var cur=localStorage.getItem('attTracker_theme')||'dark'; var next=themes[(themes.indexOf(cur)+1)%themes.length]; applyTheme(next); } } },
+          { label: '💾 Save All', desc: 'Force save all data', icon: '💾', action: function(){ if(typeof saveData==='function')saveData(); if(typeof saveEmployees==='function')saveEmployees(); if(typeof saveTimeOff==='function')saveTimeOff(); showToast('All data saved.'); } },
+          { label: '📊 Dashboard', desc: 'Go to dashboard', icon: '📊', action: function(){ setView('dashboard'); } },
+          { label: '📋 Records', desc: 'Go to records', icon: '📋', action: function(){ setView('records'); } },
+          { label: '👥 Employees', desc: 'Go to employees', icon: '👥', action: function(){ setView('employees'); } },
+          { label: '📈 Summary', desc: 'Go to summary', icon: '📈', action: function(){ setView('summary'); } },
+          { label: '🗑 Clear Filters', desc: 'Reset all filters', icon: '🗑', action: function(){ if(typeof clearFilters==='function')clearFilters(); } },
+          { label: '📦 Backup Data', desc: 'Download JSON backup', icon: '📦', action: function(){ if(typeof backupAppState==='function')backupAppState(); } }
+        ];
+      }
+      var _recentCmdActions = [];
+      function trackCmdAction(label) {
+        _recentCmdActions = [label].concat(_recentCmdActions.filter(function(l){ return l !== label; })).slice(0, 5);
+      }
+      function _runRecentCmdAction(label) {
+        var all = _buildCmdActions();
+        var match = all.filter(function(a){ return a.label === label; })[0];
+        if (match) { trackCmdAction(label); match.action(); if(typeof closeCmdPalette==='function') closeCmdPalette(); }
       }
       function _renderCmdResults(query) {
         var container = document.getElementById('cmdPaletteResults');
@@ -14986,6 +15092,14 @@ body.no-transitions * { transition: none !important; }
               var eName = e.name;
               var preview = matchedText.slice(0, 50) + (matchedText.length > 50 ? '…' : '');
               filtered.push({ icon: '📝', label: eName + ' — note', sub: preview, action: function() { openEmpProfile(eName); closeCmdPalette(); } });
+            }
+          });
+          // Quick actions matching the query
+          var qn = (typeof norm === 'function') ? norm(q) : q;
+          _buildCmdActions().forEach(function(a) {
+            var hay = (typeof norm === 'function') ? norm(a.label + ' ' + a.desc) : (a.label + ' ' + a.desc).toLowerCase();
+            if (hay.indexOf(qn) !== -1) {
+              filtered.push({ icon: a.icon, label: a.label, sub: a.desc, action: function() { trackCmdAction(a.label); a.action(); closeCmdPalette(); } });
             }
           });
         }
@@ -16506,6 +16620,7 @@ body.no-transitions * { transition: none !important; }
     <div id="empProfileAlertBanner" style="display:none;padding:10px 14px;border-radius:var(--radius);margin-bottom:14px;font-size:13px;font-weight:600"></div>
     <button type="button" id="empProfileReviewStandingBtn" style="display:none;margin-bottom:10px;padding:6px 14px;font-size:12px;font-weight:700;background:var(--yellow);color:#fff;border:none;border-radius:var(--radius);cursor:pointer"></button>
     <div id="empProfilePatterns" style="display:none;margin-bottom:14px"></div>
+    <div id="empProfileScore"></div>
     <div id="empProfileStats" style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:20px"></div>
     <div id="empProfileStatusRow" style="display:flex;gap:10px;align-items:center;margin-bottom:20px;flex-wrap:wrap"></div>
     <div id="empProfileGoal" style="margin-bottom:16px"></div>
