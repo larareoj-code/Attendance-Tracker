@@ -6588,6 +6588,45 @@ body.no-transitions * { transition: none !important; }
           }).join('') + '</table>';
       }
 
+      function getCodeBreakdown(filterEmp) {
+        var cutoff = new Date(); cutoff.setFullYear(cutoff.getFullYear()-1); var cs = cutoff.toISOString().slice(0,10);
+        var counts = {}, pts = {};
+        rows.forEach(function(r) {
+          if (r.dateIso < cs) return;
+          if (filterEmp && norm(r.name) !== norm(filterEmp)) return;
+          var key = r.code || r.type || 'Unknown';
+          counts[key] = (counts[key]||0) + 1;
+          pts[key] = (pts[key]||0) + (parseFloat(r.points)||0);
+        });
+        return Object.keys(counts).map(function(k) { return { code: k, count: counts[k], pts: pts[k] }; })
+          .sort(function(a,b) { return b.count - a.count; });
+      }
+
+      function renderReasonBreakdown() {
+        var el = document.getElementById('reasonBreakdown');
+        if (!el) return;
+        var data = getCodeBreakdown();
+        if (!data.length) { el.innerHTML = '<div style="color:var(--muted);font-size:13px">No data yet.</div>'; return; }
+        var maxCount = data[0].count;
+        el.innerHTML = '<div style="font-size:13px;font-weight:700;margin-bottom:8px">&#x1F4CB; Top Occurrence Codes (12mo)</div>' +
+          data.slice(0, 8).map(function(d) {
+            var pct = Math.round((d.count / maxCount) * 100);
+            return '<div style="margin-bottom:8px;cursor:pointer" onclick="setCodeFilter(' + JSON.stringify(d.code) + ')" title="Filter records by this code">' +
+              '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:3px">' +
+                '<span style="font-size:12px;font-weight:600">' + escapeHtml(d.code) + '</span>' +
+                '<span style="font-size:11px;color:var(--muted)">' + d.count + 'x &middot; ' + d.pts.toFixed(1) + ' pts</span>' +
+              '</div>' +
+              '<div style="background:var(--border);border-radius:3px;height:6px"><div style="background:var(--accent);width:' + pct + '%;height:100%;border-radius:3px"></div></div>' +
+            '</div>';
+          }).join('');
+      }
+      function setCodeFilter(code) {
+        var codeFilter = document.getElementById('codeFilter');
+        if (codeFilter) { codeFilter.value = code; }
+        setView('records');
+        renderWithPageReset();
+      }
+
       function renderRecordCards() {
         var container = document.getElementById('recordsCardsView');
         if (!container) return;
@@ -7947,8 +7986,10 @@ body.no-transitions * { transition: none !important; }
         if (!empBody) return;
         var query = norm(document.getElementById('employeeSearch').value);
         var statusFilter = ((document.getElementById('empStatusFilter') || {}).value || '');
+        var managersOnly = document.getElementById('managersOnlyFilter') && document.getElementById('managersOnlyFilter').checked;
         var filtered = employees.filter(function (e) {
           if (statusFilter && e.status !== statusFilter) return false;
+          if (managersOnly && !e.isManager) return false;
           return !query || norm([e.id, e.name, e.department, e.role].join(' ')).indexOf(query) !== -1;
         });
         var EMP_SORT_IDS = { name: 'empSortName', department: 'empSortDept', role: 'empSortRole', status: 'empSortStatus', records: 'empSortRecords', lastdate: 'empSortLastdate' };
@@ -13302,6 +13343,7 @@ body.no-transitions * { transition: none !important; }
       });
       document.getElementById('employeeSearch').addEventListener('input', renderEmployees);
       document.getElementById('empStatusFilter').addEventListener('change', renderEmployees);
+      document.getElementById('managersOnlyFilter').addEventListener('change', renderEmployees);
       document.getElementById('syncEmployeesBtn').addEventListener('click', syncEmployeesFromAttendance);
 
       // Employee profile modal close
