@@ -6203,18 +6203,18 @@ body.no-transitions * { transition: none !important; }
           var trClass = [row.bucketApplied ? 'bucket-row' : '', empRiskClass].filter(Boolean).join(' ');
           return '<tr' + (trClass ? ' class="' + trClass + '"' : '') + severityAttr + titleAttr + ' data-row-id="' + escapeHtml(row.id) + '">' +
             '<td style="width:36px;padding:0 8px"><input type="checkbox" class="row-check" data-id="' + row.id + '"' + (selectedIds.has(row.id) ? ' checked' : '') + '></td>' +
-            '<td>' + nameButton + '</td>' +
-            '<td>' + escapeHtml(row.dateText || formatDate(row.date)) + newBadge + '</td>' +
-            '<td><span class="badge ' + escapeHtml(statusBadgeClass(row.type)) + '">' + escapeHtml(statusLabel(row.type)) + '</span></td>' +
-            '<td>' + followUpText + '</td>' +
-            '<td>' + highlightMatch(row.code, nameSearchVal) + '</td>' +
-            '<td>' + highlightMatch(row.reason, nameSearchVal) + '</td>' +
-            '<td class="col-hide-mobile">' + escapeHtml(row.startTime) + '</td>' +
-            '<td class="col-hide-mobile">' + escapeHtml(row.endTime) + '</td>' +
-            '<td><span class="inline-editable" data-field="points" data-id="' + escapeHtml(row.id) + '" title="Double-click to edit">' + pointText + '</span></td>' +
+            '<td class="rcol-name">' + nameButton + '</td>' +
+            '<td class="rcol-date">' + escapeHtml(row.dateText || formatDate(row.date)) + newBadge + '</td>' +
+            '<td class="rcol-type"><span class="badge ' + escapeHtml(statusBadgeClass(row.type)) + '">' + escapeHtml(statusLabel(row.type)) + '</span></td>' +
+            '<td class="rcol-flags">' + followUpText + '</td>' +
+            '<td class="rcol-code">' + highlightMatch(row.code, nameSearchVal) + '</td>' +
+            '<td class="rcol-reason">' + highlightMatch(row.reason, nameSearchVal) + '</td>' +
+            '<td class="rcol-shift col-hide-mobile">' + escapeHtml(row.startTime) + '</td>' +
+            '<td class="rcol-shift col-hide-mobile">' + escapeHtml(row.endTime) + '</td>' +
+            '<td class="rcol-points"><span class="inline-editable" data-field="points" data-id="' + escapeHtml(row.id) + '" title="Double-click to edit">' + pointText + '</span></td>' +
             '<td class="col-hide-mobile">' + escapeHtml(formatPoints(row.originalPoints)) + '</td>' +
             '<td class="col-hide-mobile">' + escapeHtml(row.originalName) + '</td>' +
-            '<td><div class="actions">' +
+            '<td class="rcol-actions"><div class="actions">' +
               '<button type="button" class="icon-btn star-btn' + (row.starred ? ' starred' : '') + '" data-id="' + escapeHtml(row.id) + '" title="' + (row.starred ? 'Unstar' : 'Star') + ' this record" aria-label="' + (row.starred ? 'Unstar' : 'Star') + '" onclick="toggleStarRecord(' + JSON.stringify(row.id) + ')">' + (row.starred ? '⭐' : '☆') + '</button>' +
               '<button class="small secondary action-toggle" type="button" data-action-menu-toggle="' + actionMenuId + '" aria-expanded="false">Actions</button>' +
               '<div class="action-list" data-action-menu="' + actionMenuId + '">' +
@@ -6238,7 +6238,7 @@ body.no-transitions * { transition: none !important; }
               return '<button type="button" class="note-toggle-btn secondary small" data-row-id="' + row.id + '" title="' + (row.note ? 'Edit note' : 'Add note') + '" style="margin-top:4px;padding:3px 7px;font-size:11px">' + noteLabel + '</button>';
             }()) +
             '</td>' +
-            '<td class="col-hide-mobile">' + escapeHtml(row.sourceFile) + '</td>' +
+            '<td class="rcol-source col-hide-mobile">' + escapeHtml(row.sourceFile) + '</td>' +
           '</tr>' +
           '<tr class="note-row hidden" id="note-row-' + row.id + '">' +
             '<td colspan="20" style="padding:8px 12px;background:var(--card)">' +
@@ -6276,6 +6276,7 @@ body.no-transitions * { transition: none !important; }
         updateBulkBar();
         renderPagination(totalFiltered, pageSize, currentPage);
         if (window.innerWidth < 768) renderRecordCards();
+        applyRecordColVis();
       }
 
       function renderSummary() {
