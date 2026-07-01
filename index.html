@@ -2547,6 +2547,12 @@ body.no-transitions * { transition: none !important; }
 
     <div class="dash-section dash-full" id="dashHeatmapSection">
       <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--muted);margin-bottom:10px">📅 52-Week Occurrence Heatmap</div>
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+        <label style="font-size:12px;color:var(--muted)">Employee:</label>
+        <select id="heatmapEmpFilter" style="font-size:12px;padding:3px 8px;background:var(--card2);border:1px solid var(--border);border-radius:4px;color:var(--text)">
+          <option value="">All Employees</option>
+        </select>
+      </div>
       <div id="dashHeatmap"></div>
       <div id="heatmapTooltip" style="display:none;position:fixed;background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:6px 10px;font-size:12px;pointer-events:none;z-index:9999;box-shadow:0 2px 8px rgba(0,0,0,0.15)"></div>
     </div>
@@ -9244,10 +9250,32 @@ body.no-transitions * { transition: none !important; }
         return { thisPts: thisPts, lastPts: lastPts, delta: delta };
       }
 
+      function populateHeatmapEmpFilter() {
+        var sel = document.getElementById('heatmapEmpFilter');
+        if (!sel) return;
+        var names = [];
+        employees.forEach(function(e) { if (e.name && names.indexOf(e.name) === -1) names.push(e.name); });
+        rows.forEach(function(r) { if (r.name && names.indexOf(r.name) === -1) names.push(r.name); });
+        names.sort(function(a, b) { return a.localeCompare(b); });
+        var prev = sel.value;
+        sel.innerHTML = '<option value="">All Employees</option>' + names.map(function(n) {
+          return '<option value="' + escapeHtml(n) + '"' + (n === prev ? ' selected' : '') + '>' + escapeHtml(n) + '</option>';
+        }).join('');
+        if (!sel._heatmapWired) {
+          sel._heatmapWired = true;
+          sel.addEventListener('change', function() { _renderHeatmap(); });
+        }
+      }
+
       function _renderHeatmap() {
         var el = document.getElementById('dashHeatmap');
         if (!el) return;
+        var empSel = document.getElementById('heatmapEmpFilter');
+        var empFilter = empSel ? empSel.value : '';
         var source = getDashRows().filter(function(r) { return r.type === 'past' && r.dateIso; });
+        if (empFilter) {
+          source = source.filter(function(r) { return norm(r.name) === norm(empFilter); });
+        }
 
         // Build a count map: dateIso -> count
         var counts = {};
@@ -9450,7 +9478,7 @@ body.no-transitions * { transition: none !important; }
         // Heatmap
         var heatmapSection = document.getElementById('dashHeatmapSection');
         if (heatmapSection) heatmapSection.classList.toggle('hidden', appSettings.showDashHeatmap === false);
-        if (appSettings.showDashHeatmap !== false) _renderHeatmap();
+        if (appSettings.showDashHeatmap !== false) { populateHeatmapEmpFilter(); _renderHeatmap(); }
 
         // Streak leaderboard
         renderStreakLeaderboard();
