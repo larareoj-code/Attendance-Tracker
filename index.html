@@ -9445,6 +9445,36 @@ body.no-transitions * { transition: none !important; }
         el.innerHTML = stats.map(function(s) {
           return '<div class="dash-stat"><div class="dash-stat-label">'+escapeHtml(s.label)+'</div><div class="dash-stat-value" data-target="'+s.rawValue+'" style="color:'+s.color+'">0</div>' + (s.delta || '') + '</div>';
         }).join('');
+
+        // Extended stats
+        var extEl = document.getElementById('extStatsTiles');
+        if (extEl) {
+          // Tile 1 — Avg points per occurrence (rows with pts > 0 only)
+          var rowsWithPts = getDashRows().filter(function(r){return parseFloat(r.points)>0;});
+          var avgPtsPerOcc = rowsWithPts.length ? (rowsWithPts.reduce(function(s,r){return s+(parseFloat(r.points)||0);},0)/rowsWithPts.length).toFixed(2) : '—';
+
+          // Tile 2 — % employees with 0 occurrences this period
+          var dashEmpNames = employees.filter(function(e){return e.status!=='Terminated';}).map(function(e){return norm(e.name);});
+          var empWithOcc = new Set(getDashRows().map(function(r){return norm(r.name);}));
+          var pctClean = dashEmpNames.length ? Math.round(((dashEmpNames.length - empWithOcc.size)/dashEmpNames.length)*100) : 0;
+
+          // Tile 3 — Most frequent occurrence day of week
+          var dayCounts = [0,0,0,0,0,0,0];
+          getDashRows().forEach(function(r){if(r.dateIso){dayCounts[new Date(r.dateIso+'T12:00:00').getDay()]++;}});
+          var maxDay = dayCounts.indexOf(Math.max.apply(null,dayCounts));
+          var dayNames = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+          var worstDay = dayCounts[maxDay]>0 ? dayNames[maxDay] : '—';
+
+          var extStats = [
+            { label: 'Avg Pts / Occurrence', value: avgPtsPerOcc, color: 'var(--yellow)' },
+            { label: '% Employees Clean', value: pctClean !== 0 || dashEmpNames.length ? pctClean+'%' : '—', color: 'var(--green, #4ade80)' },
+            { label: 'Top Absence Day', value: worstDay, color: '#c084fc' },
+          ];
+          extEl.innerHTML = extStats.map(function(s) {
+            return '<div class="dash-stat"><div class="dash-stat-label">'+escapeHtml(s.label)+'</div><div class="dash-stat-value" style="font-size:20px;color:'+s.color+'">'+escapeHtml(String(s.value))+'</div></div>';
+          }).join('');
+        }
+
         var lastUpdEl = document.getElementById('dashLastUpdated');
         if (lastUpdEl) lastUpdEl.textContent = 'Updated ' + new Date().toLocaleTimeString('en-US', {hour:'numeric',minute:'2-digit'});
       }
@@ -12878,6 +12908,7 @@ body.no-transitions * { transition: none !important; }
         makeCollapsible('cloudPanelToggle', 'cloudPanelBody', 'cloudPanelChevron', 'attTracker_cloudCollapsed', true);
         makeCollapsible('manualPanelToggle', 'manualPanelBody', 'manualPanelChevron', 'attTracker_manualCollapsed', true);
         makeCollapsible('filterPanelToggle', 'filterPanelBody', 'filterPanelChevron', 'attTracker_filterCollapsed', true);
+        makeCollapsible('extStatsToggle', 'extStatsBody', 'extStatsChevron', 'attTracker_extStats', true);
       }());
 
       (function () {
