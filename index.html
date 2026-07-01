@@ -7225,6 +7225,13 @@ body.no-transitions * { transition: none !important; }
               '<div style="font-size:11px;color:var(--muted);margin-top:2px">' + s.label + '</div>' +
               '</div>';
           }).join('') + starredLine;
+          var _gb = calcGiveBack(name);
+          if (_gb > 0) {
+            var _gbDays = parseInt(appSettings.giveBackDays) || 0;
+            var _gbPer = parseFloat(appSettings.giveBackAmt) || 1;
+            var _gbN = _gbPer > 0 ? Math.round(_gb / _gbPer) : 0;
+            statsEl.innerHTML += '<div style="font-size:11px;color:var(--muted);margin-top:6px;padding:4px 8px;background:var(--card2);border-radius:var(--radius);border:1px solid var(--border)">' + '-' + _gb.toFixed(1) + ' pts give-back applied -- ' + _gbN + ' clean period' + (_gbN !== 1 ? 's' : '') + ' (' + _gbDays + ' days each) without occurrence</div>';
+          }
         }
 
         var statusRow = document.getElementById('empProfileStatusRow');
@@ -8122,7 +8129,7 @@ body.no-transitions * { transition: none !important; }
             '<td><span class="editable-cell" data-emp-field="role" data-emp-id="' + escapeHtml(emp.id) + '" title="Click to edit">' + escapeHtml(emp.role || '—') + '</span></td>' +
             '<td>' + shiftHtml + '</td>' +
             '<td><span class="badge ' + tone + '">' + escapeHtml(emp.status) + '</span></td>' +
-            '<td>' + empStatusBadge(emp.standing || 'good') + '</td>' +
+            '<td>' + empStatusBadge(emp.standing || 'good') + (calcGiveBack(emp.name) > 0 ? ' <span style="font-size:10px;color:#22c55e;font-weight:600" title="' + calcGiveBack(emp.name).toFixed(1) + ' pts give-back applied">&minus;' + calcGiveBack(emp.name).toFixed(1) + 'pts</span>' : '') + '</td>' +
             '<td style="font-size:12px">' + escapeHtml(emp.hireDate || '—') + milestoneBadge + '</td>' +
             '<td style="font-size:12px;color:var(--muted)">' + calcTenure(emp.hireDate) + '</td>' +
             '<td>' + recordCount.toLocaleString() + '</td>' +
