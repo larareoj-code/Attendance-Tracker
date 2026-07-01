@@ -2545,6 +2545,7 @@ body.no-transitions * { transition: none !important; }
         </div>
         <div id="importBanner" style="display:none;background:rgba(34,197,94,0.1);border:1px solid rgba(34,197,94,0.3);color:#15803d;padding:8px 16px;border-radius:var(--radius);margin-bottom:8px;font-size:13px;align-items:center;gap:8px"></div>
         <div style="display:flex;justify-content:flex-end;gap:8px;margin-bottom:6px">
+          <button type="button" id="recordColBtn" class="secondary no-print" title="Show/hide columns" style="font-size:12px;padding:4px 10px">⊞ Columns</button>
           <button type="button" id="copyRecordsBtn" class="secondary no-print" title="Copy visible records as tab-separated text" style="font-size:12px;padding:4px 10px">📋 Copy</button>
           <button type="button" id="printRecordsBtn" class="secondary no-print" title="Print / Save as PDF" onclick="window.print()" style="font-size:12px;padding:4px 12px">🖨️ Print / PDF</button>
         </div>
@@ -2554,19 +2555,19 @@ body.no-transitions * { transition: none !important; }
             <thead>
               <tr>
                 <th style="width:36px;padding:0 8px"><input type="checkbox" id="selectAllCheck" title="Select all visible rows"></th>
-                <th><button class="sort-button" type="button" data-sort="name">Name <span id="sortName"></span></button></th>
-                <th><button class="sort-button" type="button" data-sort="date">Date <span id="sortDate">▼</span></button></th>
-                <th><button class="sort-button" type="button" data-sort="type">Status <span id="sortType"></span></button></th>
-                <th>Flag</th>
-                <th><button class="sort-button" type="button" data-sort="code">Code <span id="sortCode"></span></button></th>
-                <th>Reason</th>
-                <th class="col-hide-mobile">Start Time</th>
-                <th class="col-hide-mobile">End Time</th>
-                <th><button class="sort-button" type="button" data-sort="points">Points <span id="sortPoints"></span></button></th>
+                <th class="rcol-name"><button class="sort-button" type="button" data-sort="name">Name <span id="sortName"></span></button></th>
+                <th class="rcol-date"><button class="sort-button" type="button" data-sort="date">Date <span id="sortDate">▼</span></button></th>
+                <th class="rcol-type"><button class="sort-button" type="button" data-sort="type">Status <span id="sortType"></span></button></th>
+                <th class="rcol-flags">Flag</th>
+                <th class="rcol-code"><button class="sort-button" type="button" data-sort="code">Code <span id="sortCode"></span></button></th>
+                <th class="rcol-reason">Reason</th>
+                <th class="rcol-shift col-hide-mobile">Start Time</th>
+                <th class="rcol-shift col-hide-mobile">End Time</th>
+                <th class="rcol-points"><button class="sort-button" type="button" data-sort="points">Points <span id="sortPoints"></span></button></th>
                 <th class="col-hide-mobile">Original Points</th>
                 <th class="col-hide-mobile">Original Excel Name</th>
-                <th>Actions</th>
-                <th class="col-hide-mobile">Source File</th>
+                <th class="rcol-actions">Actions</th>
+                <th class="rcol-source col-hide-mobile">Source File</th>
               </tr>
             </thead>
             <tbody id="recordsBody"></tbody>
@@ -6162,8 +6163,11 @@ body.no-transitions * { transition: none !important; }
 
         els.recordsBody.innerHTML = visibleRows.map(function (row) {
           var pts = Number(row.points) || 0;
-          var ptColor = pts > 0 ? 'color:#fca5a5;font-weight:700' : pts < 0 ? 'color:#6ee7b7;font-weight:700' : '';
+          var ptVal = parseFloat(row.points) || 0;
+          var ptColor = ptVal >= 3 ? 'color:#ef4444;font-weight:600' : ptVal >= 1.5 ? 'color:#f59e0b;font-weight:600' : ptVal > 0 ? 'color:#22c55e;font-weight:600' : ptVal < 0 ? 'color:#6ee7b7;font-weight:600' : 'color:var(--muted)';
           var pointText = '<span style="' + ptColor + '">' + escapeHtml(formatPoints(row.points)) + '</span>' + (row.editedPoints ? '<span class="edited">*</span>' : '');
+          var isNew = row.dateIso && row.dateIso >= new Date(Date.now()-7*86400000).toISOString().slice(0,10);
+          var newBadge = isNew ? '<span style="font-size:9px;padding:1px 4px;border-radius:3px;background:#3b82f6;color:#fff;font-weight:700;margin-left:4px">NEW</span>' : '';
           var nameText = highlightMatch(row.name, nameSearchVal) + (row.editedEmployee ? ' <span class="edited">*</span>' : '');
           var _fuBadgeRaw = followUpBadge(row.flags, row.followUpMonth);
           if (_fuBadgeRaw && row.followUpNote) {
@@ -6224,6 +6228,7 @@ body.no-transitions * { transition: none !important; }
                 resetPoints +
                 '<button class="small secondary" type="button" data-action="duplicate" data-id="' + actionMenuId + '">Duplicate</button>' +
                 '<button class="small danger" type="button" data-action="delete" data-id="' + actionMenuId + '">Delete</button>' +
+                (row.type === 'future' ? '<button onclick="convertRecordToTimeOff(' + JSON.stringify(row.id) + ')" class="btn btn-sm" style="font-size:11px;background:rgba(139,92,246,0.12);color:#8b5cf6;border-color:rgba(139,92,246,0.3)" title="Create time-off request from this record">📅 → TO</button>' : '') +
               '</div>' +
             '</div>' +
             (function() {
@@ -6927,6 +6932,26 @@ body.no-transitions * { transition: none !important; }
 
       function saveTimeOff() {
         try { localStorage.setItem(TIMEOFF_KEY, JSON.stringify(timeOffRequests)); } catch (e) {}
+      }
+
+      function convertRecordToTimeOff(id) {
+        var r = rows.find(function(x){return x.id===id;});
+        if (!r) return;
+        showConfirm('Create a time-off request for ' + escapeHtml(r.name) + ' on ' + (r.dateText||r.dateIso) + '?', function() {
+          var newTo = {
+            id: createId(),
+            employeeName: r.name,
+            type: r.code || 'Time Off',
+            startDate: r.dateIso,
+            endDate: r.dateIso,
+            status: 'Pending',
+            notes: 'Created from record: ' + (r.code||'') + (r.reason ? ' — ' + r.reason : '')
+          };
+          timeOffRequests.push(newTo);
+          saveTimeOff();
+          showToast('Time-off request created for ' + r.name + '.');
+          render();
+        });
       }
 
       function calcDays(start, end) {
@@ -8245,6 +8270,29 @@ body.no-transitions * { transition: none !important; }
           toSummary.textContent = filtered.length + ' request' + (filtered.length !== 1 ? 's' : '') +
             (approvedDays ? ' · ' + approvedDays + ' approved day' + (approvedDays !== 1 ? 's' : '') : '') +
             (pendingCount ? ' · ' + pendingCount + ' pending' : '');
+        }
+        // Unmatched Future Request notice
+        var _futureRows = rows.filter(function(r) { return r.type === 'future'; });
+        var _unmatchedFuture = _futureRows.filter(function(r) {
+          return !timeOffRequests.some(function(t) {
+            return norm(t.employeeName) === norm(r.name) &&
+              t.startDate <= (r.dateIso || '') && t.endDate >= (r.dateIso || '');
+          });
+        });
+        var _frNotice = document.getElementById('futureRequestNotice');
+        if (!_frNotice && toEmpty && toEmpty.parentNode) {
+          _frNotice = document.createElement('div');
+          _frNotice.id = 'futureRequestNotice';
+          toEmpty.parentNode.insertBefore(_frNotice, toEmpty.nextSibling);
+        }
+        if (_frNotice) {
+          if (_unmatchedFuture.length > 0) {
+            _frNotice.innerHTML = '<div style="margin-top:12px;padding:8px 12px;background:rgba(245,158,11,0.08);border-radius:var(--radius);font-size:12px;color:var(--muted)"><strong>Tip:</strong> ' + _unmatchedFuture.length + ' record' + (_unmatchedFuture.length !== 1 ? 's' : '') + ' marked as "Future Request" have no corresponding time-off entry. <button onclick="setView(\'records\')" style="background:none;border:none;cursor:pointer;color:var(--accent);font-size:12px">View records →</button></div>';
+            _frNotice.style.display = '';
+          } else {
+            _frNotice.innerHTML = '';
+            _frNotice.style.display = 'none';
+          }
         }
       }
 
@@ -14461,9 +14509,70 @@ body.no-transitions * { transition: none !important; }
         }
       }
 
+      // ── Column Visibility (Records Table) ────────────────────────────────
+      var _recordColVis = {};
+      var RECORD_COL_VIS_KEY = 'attTracker_recordColVis';
+      var RECORD_COL_DEFS = [
+        { key: 'date', label: 'Date', default: true },
+        { key: 'name', label: 'Employee', default: true },
+        { key: 'code', label: 'Code', default: true },
+        { key: 'points', label: 'Points', default: true },
+        { key: 'type', label: 'Type/Status', default: true },
+        { key: 'source', label: 'Source', default: false },
+        { key: 'reason', label: 'Reason', default: false },
+        { key: 'dept', label: 'Department', default: false },
+        { key: 'shift', label: 'Shift', default: false },
+        { key: 'flags', label: 'Flags', default: true },
+        { key: 'actions', label: 'Actions', default: true },
+      ];
+      function loadRecordColVis() {
+        try {
+          var saved = JSON.parse(localStorage.getItem(RECORD_COL_VIS_KEY) || 'null');
+          RECORD_COL_DEFS.forEach(function(col) {
+            _recordColVis[col.key] = saved && saved[col.key] !== undefined ? saved[col.key] : col.default;
+          });
+        } catch(e) {
+          RECORD_COL_DEFS.forEach(function(col) { _recordColVis[col.key] = col.default; });
+        }
+      }
+      function saveRecordColVis() { localStorage.setItem(RECORD_COL_VIS_KEY, JSON.stringify(_recordColVis)); }
+      function openColVisPopover(anchorEl) {
+        var existing = document.getElementById('colVisPopover');
+        if (existing) { existing.remove(); return; }
+        var pop = document.createElement('div');
+        pop.id = 'colVisPopover';
+        pop.style.cssText = 'position:fixed;z-index:9999;background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:12px;box-shadow:0 4px 20px rgba(0,0,0,0.2);min-width:160px';
+        pop.innerHTML = '<div style="font-size:12px;font-weight:700;margin-bottom:8px">Visible Columns</div>' +
+          RECORD_COL_DEFS.filter(function(c){return c.key!=='actions';}).map(function(col) {
+            return '<label style="display:flex;align-items:center;gap:6px;font-size:12px;cursor:pointer;padding:3px 0">' +
+              '<input type="checkbox" ' + (_recordColVis[col.key]?'checked':'') + ' onchange="toggleRecordCol(\'' + col.key + '\',this.checked)">' +
+              escapeHtml(col.label) + '</label>';
+          }).join('');
+        var rect = anchorEl.getBoundingClientRect();
+        pop.style.top = (rect.bottom + 4) + 'px';
+        pop.style.left = rect.left + 'px';
+        document.body.appendChild(pop);
+        setTimeout(function() {
+          document.addEventListener('mousedown', function _c(e) { if(!pop.contains(e.target)&&e.target!==anchorEl){pop.remove();document.removeEventListener('mousedown',_c);} });
+        }, 0);
+      }
+      function toggleRecordCol(key, visible) {
+        _recordColVis[key] = visible;
+        saveRecordColVis();
+        applyRecordColVis();
+      }
+      function applyRecordColVis() {
+        RECORD_COL_DEFS.forEach(function(col) {
+          document.querySelectorAll('.rcol-' + col.key).forEach(function(el) {
+            el.style.display = _recordColVis[col.key] ? '' : 'none';
+          });
+        });
+      }
+
       // ── Init: load all persisted data ────────────────────────────────────
       document.body.setAttribute('data-print-date', new Date().toLocaleDateString());
       loadSettings();
+      loadRecordColVis();
       setupAutoBackup();
       appSettings.dashWidgets = appSettings.dashWidgets || {
         stats: true,
@@ -15588,6 +15697,12 @@ body.no-transitions * { transition: none !important; }
             fallbackCopyReport(text);
           }
         });
+      }
+
+      // ── Column Visibility Button ──────────────────────────────────────────
+      var _recordColBtn = document.getElementById('recordColBtn');
+      if (_recordColBtn) {
+        _recordColBtn.addEventListener('click', function() { openColVisPopover(_recordColBtn); });
       }
 
       // ── Copy Records TSV (Records view) ──────────────────────────────────
