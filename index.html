@@ -2606,6 +2606,7 @@ body.no-transitions * { transition: none !important; }
         </div>
         <div id="summaryCardsView" style="display:none"></div>
         <div id="summaryEmpty" class="empty"><div class="empty-state"><div class="empty-state-icon">📊</div><div class="empty-state-title">No summary data</div><div class="empty-state-body">Import attendance records to see the point summary by agent.</div></div></div>
+        <div id="sourceBreakdown" class="card" style="margin-top:12px"></div>
         <div style="display:flex;gap:16px;flex-wrap:wrap;margin-top:4px">
           <div class="card" style="flex:1;min-width:220px;margin-top:12px">
             <div style="font-weight:700;font-size:13px;margin-bottom:8px">&#x1F4CA; This Month &mdash; Top by Points</div>
@@ -2701,6 +2702,9 @@ body.no-transitions * { transition: none !important; }
             <option value="Inactive">Inactive</option>
             <option value="Terminated">Terminated</option>
           </select>
+          <label style="display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer">
+            <input type="checkbox" id="managersOnlyFilter"> Managers only
+          </label>
           <button class="secondary" type="button" id="syncEmployeesBtn" style="margin-top:auto" title="Add any attendance record names not already in the roster">Sync from Attendance</button>
           <button class="secondary" type="button" id="importEmployeesBtn" style="margin-top:auto">⬆ Import Roster</button>
           <input type="file" id="importEmployeesInput" accept=".csv,.xlsx,.xls" style="display:none">
@@ -5589,6 +5593,18 @@ body.no-transitions * { transition: none !important; }
         }
 
         if (typeof renderMultiEmpChips === 'function') renderMultiEmpChips();
+        renderSourceFileFilter();
+      }
+
+      function renderSourceFileFilter() {
+        var sel = document.getElementById('sourceFileFilter');
+        if (!sel) return;
+        var sources = new Set();
+        rows.forEach(function (r) { if (r.sourceFile) sources.add(r.sourceFile.split(/[/\\]/).pop()); });
+        var cur = sel.value;
+        sel.innerHTML = '<option value="">All Sources</option>' +
+          Array.from(sources).sort().map(function (s) { return '<option value="' + escapeHtml(s) + '"' + (s === cur ? ' selected' : '') + '>' + escapeHtml(s) + '</option>'; }).join('');
+        sel.value = sources.has(cur) ? cur : '';
       }
 
       function replaceOptions(select, emptyLabel, values, selectedValue) {
@@ -5912,6 +5928,8 @@ body.no-transitions * { transition: none !important; }
         if (shiftFilter) shiftFilter.addEventListener('change', function() { renderWithPageReset(); });
         var starredOnlyFilter = document.getElementById('starredOnlyFilter');
         if (starredOnlyFilter) starredOnlyFilter.addEventListener('change', function() { renderWithPageReset(); });
+        var sourceFileFilterEl = document.getElementById('sourceFileFilter');
+        if (sourceFileFilterEl) sourceFileFilterEl.addEventListener('change', function() { renderWithPageReset(); });
       })();
 
       function clearFilters() {
@@ -6377,6 +6395,7 @@ body.no-transitions * { transition: none !important; }
         renderDeptBreakdown();
         renderMonthlyBreakdown();
         renderShiftBreakdown();
+        renderSourceBreakdown();
         renderReasonBreakdown();
         renderClusterSummary();
         renderDeptRollup();
@@ -6517,6 +6536,56 @@ body.no-transitions * { transition: none !important; }
               '<span style="display:flex;align-items:center;gap:6px"><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:' + color + '"></span>' + escapeHtml(s) + '</span>' +
               '<span style="font-weight:600">' + shiftPts[s].toFixed(1) + ' pts</span></div>';
           }).join('');
+      }
+
+      function renderSourceBreakdown() {
+        var el = document.getElementById('sourceBreakdown');
+        if (!el) return;
+        var sourceCounts = {};
+        rows.forEach(function(r) {
+          var src = r.sourceFile ? r.sourceFile.split(/[/\\]/).pop() : 'Manual';
+          sourceCounts[src] = (sourceCounts[src]||0) + 1;
+        });
+        var sources = Object.keys(sourceCounts).sort(function(a,b) { return sourceCounts[b]-sourceCounts[a]; });
+        if (!sources.length || (sources.length === 1 && sources[0] === 'Manual')) { el.style.display='none'; return; }
+        el.style.display = '';
+        el.innerHTML = '<div style="font-size:13px;font-weight:700;margin-bottom:8px">&#x1F4C2; Records by Source File</div>' +
+          sources.slice(0,6).map(function(s) {
+            return '<div style="display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid var(--border);font-size:12px"><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:200px" title="' + escapeHtml(s) + '">' + escapeHtml(s) + '</span><span style="font-weight:600;margin-left:8px">' + sourceCounts[s] + '</span></div>';
+          }).join('');
+      }
+
+      function renderDeptRollup() {
+        var el = document.getElementById('deptRollup');
+        if (!el) return;
+        var depts = {};
+        employees.forEach(function(e) {
+          var dept = e.department || 'Unassigned';
+          if (!depts[dept]) depts[dept] = { manager: null, count: 0, pts: 0 };
+          depts[dept].count++;
+          if (e.isManager) depts[dept].manager = e.name;
+        });
+        var cutoff = new Date(); cutoff.setFullYear(cutoff.getFullYear()-1);
+        var cs = cutoff.toISOString().slice(0,10);
+        rows.forEach(function(r) {
+          if (!r.dateIso || r.dateIso < cs) return;
+          var emp = employees.find(function(e) { return norm(e.name||e)===norm(r.name); });
+          var dept = emp ? (emp.department || 'Unassigned') : 'Unassigned';
+          if (depts[dept]) depts[dept].pts = (depts[dept].pts||0) + (parseFloat(r.points)||0);
+        });
+        var deptKeys = Object.keys(depts).sort();
+        if (!deptKeys.length) { el.style.display = 'none'; return; }
+        el.style.display = '';
+        el.innerHTML = '<div style="font-size:13px;font-weight:700;margin-bottom:8px">🏢 Department Rollup</div>' +
+          '<table style="width:100%;border-collapse:collapse;font-size:12px">' +
+          '<tr style="background:var(--card2);color:var(--muted)"><th style="padding:4px 8px;text-align:left">Dept</th><th style="padding:4px 8px;text-align:left">Manager</th><th style="padding:4px 8px;text-align:right">Staff</th><th style="padding:4px 8px;text-align:right">Total Pts</th></tr>' +
+          deptKeys.map(function(dept) {
+            var d = depts[dept];
+            return '<tr style="border-bottom:1px solid var(--border)"><td style="padding:5px 8px;font-weight:600">' + escapeHtml(dept) + '</td>' +
+              '<td style="padding:5px 8px;color:var(--muted)">' + (d.manager ? escapeHtml(d.manager) : '<span style="opacity:0.4">—</span>') + '</td>' +
+              '<td style="padding:5px 8px;text-align:right">' + d.count + '</td>' +
+              '<td style="padding:5px 8px;text-align:right;font-weight:600">' + (d.pts||0).toFixed(1) + '</td></tr>';
+          }).join('') + '</table>';
       }
 
       function renderRecordCards() {
@@ -7938,9 +8007,10 @@ body.no-transitions * { transition: none !important; }
           var monthlyPts = getEmpMonthlyPtsCached(emp.name || emp, 6);
           var sparkSvg = renderSparklineSvg(monthlyPts, 48, 18);
           var sparkCell = '<td class="col-trend" style="white-space:nowrap" title="Points per month (last 6 months): ' + monthlyPts.map(function(v){return v.toFixed(1);}).join(', ') + '">' + sparkSvg + '</td>';
+          var managerBadge = emp.isManager ? ' <span style="font-size:10px;padding:1px 5px;border-radius:8px;background:rgba(59,130,246,0.12);color:#3b82f6;font-weight:600" title="Department Manager">MGR</span>' : '';
           return '<tr class="' + onLeaveClass.trim() + '">' +
             '<td><code class="editable-cell" data-emp-field="id" data-emp-id="' + escapeHtml(emp.id) + '" title="Click to edit ID">' + escapeHtml(emp.id || '—') + '</code></td>' +
-            '<td style="display:flex;align-items:center;gap:8px">' + avatar + '<span class="emp-name-link editable-cell" data-emp-field="name" data-emp-id="' + escapeHtml(emp.id) + '" title="Click to edit name" style="font-weight:650;cursor:pointer;text-decoration:underline;text-decoration-style:dotted;text-underline-offset:2px">' + escapeHtml(emp.name) + '</span>' + empRiskBadge(emp.name) + empPatternBadge(emp.name) + empPtsSummary(emp.name) + empNotesBadge(emp.name) + goalBadge + '</td>' +
+            '<td style="display:flex;align-items:center;gap:8px">' + avatar + '<span class="emp-name-link editable-cell" data-emp-field="name" data-emp-id="' + escapeHtml(emp.id) + '" title="Click to edit name" style="font-weight:650;cursor:pointer;text-decoration:underline;text-decoration-style:dotted;text-underline-offset:2px">' + escapeHtml(emp.name) + '</span>' + managerBadge + empRiskBadge(emp.name) + empPatternBadge(emp.name) + empPtsSummary(emp.name) + empNotesBadge(emp.name) + goalBadge + '</td>' +
             '<td><span class="editable-cell" data-emp-field="department" data-emp-id="' + escapeHtml(emp.id) + '" title="Click to edit">' + escapeHtml(emp.department || '—') + '</span></td>' +
             '<td><span class="editable-cell" data-emp-field="role" data-emp-id="' + escapeHtml(emp.id) + '" title="Click to edit">' + escapeHtml(emp.role || '—') + '</span></td>' +
             '<td>' + shiftHtml + '</td>' +
