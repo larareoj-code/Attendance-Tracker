@@ -2319,6 +2319,11 @@ body.no-transitions * { transition: none !important; }
             <option value="any">Any Flag</option>
           </select>
         </div>
+        <div style="display:flex;align-items:flex-end;padding-bottom:4px">
+          <label style="display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer">
+            <input type="checkbox" id="followUpOnlyFilter"> Follow-up only
+          </label>
+        </div>
         <div>
           <label>Pts</label>
           <div style="display:flex;align-items:center;gap:4px">
@@ -3019,6 +3024,10 @@ body.no-transitions * { transition: none !important; }
           <label for="occurrenceReason">Reason</label>
           <input id="occurrenceReason" type="text" autocomplete="off">
         </div>
+        <div style="grid-column: 1 / -1;">
+          <label for="occurrenceFollowUpNote">Follow-up Note</label>
+          <input id="occurrenceFollowUpNote" type="text" autocomplete="off" placeholder="Optional note about this flag…">
+        </div>
       </div>
       <div class="modal-actions">
         <button class="secondary" id="cancelOccurrenceBtn" type="button">Cancel</button>
@@ -3317,6 +3326,7 @@ body.no-transitions * { transition: none !important; }
         occurrenceFollowUpMonthGroup: document.getElementById('occurrenceFollowUpMonthGroup'),
         occurrenceCode: document.getElementById('occurrenceCode'),
         occurrenceReason: document.getElementById('occurrenceReason'),
+        occurrenceFollowUpNote: document.getElementById('occurrenceFollowUpNote'),
         occurrenceStartTime: document.getElementById('occurrenceStartTime'),
         occurrenceEndTime: document.getElementById('occurrenceEndTime'),
         occurrencePoints: document.getElementById('occurrencePoints'),
@@ -3900,6 +3910,27 @@ body.no-transitions * { transition: none !important; }
         }
 
         return removed;
+      }
+
+      function resolveFollowUp(id) {
+        var r = rows.find(function(x) { return x.id === id; });
+        if (!r) return;
+        var prevFlags = (r.flags || []).slice();
+        var prevFollowUp = r.followUp;
+        var prevFollowUpNote = r.followUpNote || '';
+        pushUndo('Resolve follow-up', (function(rid, pf, pfu, pfun) {
+          return function() {
+            var row = rows.find(function(x) { return x.id === rid; });
+            if (row) { row.flags = pf; row.followUp = pfu; row.followUpNote = pfun; }
+            saveData(); render();
+          };
+        })(id, prevFlags, prevFollowUp, prevFollowUpNote));
+        r.flags = [];
+        r.followUp = '';
+        r.followUpNote = '';
+        saveData();
+        render();
+        showToast('Follow-up resolved.');
       }
 
       function toggleStarRecord(id) {
@@ -5515,6 +5546,12 @@ body.no-transitions * { transition: none !important; }
           });
         }
 
+        // Follow-up only filter
+        var followUpOnlyEl = document.getElementById('followUpOnlyFilter');
+        if (followUpOnlyEl && followUpOnlyEl.checked) {
+          result = result.filter(function(r) { return r.flags && r.flags.length > 0; });
+        }
+
         return result;
       }
 
@@ -5962,6 +5999,8 @@ body.no-transitions * { transition: none !important; }
         if (searchNotesEl) searchNotesEl.checked = false;
         var starredOnlyEl = document.getElementById('starredOnlyFilter');
         if (starredOnlyEl) starredOnlyEl.checked = false;
+        var followUpOnlyEl = document.getElementById('followUpOnlyFilter');
+        if (followUpOnlyEl) followUpOnlyEl.checked = false;
         render();
       }
 
@@ -6114,7 +6153,14 @@ body.no-transitions * { transition: none !important; }
           var ptColor = pts > 0 ? 'color:#fca5a5;font-weight:700' : pts < 0 ? 'color:#6ee7b7;font-weight:700' : '';
           var pointText = '<span style="' + ptColor + '">' + escapeHtml(formatPoints(row.points)) + '</span>' + (row.editedPoints ? '<span class="edited">*</span>' : '');
           var nameText = highlightMatch(row.name, nameSearchVal) + (row.editedEmployee ? ' <span class="edited">*</span>' : '');
-          var followUpText = followUpBadge(row.flags, row.followUpMonth) || '<span class="muted">None</span>';
+          var _fuBadgeRaw = followUpBadge(row.flags, row.followUpMonth);
+          if (_fuBadgeRaw && row.followUpNote) {
+            _fuBadgeRaw = _fuBadgeRaw.replace(/^<span /, '<span title="' + escapeHtml(row.followUpNote) + '" ');
+          }
+          var followUpText = _fuBadgeRaw || '<span class="muted">None</span>';
+          if (_fuBadgeRaw) {
+            followUpText += ' <button type="button" onclick="resolveFollowUp(' + JSON.stringify(row.id) + ')" title="Mark follow-up resolved" style="font-size:11px;padding:1px 5px;border-radius:8px;border:1px solid var(--border);background:transparent;cursor:pointer;color:var(--green,#6ee7b7)">✓</button>';
+          }
           if (row.bucketApplied) followUpText += ' <span class="badge bucket">Bucket</span>';
           // Pattern detection badge
           if (!row._patternsChecked) {
@@ -9307,6 +9353,7 @@ body.no-transitions * { transition: none !important; }
         var occDelta = getStatDelta(occ.length, priorOcc.length);
         var ptsDelta = getStatDelta(totalPts, priorPts);
 
+        var followUpCount = rows.filter(function(r) { return r.flags && r.flags.length > 0; }).length;
         var stats = [
           { label: 'Total Records', value: dashRows.length, rawValue: dashRows.length, color: 'var(--yellow)' },
           { label: 'Occurrences', value: occ.length, rawValue: occ.length, color: 'var(--danger)', delta: occDelta },
@@ -9314,6 +9361,7 @@ body.no-transitions * { transition: none !important; }
           { label: 'High Risk ≥' + _sevHighStat + ' pts', value: highRisk, rawValue: highRisk, color: 'var(--danger)' },
           { label: 'Pending Time Off', value: pendingTO, rawValue: pendingTO, color: '#c084fc' },
           { label: 'Total Points', value: totalPts % 1 === 0 ? totalPts : totalPts.toFixed(1), rawValue: totalPts, color: 'var(--yellow)', delta: ptsDelta },
+          { label: 'Open Follow-ups', value: followUpCount, rawValue: followUpCount, color: '#fb923c' },
         ];
         el.innerHTML = stats.map(function(s) {
           return '<div class="dash-stat"><div class="dash-stat-label">'+escapeHtml(s.label)+'</div><div class="dash-stat-value" data-target="'+s.rawValue+'" style="color:'+s.color+'">0</div>' + (s.delta || '') + '</div>';
@@ -9881,6 +9929,31 @@ body.no-transitions * { transition: none !important; }
       }
       // ── End Dashboard ──────────────────────────────────────────────────────
 
+      function calcGiveBack(empName) {
+        var giveBackDays = parseInt(appSettings.giveBackDays) || 0;
+        var giveBackAmt = parseFloat(appSettings.giveBackAmt) || 1;
+        if (!giveBackDays) return 0;
+        var empRows = rows.filter(function(r) { return norm(r.name) === norm(empName) && r.dateIso; })
+          .sort(function(a, b) { return a.dateIso.localeCompare(b.dateIso); });
+        if (!empRows.length) return 0;
+        var totalGiveBack = 0;
+        var lastOccDate = null;
+        var today = new Date().toISOString().slice(0, 10);
+        empRows.forEach(function(r) {
+          if (lastOccDate) {
+            var daysSince = Math.floor((new Date(r.dateIso) - new Date(lastOccDate)) / 86400000);
+            var periods = Math.floor(daysSince / giveBackDays);
+            totalGiveBack += periods * giveBackAmt;
+          }
+          lastOccDate = r.dateIso;
+        });
+        if (lastOccDate) {
+          var daysSinceLast = Math.floor((new Date(today) - new Date(lastOccDate)) / 86400000);
+          totalGiveBack += Math.floor(daysSinceLast / giveBackDays) * giveBackAmt;
+        }
+        return Math.max(0, Math.round(totalGiveBack * 10) / 10);
+      }
+
       function calcEmployeeStanding(empName) {
         var highT = parseFloat(appSettings.highThresh) || 8;
         var warnT = parseFloat(appSettings.warnThresh) || 4;
@@ -9894,6 +9967,8 @@ body.no-transitions * { transition: none !important; }
             pts += parseFloat(r.points) || 0;
           }
         });
+        var gb = calcGiveBack(empName);
+        pts = Math.max(0, pts - gb);
         if (pts >= highT) return { standing: 'Termination', pts: pts, color: '#ef4444' };
         if (pts >= warnT) return { standing: 'Warning', pts: pts, color: '#f59e0b' };
         return { standing: 'Good', pts: pts, color: '#22c55e' };
@@ -10565,6 +10640,7 @@ body.no-transitions * { transition: none !important; }
         els.occurrenceStatus.value = row.type || 'past';
         setSelectedFlags(els.occurrenceFlagInputs, row.flags || row.followUp);
         els.occurrenceFollowUpMonth.value = row.followUpMonth || '';
+        if (els.occurrenceFollowUpNote) els.occurrenceFollowUpNote.value = row.followUpNote || '';
         updateOccurrenceFlagControls();
         els.occurrenceCode.value = row.code || '';
         els.occurrenceReason.value = row.reason || '';
@@ -10583,6 +10659,7 @@ body.no-transitions * { transition: none !important; }
         els.occurrenceFollowUpMonthGroup.classList.add('hidden');
         els.occurrenceFollowUpMonth.required = false;
         els.occurrenceFollowUpMonth.value = '';
+        if (els.occurrenceFollowUpNote) els.occurrenceFollowUpNote.value = '';
       }
 
       function updateOccurrenceFlagControls() {
@@ -10651,6 +10728,7 @@ body.no-transitions * { transition: none !important; }
         row.flags = flags;
         row.followUp = flags[0] || '';
         row.followUpMonth = followUpMonth;
+        row.followUpNote = els.occurrenceFollowUpNote ? toText(els.occurrenceFollowUpNote.value) : (row.followUpNote || '');
         row.type = resolveType(row);
 
         var reopenName = row.name;
@@ -12743,6 +12821,8 @@ body.no-transitions * { transition: none !important; }
       els.codeFilter.addEventListener('change', renderWithPageReset);
       els.typeFilter.addEventListener('change', renderWithPageReset);
       els.followUpFilter.addEventListener('change', renderWithPageReset);
+      var followUpOnlyChk = document.getElementById('followUpOnlyFilter');
+      if (followUpOnlyChk) followUpOnlyChk.addEventListener('change', renderWithPageReset);
       document.getElementById('dateFromFilter').addEventListener('change', renderWithPageReset);
       document.getElementById('dateToFilter').addEventListener('change', renderWithPageReset);
 
@@ -13777,6 +13857,10 @@ body.no-transitions * { transition: none !important; }
         if (wtEl) wtEl.value = appSettings.warnThresh !== undefined ? appSettings.warnThresh : 4;
         var htEl = document.getElementById('settingHighThresh');
         if (htEl) htEl.value = appSettings.highThresh !== undefined ? appSettings.highThresh : 8;
+        var gbDaysLoadEl = document.getElementById('settingGiveBackDays');
+        if (gbDaysLoadEl) gbDaysLoadEl.value = String(appSettings.giveBackDays !== undefined ? appSettings.giveBackDays : 0);
+        var gbAmtLoadEl = document.getElementById('settingGiveBackAmt');
+        if (gbAmtLoadEl) gbAmtLoadEl.value = String(appSettings.giveBackAmt !== undefined ? appSettings.giveBackAmt : 1);
         var wKeys = ['Stats','StreakLeaderboard','AtRisk','MonthlyChart','DeptChart','Anniversary'];
         wKeys.forEach(function(k) {
           var el = document.getElementById('widget' + k);
@@ -13949,6 +14033,10 @@ body.no-transitions * { transition: none !important; }
           if (!isNaN(sevMidVal) && sevMidVal >= 0) appSettings.severityMid = sevMidVal;
           if (document.getElementById('settingWarnThresh')) appSettings.warnThresh = parseFloat(document.getElementById('settingWarnThresh').value) || appSettings.warnThresh || 4;
           if (document.getElementById('settingHighThresh')) appSettings.highThresh = parseFloat(document.getElementById('settingHighThresh').value) || appSettings.highThresh || 8;
+          var gbDaysEl = document.getElementById('settingGiveBackDays');
+          if (gbDaysEl) appSettings.giveBackDays = parseInt(gbDaysEl.value, 10) || 0;
+          var gbAmtEl = document.getElementById('settingGiveBackAmt');
+          if (gbAmtEl) appSettings.giveBackAmt = parseFloat(gbAmtEl.value) || 1;
           var acToggle = document.getElementById('autoConsequencesToggle');
           if (acToggle) appSettings.autoConsequences = acToggle.checked;
           var dtsEl = document.getElementById('defaultTabSetting');
@@ -15781,6 +15869,23 @@ body.no-transitions * { transition: none !important; }
             <label for="settingHighThresh">Termination threshold (pts)</label>
             <input type="number" id="settingHighThresh" min="0" step="0.5" style="width:100%">
           </div>
+        </div>
+      </div>
+
+      <div style="border-top:1px solid var(--border);margin-top:16px;padding-top:16px">
+        <div style="font-size:13px;font-weight:700;margin-bottom:10px">🔄 Clean Period (Give-Back)</div>
+        <div class="form-group">
+          <label for="settingGiveBackDays">Clean period (give-back) days</label>
+          <select id="settingGiveBackDays" style="width:100%">
+            <option value="0">Disabled</option>
+            <option value="30">30 days clean → remove 1 point</option>
+            <option value="60">60 days clean → remove 1 point</option>
+            <option value="90">90 days clean → remove 1 point</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label for="settingGiveBackAmt">Points removed per clean period</label>
+          <input type="number" id="settingGiveBackAmt" min="0.5" max="3" step="0.5" style="width:100%" value="1">
         </div>
       </div>
 
