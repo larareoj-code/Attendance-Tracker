@@ -2615,6 +2615,7 @@ body.no-transitions * { transition: none !important; }
           <div id="monthlyBreakdown"></div>
         </div>
         <div id="shiftBreakdown" class="card" style="margin-top:12px;display:none"></div>
+        <div id="clusterSummarySection" class="card" style="margin-top:12px"><div style="font-size:13px;font-weight:700;margin-bottom:8px">🔗 Occurrence Clusters (7-day windows)</div><div id="clusterSummaryList"></div></div>
       </div>
 
       <div id="bucketView" class="hidden" role="tabpanel" aria-labelledby="bucketTab">
@@ -2650,6 +2651,10 @@ body.no-transitions * { transition: none !important; }
             <div><label for="empId">Employee ID</label><input id="empId" type="text" autocomplete="off" placeholder="E001"></div>
             <div><label for="empName">Full Name</label><input id="empName" type="text" autocomplete="off" required></div>
             <div><label for="empDept">Department</label><input id="empDept" type="text" autocomplete="off" list="empDeptList"><datalist id="empDeptList"></datalist></div>
+            <div class="form-group" style="display:flex;align-items:center;gap:8px;padding-top:20px">
+              <input type="checkbox" id="empIsManager" style="width:16px;height:16px">
+              <label for="empIsManager" style="font-size:13px;font-weight:500;cursor:pointer">Department Manager</label>
+            </div>
             <div><label for="empRole">Role</label><input id="empRole" type="text" autocomplete="off" list="empRoleList"><datalist id="empRoleList"></datalist></div>
             <div><label for="empStatus">Status</label><select id="empStatus"><option value="Active">Active</option><option value="On Leave">On Leave</option><option value="Inactive">Inactive</option><option value="Terminated">Terminated</option></select></div>
             <div><label for="empStanding" style="display:block;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--muted);margin-bottom:5px">Standing</label><select id="empStanding" style="width:100%"><option value="good">Good Standing</option><option value="watchlist">Watch List</option><option value="warning">Final Warning</option><option value="onleave">On Leave</option></select></div>
@@ -6945,6 +6950,48 @@ body.no-transitions * { transition: none !important; }
         return { current: current, longest: longest };
       }
 
+      function renderEmpMiniCalendar(empName, year, month) {
+        var firstDay = new Date(year, month, 1);
+        var startWeekday = firstDay.getDay();
+        var daysInMonth = new Date(year, month + 1, 0).getDate();
+        var empRows = rows.filter(function(r) { return norm(r.name) === norm(empName) && r.dateIso; });
+        var datesWithOccurrence = {};
+        empRows.forEach(function(r) {
+          var d = new Date(r.dateIso + 'T12:00:00');
+          if (d.getFullYear() === year && d.getMonth() === month) {
+            datesWithOccurrence[d.getDate()] = (datesWithOccurrence[d.getDate()] || 0) + 1;
+          }
+        });
+        var cells = [];
+        for (var i = 0; i < startWeekday; i++) cells.push('<div></div>');
+        for (var day = 1; day <= daysInMonth; day++) {
+          var count = datesWithOccurrence[day];
+          var style = count ? 'background:var(--accent);color:#fff;font-weight:700;border-radius:4px' : 'color:var(--muted)';
+          cells.push('<div style="' + style + ';text-align:center;font-size:11px;padding:3px 0" title="' + (count ? count + ' occurrence(s)' : '') + '">' + day + '</div>');
+        }
+        var monthLabel = firstDay.toLocaleString('default', { month: 'long', year: 'numeric' });
+        return '<div style="margin-top:12px">' +
+          '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">' +
+            '<button onclick="_empCalNav(-1)" style="background:none;border:1px solid var(--border);border-radius:4px;cursor:pointer;padding:2px 8px">‹</button>' +
+            '<span style="font-size:12px;font-weight:600">' + monthLabel + '</span>' +
+            '<button onclick="_empCalNav(1)" style="background:none;border:1px solid var(--border);border-radius:4px;cursor:pointer;padding:2px 8px">›</button>' +
+          '</div>' +
+          '<div style="display:grid;grid-template-columns:repeat(7,1fr);gap:2px;font-size:10px;color:var(--muted);margin-bottom:2px">' +
+            ['S','M','T','W','T','F','S'].map(function(d){return '<div style="text-align:center">'+d+'</div>';}).join('') +
+          '</div>' +
+          '<div style="display:grid;grid-template-columns:repeat(7,1fr);gap:2px">' + cells.join('') + '</div>' +
+        '</div>';
+      }
+
+      var _empCalYear, _empCalMonth, _empCalName;
+      function _empCalNav(delta) {
+        _empCalMonth += delta;
+        if (_empCalMonth < 0) { _empCalMonth = 11; _empCalYear--; }
+        if (_empCalMonth > 11) { _empCalMonth = 0; _empCalYear++; }
+        var el = document.getElementById('empMiniCalendar');
+        if (el) el.innerHTML = renderEmpMiniCalendar(_empCalName, _empCalYear, _empCalMonth);
+      }
+
       function openEmpProfile(name) {
         var emp = employees.find(function(e) { return norm(e.name) === norm(name); }) || { name: name };
         var empRows = rows.filter(function(r) { return norm(r.name) === norm(name); })
@@ -7170,6 +7217,15 @@ body.no-transitions * { transition: none !important; }
 
         var profilePrintBtn = document.getElementById('empProfilePrintBtn');
         if (profilePrintBtn) profilePrintBtn._empName = name;
+
+        var miniCalEl = document.getElementById('empMiniCalendar');
+        if (miniCalEl) {
+          _empCalName = name;
+          var _now = new Date();
+          _empCalYear = _now.getFullYear();
+          _empCalMonth = _now.getMonth();
+          miniCalEl.innerHTML = renderEmpMiniCalendar(name, _empCalYear, _empCalMonth);
+        }
 
         var empModal = document.getElementById('empProfileModal');
         empModal.classList.remove('hidden');
@@ -7974,12 +8030,14 @@ body.no-transitions * { transition: none !important; }
             hireDate: (document.getElementById('empHireDate')||{value:''}).value || '',
             shift: document.getElementById('empShift') ? document.getElementById('empShift').value : '',
             notes: (document.getElementById('empNotes')||{value:''}).value.trim(),
-            goal: parseFloat(document.getElementById('empGoal') ? document.getElementById('empGoal').value : '') || 0
+            goal: parseFloat(document.getElementById('empGoal') ? document.getElementById('empGoal').value : '') || 0,
+            isManager: document.getElementById('empIsManager') ? document.getElementById('empIsManager').checked : false
           });
           saveEmployees();
           document.getElementById('addEmployeeForm').reset();
           if(document.getElementById('empNotes')) document.getElementById('empNotes').value = '';
           if(document.getElementById('empGoal')) document.getElementById('empGoal').value = '';
+          if(document.getElementById('empIsManager')) document.getElementById('empIsManager').checked = false;
           renderEmployees();
           var empSummary = document.getElementById('empSummary');
           if (empSummary) { empSummary.textContent = name + ' added.'; setTimeout(function () { renderEmployees(); }, 2500); }
@@ -15603,6 +15661,7 @@ body.no-transitions * { transition: none !important; }
     <div style="margin-bottom:16px">
       <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--muted);margin-bottom:8px">Recent Attendance</div>
       <div id="empProfileHistory" style="max-height:220px;overflow-y:auto"></div>
+      <div id="empMiniCalendar"></div>
     </div>
     <div style="margin-top:20px;margin-bottom:20px">
       <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--muted);margin-bottom:10px">6-Month Points Trend</div>
