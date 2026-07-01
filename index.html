@@ -6204,7 +6204,7 @@ body.no-transitions * { transition: none !important; }
           return '<tr' + (trClass ? ' class="' + trClass + '"' : '') + severityAttr + titleAttr + ' data-row-id="' + escapeHtml(row.id) + '">' +
             '<td style="width:36px;padding:0 8px"><input type="checkbox" class="row-check" data-id="' + row.id + '"' + (selectedIds.has(row.id) ? ' checked' : '') + '></td>' +
             '<td>' + nameButton + '</td>' +
-            '<td>' + escapeHtml(row.dateText || formatDate(row.date)) + '</td>' +
+            '<td>' + escapeHtml(row.dateText || formatDate(row.date)) + newBadge + '</td>' +
             '<td><span class="badge ' + escapeHtml(statusBadgeClass(row.type)) + '">' + escapeHtml(statusLabel(row.type)) + '</span></td>' +
             '<td>' + followUpText + '</td>' +
             '<td>' + highlightMatch(row.code, nameSearchVal) + '</td>' +
