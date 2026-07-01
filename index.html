@@ -6,7 +6,7 @@
   <title>Attendance Tracker</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Sora:wght@600;700;800&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Sora:wght@600;700;800&display=swap" rel="stylesheet">
   <style>
     :root {
       --blue: #4a90d9;
@@ -2642,6 +2642,7 @@ body.no-transitions * { transition: none !important; }
         <div id="reasonBreakdown" class="card" style="margin-top:12px"></div>
         <div id="clusterSummarySection" class="card" style="margin-top:12px"><div style="font-size:13px;font-weight:700;margin-bottom:8px">🔗 Occurrence Clusters (7-day windows)</div><div id="clusterSummaryList"></div></div>
         <div id="deptRollup" class="card" style="margin-top:12px"></div>
+        <div id="tagCloud" class="card" style="margin-top:12px"></div>
       </div>
 
       <div id="bucketView" class="hidden" role="tabpanel" aria-labelledby="bucketTab">
@@ -2677,6 +2678,10 @@ body.no-transitions * { transition: none !important; }
             <div><label for="empId">Employee ID</label><input id="empId" type="text" autocomplete="off" placeholder="E001"></div>
             <div><label for="empName">Full Name</label><input id="empName" type="text" autocomplete="off" required></div>
             <div><label for="empDept">Department</label><input id="empDept" type="text" autocomplete="off" list="empDeptList"><datalist id="empDeptList"></datalist></div>
+            <div class="form-group">
+              <label for="empTags">Tags (comma-separated)</label>
+              <input type="text" id="empTags" style="width:100%" placeholder="e.g. remote, union, part-time">
+            </div>
             <div class="form-group" style="display:flex;align-items:center;gap:8px;padding-top:20px">
               <input type="checkbox" id="empIsManager" style="width:16px;height:16px">
               <label for="empIsManager" style="font-size:13px;font-weight:500;cursor:pointer">Department Manager</label>
@@ -2712,6 +2717,7 @@ body.no-transitions * { transition: none !important; }
             <label for="employeeSearch">Search</label>
             <input id="employeeSearch" type="search" placeholder="Name, ID, department, or role" style="max-width:220px">
           </div>
+          <input type="text" id="empTagFilter" placeholder="Filter by tag..." style="font-size:12px;padding:4px 8px;background:var(--card2);border:1px solid var(--border);border-radius:var(--radius);color:var(--text);width:160px">
           <select id="empStatusFilter" style="max-width:140px">
             <option value="">All Statuses</option>
             <option value="Active">Active</option>
@@ -6465,6 +6471,7 @@ body.no-transitions * { transition: none !important; }
         renderReasonBreakdown();
         renderClusterSummary();
         renderDeptRollup();
+        renderTagCloud();
 
         // Update print header with current report metadata
         var printHeader = document.getElementById('printHeader');
@@ -6482,6 +6489,21 @@ body.no-transitions * { transition: none !important; }
               '</div>' +
             '</div>';
         }
+      }
+
+      function renderTagCloud() {
+        var el = document.getElementById('tagCloud');
+        if (!el) return;
+        var tagCounts = {};
+        employees.forEach(function(e) { (e.tags||[]).forEach(function(t){ tagCounts[t]=(tagCounts[t]||0)+1; }); });
+        var tags = Object.keys(tagCounts).sort(function(a,b){return tagCounts[b]-tagCounts[a];});
+        if (!tags.length) { el.style.display='none'; return; }
+        el.style.display='';
+        el.innerHTML = '<div style="font-size:13px;font-weight:700;margin-bottom:8px">🏷 Employee Tags</div>' +
+          '<div style="display:flex;flex-wrap:wrap;gap:6px">' +
+          tags.map(function(t){
+            return '<span style="font-size:12px;padding:3px 10px;border-radius:12px;background:rgba(99,102,241,0.1);color:#6366f1;cursor:pointer" onclick="setView(\'employees\');setTimeout(function(){setTagFilter(\'' + t.replace(/'/g,"\\'") + '\');},50)" title="' + tagCounts[t] + ' employee(s)">' + escapeHtml(t) + ' <span style="opacity:0.6">' + tagCounts[t] + '</span></span>';
+          }).join('') + '</div>';
       }
 
       function renderMonthlyBreakdown() {
@@ -8089,6 +8111,8 @@ body.no-transitions * { transition: none !important; }
         return _sparkCache[cKey];
       }
 
+      function setTagFilter(tag){ var el=document.getElementById('empTagFilter'); if(el){el.value=tag; renderEmployees();} }
+
       function renderEmployees() {
         syncEmployeeStandings();
         var empBody = document.getElementById('employeesBody');
@@ -8098,9 +8122,11 @@ body.no-transitions * { transition: none !important; }
         var query = norm(document.getElementById('employeeSearch').value);
         var statusFilter = ((document.getElementById('empStatusFilter') || {}).value || '');
         var managersOnly = document.getElementById('managersOnlyFilter') && document.getElementById('managersOnlyFilter').checked;
+        var tagFilter = document.getElementById('empTagFilter') ? document.getElementById('empTagFilter').value.trim().toLowerCase() : '';
         var filtered = employees.filter(function (e) {
           if (statusFilter && e.status !== statusFilter) return false;
           if (managersOnly && !e.isManager) return false;
+          if (tagFilter && !(e.tags || []).some(function(t){return t.includes(tagFilter);})) return false;
           return !query || norm([e.id, e.name, e.department, e.role].join(' ')).indexOf(query) !== -1;
         });
         var EMP_SORT_IDS = { name: 'empSortName', department: 'empSortDept', role: 'empSortRole', status: 'empSortStatus', records: 'empSortRecords', lastdate: 'empSortLastdate' };
@@ -8160,9 +8186,12 @@ body.no-transitions * { transition: none !important; }
           var sparkSvg = renderSparklineSvg(monthlyPts, 48, 18);
           var sparkCell = '<td class="col-trend" style="white-space:nowrap" title="Points per month (last 6 months): ' + monthlyPts.map(function(v){return v.toFixed(1);}).join(', ') + '">' + sparkSvg + '</td>';
           var managerBadge = emp.isManager ? ' <span style="font-size:10px;padding:1px 5px;border-radius:8px;background:rgba(59,130,246,0.12);color:#3b82f6;font-weight:600" title="Department Manager">MGR</span>' : '';
+          var tagBadges = (emp.tags || []).map(function(tag) {
+            return '<span style="font-size:9px;padding:1px 5px;border-radius:8px;background:rgba(99,102,241,0.12);color:#6366f1;margin-left:3px;cursor:pointer" onclick="setTagFilter(' + JSON.stringify(tag) + ')" title="Filter by ' + escapeHtml(tag) + '">' + escapeHtml(tag) + '</span>';
+          }).join('');
           return '<tr class="' + onLeaveClass.trim() + '">' +
             '<td><code class="editable-cell" data-emp-field="id" data-emp-id="' + escapeHtml(emp.id) + '" title="Click to edit ID">' + escapeHtml(emp.id || '—') + '</code></td>' +
-            '<td style="display:flex;align-items:center;gap:8px">' + avatar + '<span class="emp-name-link editable-cell" data-emp-field="name" data-emp-id="' + escapeHtml(emp.id) + '" title="Click to edit name" style="font-weight:650;cursor:pointer;text-decoration:underline;text-decoration-style:dotted;text-underline-offset:2px">' + escapeHtml(emp.name) + '</span>' + managerBadge + empRiskBadge(emp.name) + empPatternBadge(emp.name) + empPtsSummary(emp.name) + empNotesBadge(emp.name) + goalBadge + '</td>' +
+            '<td style="display:flex;align-items:center;gap:8px">' + avatar + '<span class="emp-name-link editable-cell" data-emp-field="name" data-emp-id="' + escapeHtml(emp.id) + '" title="Click to edit name" style="font-weight:650;cursor:pointer;text-decoration:underline;text-decoration-style:dotted;text-underline-offset:2px">' + escapeHtml(emp.name) + '</span>' + managerBadge + empRiskBadge(emp.name) + empPatternBadge(emp.name) + empPtsSummary(emp.name) + empNotesBadge(emp.name) + goalBadge + tagBadges + '</td>' +
             '<td><span class="editable-cell" data-emp-field="department" data-emp-id="' + escapeHtml(emp.id) + '" title="Click to edit">' + escapeHtml(emp.department || '—') + '</span></td>' +
             '<td><span class="editable-cell" data-emp-field="role" data-emp-id="' + escapeHtml(emp.id) + '" title="Click to edit">' + escapeHtml(emp.role || '—') + '</span></td>' +
             '<td>' + shiftHtml + '</td>' +
@@ -8318,13 +8347,15 @@ body.no-transitions * { transition: none !important; }
             shift: document.getElementById('empShift') ? document.getElementById('empShift').value : '',
             notes: (document.getElementById('empNotes')||{value:''}).value.trim(),
             goal: parseFloat(document.getElementById('empGoal') ? document.getElementById('empGoal').value : '') || 0,
-            isManager: document.getElementById('empIsManager') ? document.getElementById('empIsManager').checked : false
+            isManager: document.getElementById('empIsManager') ? document.getElementById('empIsManager').checked : false,
+            tags: (document.getElementById('empTags') ? document.getElementById('empTags').value : '').split(',').map(function(t){return t.trim().toLowerCase();}).filter(Boolean)
           });
           saveEmployees();
           document.getElementById('addEmployeeForm').reset();
           if(document.getElementById('empNotes')) document.getElementById('empNotes').value = '';
           if(document.getElementById('empGoal')) document.getElementById('empGoal').value = '';
           if(document.getElementById('empIsManager')) document.getElementById('empIsManager').checked = false;
+          if(document.getElementById('empTags')) document.getElementById('empTags').value = '';
           renderEmployees();
           var empSummary = document.getElementById('empSummary');
           if (empSummary) { empSummary.textContent = name + ' added.'; setTimeout(function () { renderEmployees(); }, 2500); }
@@ -13668,6 +13699,7 @@ body.no-transitions * { transition: none !important; }
       document.getElementById('employeeSearch').addEventListener('input', renderEmployees);
       document.getElementById('empStatusFilter').addEventListener('change', renderEmployees);
       document.getElementById('managersOnlyFilter').addEventListener('change', renderEmployees);
+      (function() { var _empTagFilterTimer; document.getElementById('empTagFilter').addEventListener('input', function(){ clearTimeout(_empTagFilterTimer); _empTagFilterTimer = setTimeout(renderEmployees, 150); }); })();
       document.getElementById('syncEmployeesBtn').addEventListener('click', syncEmployeesFromAttendance);
 
       // Employee profile modal close
