@@ -2615,7 +2615,9 @@ body.no-transitions * { transition: none !important; }
           <div id="monthlyBreakdown"></div>
         </div>
         <div id="shiftBreakdown" class="card" style="margin-top:12px;display:none"></div>
+        <div id="reasonBreakdown" class="card" style="margin-top:12px"></div>
         <div id="clusterSummarySection" class="card" style="margin-top:12px"><div style="font-size:13px;font-weight:700;margin-bottom:8px">🔗 Occurrence Clusters (7-day windows)</div><div id="clusterSummaryList"></div></div>
+        <div id="deptRollup" class="card" style="margin-top:12px"></div>
       </div>
 
       <div id="bucketView" class="hidden" role="tabpanel" aria-labelledby="bucketTab">
@@ -2659,6 +2661,10 @@ body.no-transitions * { transition: none !important; }
             <div><label for="empStatus">Status</label><select id="empStatus"><option value="Active">Active</option><option value="On Leave">On Leave</option><option value="Inactive">Inactive</option><option value="Terminated">Terminated</option></select></div>
             <div><label for="empStanding" style="display:block;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--muted);margin-bottom:5px">Standing</label><select id="empStanding" style="width:100%"><option value="good">Good Standing</option><option value="watchlist">Watch List</option><option value="warning">Final Warning</option><option value="onleave">On Leave</option></select></div>
             <div><label for="empHireDate" style="display:block;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--muted);margin-bottom:5px">Hire Date</label><input type="date" id="empHireDate" style="width:100%"></div>
+            <div class="form-group">
+              <label for="empBirthDate">Birthday (optional)</label>
+              <input type="date" id="empBirthDate" style="width:100%">
+            </div>
             <div class="form-group">
               <label for="empShift">Shift</label>
               <select id="empShift" style="width:100%">
@@ -6353,7 +6359,9 @@ body.no-transitions * { transition: none !important; }
         renderDeptBreakdown();
         renderMonthlyBreakdown();
         renderShiftBreakdown();
+        renderReasonBreakdown();
         renderClusterSummary();
+        renderDeptRollup();
 
         // Update print header with current report metadata
         var printHeader = document.getElementById('printHeader');
@@ -6883,6 +6891,21 @@ body.no-transitions * { transition: none !important; }
           }
         });
         return results.sort(function(a, b) { return a.daysUntil - b.daysUntil; });
+      }
+
+      function getUpcomingBirthdays(daysAhead) {
+        daysAhead = daysAhead || 14;
+        var today = new Date(); today.setHours(0,0,0,0);
+        var results = [];
+        employees.forEach(function(e) {
+          if (!e.birthDate) return;
+          var bd = new Date(e.birthDate + 'T12:00:00');
+          var next = new Date(today.getFullYear(), bd.getMonth(), bd.getDate());
+          if (next < today) next.setFullYear(next.getFullYear() + 1);
+          var diff = Math.round((next - today) / 86400000);
+          if (diff <= daysAhead) results.push({ name: e.name, date: next.toISOString().slice(0,10), daysAway: diff, age: today.getFullYear() - bd.getFullYear() });
+        });
+        return results.sort(function(a,b) { return a.daysAway - b.daysAway; });
       }
 
       // ── Streak cache ──────────────────────────────────────────────────────
@@ -8028,6 +8051,7 @@ body.no-transitions * { transition: none !important; }
             status: document.getElementById('empStatus').value,
             standing: (document.getElementById('empStanding')||{value:'good'}).value || 'good',
             hireDate: (document.getElementById('empHireDate')||{value:''}).value || '',
+            birthDate: document.getElementById('empBirthDate') ? document.getElementById('empBirthDate').value : '',
             shift: document.getElementById('empShift') ? document.getElementById('empShift').value : '',
             notes: (document.getElementById('empNotes')||{value:''}).value.trim(),
             goal: parseFloat(document.getElementById('empGoal') ? document.getElementById('empGoal').value : '') || 0,
@@ -9140,16 +9164,35 @@ body.no-transitions * { transition: none !important; }
         var list = document.getElementById('anniversaryList');
         if (!panel || !list) return;
         var upcoming = getUpcomingAnniversaries(30);
-        if (upcoming.length === 0) { panel.style.display = 'none'; return; }
+        var birthdays = getUpcomingBirthdays(14);
+        if (upcoming.length === 0 && birthdays.length === 0) { panel.style.display = 'none'; return; }
         panel.style.display = '';
         list.innerHTML = upcoming.map(function(a) {
           var label = a.daysUntil === 0 ? 'Today! 🎉' : a.daysUntil === 1 ? 'Tomorrow' : 'In ' + a.daysUntil + ' days';
           var milestoneIcon = a.years >= 10 ? '🏆' : a.years >= 5 ? '⭐' : '🎂';
+          var yearsCompleted = a.years;
+          var milestoneLabel = '';
+          if (yearsCompleted === 1) milestoneLabel = '🎯 1st Year';
+          else if (yearsCompleted === 3) milestoneLabel = '⭐ 3 Years';
+          else if (yearsCompleted === 5) milestoneLabel = '🏆 5 Years';
+          else if (yearsCompleted === 10) milestoneLabel = '💎 10 Years';
+          else if (yearsCompleted >= 15 && yearsCompleted % 5 === 0) milestoneLabel = '👑 ' + yearsCompleted + ' Years';
+          else milestoneLabel = yearsCompleted + '-Year Anniversary';
           return '<div style="display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid var(--border)">' +
             '<span style="font-size:18px">' + milestoneIcon + '</span>' +
             '<div style="flex:1">' +
               '<div style="font-size:13px;font-weight:500">' + escapeHtml(a.name) + '</div>' +
-              '<div style="font-size:11px;color:var(--muted)">' + a.years + '-year anniversary · ' + a.date + '</div>' +
+              '<div style="font-size:11px;color:var(--muted)">' + escapeHtml(milestoneLabel) + ' · ' + a.date + '</div>' +
+            '</div>' +
+            '<span style="font-size:12px;color:var(--blue);font-weight:600">' + label + '</span>' +
+          '</div>';
+        }).join('') + birthdays.map(function(b) {
+          var label = b.daysAway === 0 ? 'Today! 🎉' : b.daysAway === 1 ? 'Tomorrow' : 'In ' + b.daysAway + ' days';
+          return '<div style="display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid var(--border)">' +
+            '<span style="font-size:18px">🎂</span>' +
+            '<div style="flex:1">' +
+              '<div style="font-size:13px;font-weight:500">' + escapeHtml(b.name) + '</div>' +
+              '<div style="font-size:11px;color:var(--muted)">Birthday · ' + b.date + '</div>' +
             '</div>' +
             '<span style="font-size:12px;color:var(--blue);font-weight:600">' + label + '</span>' +
           '</div>';
