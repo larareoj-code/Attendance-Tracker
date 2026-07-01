@@ -8716,7 +8716,34 @@ body.no-transitions * { transition: none !important; }
           }
         });
 
-        if (!atRisk.length) {
+        // New hire probation subsection
+        var newHires = getNewHireAlerts();
+        var newHireHtml = '';
+        if (newHires.length) {
+          newHireHtml = '<div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:#7c3aed;margin-bottom:6px;margin-top:2px">👶 New Hire Probation</div>' +
+            newHires.map(function(h) {
+              var pctProbation = Math.min(100, Math.round((h.daysIn / (parseInt(appSettings.probationDays) || 90)) * 100));
+              var ptLabel = h.pts.toFixed(h.pts % 1 === 0 ? 0 : 1);
+              return '<div style="padding:8px 10px;margin-bottom:6px;border-radius:var(--radius);background:rgba(124,58,237,0.07);border:1px solid rgba(124,58,237,0.22);cursor:pointer" onclick="openEmpProfile(' + JSON.stringify(h.name) + ')">' +
+                '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">' +
+                  '<span style="font-weight:700;font-size:13px">' + escapeHtml(h.name) + '</span>' +
+                  '<span style="font-size:11px;color:#7c3aed;font-weight:600">' + h.daysIn + ' days in &nbsp;·&nbsp; ' + h.daysLeft + ' left &nbsp;·&nbsp; ' + ptLabel + ' pts</span>' +
+                '</div>' +
+                '<div style="height:4px;background:var(--border);border-radius:2px">' +
+                  '<div style="height:4px;background:#7c3aed;border-radius:2px;width:' + pctProbation + '%"></div>' +
+                '</div>' +
+              '</div>';
+            }).join('') +
+            '<div style="height:1px;background:var(--border);margin:10px 0 10px"></div>';
+        }
+
+        // Compute 30-day trend dates for at-risk list
+        var _arNow = new Date().toISOString().slice(0, 10);
+        var _ar30 = new Date(); _ar30.setDate(_ar30.getDate() - 30); var _ar30s = _ar30.toISOString().slice(0, 10);
+        var _ar60 = new Date(); _ar60.setDate(_ar60.getDate() - 60); var _ar60s = _ar60.toISOString().slice(0, 10);
+        var termPts = parseFloat(appSettings.highThresh) || 8;
+
+        if (!atRisk.length && !newHires.length) {
           if (section) section.style.display = 'none';
           el.innerHTML = '';
           return;
@@ -8735,24 +8762,39 @@ body.no-transitions * { transition: none !important; }
             headerEl.appendChild(badge);
             existingBadge = badge;
           }
-          existingBadge.textContent = atRisk.length;
+          existingBadge.textContent = atRisk.length + newHires.length;
         }
 
-        el.innerHTML = atRisk.map(function(e) {
+        el.innerHTML = newHireHtml + atRisk.map(function(e) {
           var isHigh = e.alert === 'at-high';
           var pct = Math.min(100, Math.round((e.pts / high) * 100));
           var barColor = isHigh ? '#ef4444' : '#f59e0b';
           var ptLabel = e.pts.toFixed(e.pts % 1 === 0 ? 0 : 1);
           var pats = detectOccurrencePatterns(e.name);
           var patNote = pats.length > 0 ? ' <span title="' + escapeHtml(pats.join(', ')) + '" style="font-size:10px;cursor:help;color:#7c3aed">📊</span>' : '';
+
+          // Termination risk badge
+          var termBadge = '';
+          if (termPts > 0 && e.pts >= termPts - 0.5) {
+            termBadge = ' <span style="font-size:10px;background:#dc2626;color:#fff;border-radius:4px;padding:1px 5px;font-weight:700;vertical-align:middle">⚠ Termination Risk</span>';
+          }
+
+          // 30-day trend
+          var last30 = rows.filter(function(r) { return norm(r.name)===norm(e.name) && r.dateIso >= _ar30s && r.dateIso <= _arNow; }).reduce(function(s,r){return s+(parseFloat(r.points)||0);},0);
+          var prior30 = rows.filter(function(r) { return norm(r.name)===norm(e.name) && r.dateIso >= _ar60s && r.dateIso < _ar30s; }).reduce(function(s,r){return s+(parseFloat(r.points)||0);},0);
+          var trendHtml = '';
+          if (last30 > prior30) {
+            trendHtml = ' <span style="font-size:10px;color:#ef4444;font-weight:700" title="Points accelerating: ' + last30.toFixed(1) + ' last 30d vs ' + prior30.toFixed(1) + ' prior 30d">↑ Trending Up</span>';
+          }
+
           return '<div style="padding:8px 10px;margin-bottom:6px;border-radius:var(--radius);background:' +
             (isHigh ? 'rgba(239,68,68,0.08)' : 'rgba(245,158,11,0.08)') + ';border:1px solid ' +
             (isHigh ? 'rgba(239,68,68,0.25)' : 'rgba(245,158,11,0.25)') + ';cursor:pointer" ' +
             'onclick="openEmpProfile(' + JSON.stringify(e.name) + ')">' +
             '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">' +
-              '<span style="font-weight:700;font-size:13px">' + escapeHtml(e.name) + patNote + '</span>' +
+              '<span style="font-weight:700;font-size:13px">' + escapeHtml(e.name) + patNote + termBadge + '</span>' +
               '<span style="font-size:12px;font-weight:700;color:' + barColor + '">' +
-                ptLabel + ' pts' +
+                ptLabel + ' pts' + trendHtml +
                 (isHigh ? '' : ' <span style="font-weight:400;color:var(--muted);font-size:11px">(' + (high - e.pts).toFixed((high - e.pts) % 1 === 0 ? 0 : 1) + ' from HIGH)</span>') +
               '</span>' +
             '</div>' +
@@ -8887,6 +8929,23 @@ body.no-transitions * { transition: none !important; }
         if (pts >= mid) return 'at-mid';
         if (pts >= mid - 1) return 'approaching-mid';
         return null;
+      }
+
+      function getNewHireAlerts(probationDays) {
+        probationDays = probationDays || parseInt(appSettings.probationDays) || 90;
+        var today = new Date(); today.setHours(0,0,0,0);
+        var cutoff = new Date(today); cutoff.setDate(cutoff.getDate() - probationDays);
+        return employees.filter(function(e) {
+          if (!e.hireDate || e.status === 'Terminated') return false;
+          var hire = new Date(e.hireDate + 'T12:00:00');
+          return hire >= cutoff && hire <= today;
+        }).map(function(e) {
+          var hire = new Date(e.hireDate + 'T12:00:00');
+          var daysIn = Math.floor((today - hire) / 86400000);
+          var daysLeft = probationDays - daysIn;
+          var pts = rows.filter(function(r) { return norm(r.name)===norm(e.name); }).reduce(function(s,r){return s+(parseFloat(r.points)||0);},0);
+          return { name: e.name, hireDate: e.hireDate, daysIn: daysIn, daysLeft: daysLeft, pts: pts };
+        }).sort(function(a,b){return b.daysIn-a.daysIn;});
       }
 
       // ── Auto-Consequence Map ─────────────────────────────────────────────────
@@ -13857,6 +13916,8 @@ body.no-transitions * { transition: none !important; }
         if (wtEl) wtEl.value = appSettings.warnThresh !== undefined ? appSettings.warnThresh : 4;
         var htEl = document.getElementById('settingHighThresh');
         if (htEl) htEl.value = appSettings.highThresh !== undefined ? appSettings.highThresh : 8;
+        var pdEl = document.getElementById('settingProbationDays');
+        if (pdEl) pdEl.value = appSettings.probationDays !== undefined ? appSettings.probationDays : 90;
         var gbDaysLoadEl = document.getElementById('settingGiveBackDays');
         if (gbDaysLoadEl) gbDaysLoadEl.value = String(appSettings.giveBackDays !== undefined ? appSettings.giveBackDays : 0);
         var gbAmtLoadEl = document.getElementById('settingGiveBackAmt');
@@ -14033,6 +14094,8 @@ body.no-transitions * { transition: none !important; }
           if (!isNaN(sevMidVal) && sevMidVal >= 0) appSettings.severityMid = sevMidVal;
           if (document.getElementById('settingWarnThresh')) appSettings.warnThresh = parseFloat(document.getElementById('settingWarnThresh').value) || appSettings.warnThresh || 4;
           if (document.getElementById('settingHighThresh')) appSettings.highThresh = parseFloat(document.getElementById('settingHighThresh').value) || appSettings.highThresh || 8;
+          var pdSaveEl = document.getElementById('settingProbationDays');
+          if (pdSaveEl) appSettings.probationDays = parseInt(pdSaveEl.value, 10) || 90;
           var gbDaysEl = document.getElementById('settingGiveBackDays');
           if (gbDaysEl) appSettings.giveBackDays = parseInt(gbDaysEl.value, 10) || 0;
           var gbAmtEl = document.getElementById('settingGiveBackAmt');
@@ -15869,6 +15932,10 @@ body.no-transitions * { transition: none !important; }
             <label for="settingHighThresh">Termination threshold (pts)</label>
             <input type="number" id="settingHighThresh" min="0" step="0.5" style="width:100%">
           </div>
+        </div>
+        <div class="form-group" style="margin-top:10px">
+          <label for="settingProbationDays">New-hire probation period (days)</label>
+          <input type="number" id="settingProbationDays" min="0" max="365" style="width:100%" placeholder="90">
         </div>
       </div>
 
