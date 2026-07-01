@@ -8712,6 +8712,53 @@ body.no-transitions * { transition: none !important; }
           '</div>';
       }
 
+      var _toCalYear, _toCalMonth, _toCalMode = 'table';
+
+      function renderTimeOffCalendar() {
+        var el = document.getElementById('timeOffCalContainer');
+        if (!el) return;
+        var year = _toCalYear || new Date().getFullYear();
+        var month = _toCalMonth != null ? _toCalMonth : new Date().getMonth();
+        var firstDay = new Date(year, month, 1);
+        var daysInMonth = new Date(year, month + 1, 0).getDate();
+        var startWeekday = firstDay.getDay();
+        var cells = [];
+        for (var i = 0; i < startWeekday; i++) cells.push('<div></div>');
+        for (var day = 1; day <= daysInMonth; day++) {
+          var dateStr = year + '-' + String(month + 1).padStart(2, '0') + '-' + String(day).padStart(2, '0');
+          var dayOff = timeOffRequests.filter(function(t) {
+            return t.startDate <= dateStr && t.endDate >= dateStr && t.status !== 'Denied';
+          });
+          var bg = dayOff.length ? (dayOff.some(function(t){return t.status==='Approved';}) ? 'rgba(34,197,94,0.15)' : 'rgba(245,158,11,0.12)') : '';
+          var names = dayOff.map(function(t){return escapeHtml(t.employeeName);}).join(', ');
+          cells.push('<div style="min-height:52px;padding:3px;background:' + bg + ';border:1px solid var(--border);border-radius:4px;font-size:10px" title="' + names + '">' +
+            '<div style="font-weight:700;font-size:11px;margin-bottom:2px">' + day + '</div>' +
+            dayOff.slice(0,3).map(function(t) {
+              var color = t.status==='Approved' ? '#22c55e' : '#f59e0b';
+              return '<div style="color:' + color + ';overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + escapeHtml(t.employeeName) + '</div>';
+            }).join('') +
+            (dayOff.length > 3 ? '<div style="color:var(--muted)">+' + (dayOff.length-3) + ' more</div>' : '') +
+          '</div>');
+        }
+        var label = firstDay.toLocaleString('default', { month: 'long', year: 'numeric' });
+        el.innerHTML = '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">' +
+          '<button onclick="_toCalNav(-1)" class="secondary small">&#8249; Prev</button>' +
+          '<span style="font-size:14px;font-weight:700">' + label + '</span>' +
+          '<button onclick="_toCalNav(1)" class="secondary small">Next &#8250;</button>' +
+        '</div>' +
+        '<div style="display:grid;grid-template-columns:repeat(7,1fr);gap:4px;margin-bottom:4px">' +
+          ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].map(function(d){return '<div style="text-align:center;font-size:11px;font-weight:600;color:var(--muted)">'+d+'</div>';}).join('') +
+        '</div>' +
+        '<div style="display:grid;grid-template-columns:repeat(7,1fr);gap:4px">' + cells.join('') + '</div>';
+      }
+
+      function _toCalNav(delta) {
+        _toCalMonth = (_toCalMonth != null ? _toCalMonth : new Date().getMonth()) + delta;
+        if (_toCalMonth < 0) { _toCalMonth = 11; _toCalYear = (_toCalYear || new Date().getFullYear()) - 1; }
+        if (_toCalMonth > 11) { _toCalMonth = 0; _toCalYear = (_toCalYear || new Date().getFullYear()) + 1; }
+        renderTimeOffCalendar();
+      }
+
       function renderAtRiskSection() {
         var section = document.getElementById('atRiskSection');
         var el = document.getElementById('atRiskList');
@@ -13662,6 +13709,31 @@ body.no-transitions * { transition: none !important; }
 
       var exportToCsvBtn = document.getElementById('exportTimeOffCsvBtn');
       if (exportToCsvBtn) exportToCsvBtn.addEventListener('click', exportTimeOffCsv);
+
+      var toCalViewBtn = document.getElementById('toCalViewBtn');
+      var toTableViewBtn = document.getElementById('toTableViewBtn');
+      if (toCalViewBtn) toCalViewBtn.addEventListener('click', function() {
+        _toCalMode = 'calendar';
+        _toCalYear = _toCalYear || new Date().getFullYear();
+        _toCalMonth = _toCalMonth != null ? _toCalMonth : new Date().getMonth();
+        document.querySelector('.table-wrap') && (document.querySelector('#timeoffBody').closest('.table-wrap').style.display = 'none');
+        var toEmpty = document.getElementById('timeoffEmpty');
+        if (toEmpty) toEmpty.style.display = 'none';
+        var calEl = document.getElementById('timeOffCalContainer');
+        if (calEl) calEl.style.display = '';
+        toCalViewBtn.style.display = 'none';
+        if (toTableViewBtn) toTableViewBtn.style.display = '';
+        renderTimeOffCalendar();
+      });
+      if (toTableViewBtn) toTableViewBtn.addEventListener('click', function() {
+        _toCalMode = 'table';
+        document.querySelector('#timeoffBody').closest('.table-wrap').style.display = '';
+        var calEl = document.getElementById('timeOffCalContainer');
+        if (calEl) calEl.style.display = 'none';
+        toTableViewBtn.style.display = 'none';
+        if (toCalViewBtn) toCalViewBtn.style.display = '';
+        renderTimeOff();
+      });
 
       var exportDashBtn = document.getElementById('exportDashReportBtn');
       if (exportDashBtn) exportDashBtn.addEventListener('click', exportDashReport);
